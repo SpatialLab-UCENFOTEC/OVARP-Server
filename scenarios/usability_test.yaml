@@ -1,0 +1,30 @@
+# Usability Testing — Scripted Scenario
+# A quick protocol for testing interface usability with a virtual agent.
+
+id: usability_test
+name: "Usability Testing Protocol"
+description: "3-step protocol for testing interface usability with guided tasks."
+
+steps:
+  - id: intro
+    instruction: >
+      Welcome the participant. Explain they will complete a series of
+      tasks while interacting with the virtual agent.
+      Press ▶ Next Step to begin Task 1.
+    auto_marker: usability_intro
+
+  - id: task_navigation
+    instruction: >
+      Ask the participant to perform a navigation task.
+      Observe movement patterns and verbal feedback.
+      Mark any usability issues encountered.
+    condition: neutral
+    auto_marker: task_navigation_start
+    action:
+      actions: wave
+
+  - id: task_complete
+    instruction: >
+      Tasks complete. Ask the participant to rate their experience
+      on a 1-5 scale. Record in a marker. End the session.
+    auto_marker: tasks_complete

@@ -1,0 +1,45 @@
+# Pilot Emotion Study — Scripted Scenario
+# A structured protocol for testing agent empathy responses.
+# Load this via the WoZ console's Study Session tab.
+
+id: pilot_emotion
+name: "Pilot Emotion Study"
+description: "5-step protocol for gauging agent empathy reactions with condition switching."
+
+steps:
+  - id: briefing
+    instruction: >
+      Brief the participant on the study purpose and obtain verbal consent.
+      Ensure the VR headset is properly calibrated.
+      Press ▶ Next Step when ready to begin.
+
+  - id: baseline_neutral
+    instruction: >
+      Apply neutral condition. Ask the participant to describe their typical day
+      or a recent mundane experience. Observe agent responses for 2-3 minutes.
+    condition: neutral
+    auto_marker: baseline_start
+
+  - id: empathy_test
+    instruction: >
+      Switch to empathetic condition. Ask the participant to describe
+      a recent stressful or emotional experience. Observe how the agent
+      responds with empathy. Duration: 3-5 minutes.
+    condition: empathetic
+    auto_marker: empathy_test_start
+    action:
+      emotions: happy
+
+  - id: free_conversation
+    instruction: >
+      Allow free-form conversation between participant and agent.
+      Observe natural interaction patterns. Add markers for notable events.
+      Duration: 5 minutes.
+    auto_marker: free_conversation_start
+
+  - id: debrief
+    instruction: >
+      End the experiment. Thank the participant and conduct a brief
+      post-experiment interview about their experience with the agent.
+      End the session when complete.
+    auto_marker: debrief_start

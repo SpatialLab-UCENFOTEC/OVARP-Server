@@ -1,0 +1,25 @@
+{"session_id": "20260323_105141", "file": "data/sessions/session_20260323_105141.jsonl", "event": "Telemetry Session Started", "timestamp": "2026-03-23T16:51:41.040981Z"}
+{"transport_type": "ZMQTransport", "event": "Transport registered to Router", "timestamp": "2026-03-23T16:51:41.698119Z"}
+{"transport_type": "WebSocketTransport", "event": "Transport registered to Router", "timestamp": "2026-03-23T16:51:41.698165Z"}
+{"experiment": "Pilot Emotion Study", "event": "Starting OpenVirtualAgentFramework Server...", "timestamp": "2026-03-23T16:51:41.756837Z"}
+{"address": "tcp://*:5555", "event": "ZMQ Publisher bound", "timestamp": "2026-03-23T16:51:41.757125Z"}
+{"address": "tcp://*:5556", "event": "ZMQ Subscriber bound", "timestamp": "2026-03-23T16:51:41.757189Z"}
+{"event": "ZMQ Transport started.", "timestamp": "2026-03-23T16:51:41.757205Z"}
+{"event": "WebSocket Transport initialized (Awaiting FastAPI mount).", "timestamp": "2026-03-23T16:51:41.757222Z"}
+{"client_id": "woz_console", "total_clients": 1, "event": "WebSocket client connected", "timestamp": "2026-03-23T16:51:45.610579Z"}
+{"client_id": "quest_vr_01", "total_clients": 2, "event": "WebSocket client connected", "timestamp": "2026-03-23T16:51:54.532946Z"}
+{"host_timestamp": 1774284726.5962722, "sender": "server_orchestrator", "target_device": "all", "target_agent": "agent_alpha", "command_type": "message", "command": "llm_reply", "subcommand": {"text": "Hi Briam, how is opal doing?", "provider": "woz_direct", "model": "n/a", "agent": "agent_alpha"}, "event": "interaction", "timestamp": "2026-03-23T16:52:06.596287Z"}
+{"target": "all", "topic": "message", "message_len": 243, "event": "ZMQ Sent message", "timestamp": "2026-03-23T16:52:06.597129Z"}
+{"error": "Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-.... You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'code': 'invalid_api_key', 'param': None}, 'status': 401}", "event": "TTS Streaming failed", "timestamp": "2026-03-23T16:52:07.173744Z"}
+{"client_id": "quest_vr_01", "total_clients": 1, "event": "WebSocket client disconnected", "timestamp": "2026-03-23T16:52:34.567587Z"}
+{"client_id": "quest_vr_01", "total_clients": 2, "event": "WebSocket client connected", "timestamp": "2026-03-23T16:53:07.034477Z"}
+{"event": "Orchestrator: Starting STT...", "timestamp": "2026-03-23T16:53:12.375320Z"}
+{"error": "Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-.... You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'code': 'invalid_api_key', 'param': None}, 'status': 401}", "event": "STT transcription failed", "timestamp": "2026-03-23T16:53:13.103550Z"}
+{"event": "Orchestrator: STT returned empty transcription. Aborting.", "timestamp": "2026-03-23T16:53:13.103594Z"}
+{"client_id": "quest_vr_01", "total_clients": 1, "event": "WebSocket client disconnected", "timestamp": "2026-03-23T16:53:32.909005Z"}
+{"client_id": "woz_console", "total_clients": 0, "event": "WebSocket client disconnected", "timestamp": "2026-03-23T16:54:24.133377Z"}
+{"event": "Stopping ZMQ Transport...", "timestamp": "2026-03-23T16:54:24.240897Z"}
+{"event": "ZMQ Transport stopped.", "timestamp": "2026-03-23T16:54:24.242287Z"}
+{"event": "Stopping WebSocket Transport...", "timestamp": "2026-03-23T16:54:24.242376Z"}
+{"event": "WebSocket Transport stopped.", "timestamp": "2026-03-23T16:54:24.242417Z"}
+{"event": "OVAF Server fully stopped.", "timestamp": "2026-03-23T16:54:24.242449Z"}

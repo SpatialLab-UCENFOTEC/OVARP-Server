@@ -1,0 +1,25 @@
+{"session_id": "20260628_082655", "file": "data/sessions/session_20260628_082655.jsonl", "event": "Telemetry Session Started", "timestamp": "2026-06-28T14:26:55.987540Z"}
+{"transport_type": "ZMQTransport", "event": "Transport registered to Router", "timestamp": "2026-06-28T14:26:57.396943Z"}
+{"transport_type": "WebSocketTransport", "event": "Transport registered to Router", "timestamp": "2026-06-28T14:26:57.397027Z"}
+{"event": "GEMINI_API_KEY environment variable not set.", "timestamp": "2026-06-28T14:26:57.434670Z"}
+{"event": "GEMINI_API_KEY environment variable not set.", "timestamp": "2026-06-28T14:26:57.434767Z"}
+{"experiment": "Pilot Emotion Study", "event": "Starting OpenVirtualAgentResearchPlatform Server...", "timestamp": "2026-06-28T14:26:57.483499Z"}
+{"address": "tcp://*:5555", "event": "ZMQ Publisher bound", "timestamp": "2026-06-28T14:26:57.483801Z"}
+{"address": "tcp://*:5556", "event": "ZMQ Subscriber bound", "timestamp": "2026-06-28T14:26:57.483901Z"}
+{"event": "ZMQ Transport started.", "timestamp": "2026-06-28T14:26:57.483931Z"}
+{"event": "WebSocket Transport initialized (Awaiting FastAPI mount).", "timestamp": "2026-06-28T14:26:57.483950Z"}
+{"client_id": "xreal_01", "total_clients": 1, "event": "WebSocket client connected", "timestamp": "2026-06-28T14:52:01.301344Z"}
+{"client_id": "xreal_01", "total_clients": 1, "event": "WebSocket client connected", "timestamp": "2026-06-28T14:52:13.692639Z"}
+{"event": "Orchestrator: Starting STT...", "timestamp": "2026-06-28T14:52:25.995063Z"}
+{"event": "Orchestrator: STT returned empty transcription. Aborting.", "timestamp": "2026-06-28T14:52:29.685860Z"}
+{"event": "Orchestrator: Starting STT...", "timestamp": "2026-06-28T14:52:50.264760Z"}
+{"client_id": "xreal_01", "total_clients": 1, "event": "WebSocket client disconnected", "timestamp": "2026-06-28T14:52:51.310362Z"}
+{"text": "Hola, \u00bfme escuchas?\n", "stt_ms": 3221, "event": "Orchestrator: STT Result", "timestamp": "2026-06-28T14:52:53.486181Z"}
+{"client_id": "xreal_01", "total_clients": 0, "event": "WebSocket client disconnected", "timestamp": "2026-06-28T14:53:36.088054Z"}
+{"new_provider": "openai", "event": "Orchestrator: LLM Provider Swapped", "timestamp": "2026-06-28T14:54:41.608331Z"}
+{"event": "GEMINI_API_KEY environment variable not set.", "timestamp": "2026-06-28T14:54:43.186433Z"}
+{"event": "Stopping ZMQ Transport...", "timestamp": "2026-06-28T14:55:16.218921Z"}
+{"event": "ZMQ Transport stopped.", "timestamp": "2026-06-28T14:55:16.220300Z"}
+{"event": "Stopping WebSocket Transport...", "timestamp": "2026-06-28T14:55:16.220477Z"}
+{"event": "WebSocket Transport stopped.", "timestamp": "2026-06-28T14:55:16.220544Z"}
+{"event": "OVARP Server fully stopped.", "timestamp": "2026-06-28T14:55:16.220589Z"}

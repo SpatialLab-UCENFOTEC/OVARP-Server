@@ -1,0 +1,27 @@
+{"session_id": "20260323_225547", "file": "data/sessions/session_20260323_225547.jsonl", "event": "Telemetry Session Started", "timestamp": "2026-03-24T04:55:47.270022Z"}
+{"transport_type": "ZMQTransport", "event": "Transport registered to Router", "timestamp": "2026-03-24T04:55:47.887983Z"}
+{"transport_type": "WebSocketTransport", "event": "Transport registered to Router", "timestamp": "2026-03-24T04:55:47.888028Z"}
+{"event": "GEMINI_API_KEY environment variable not set.", "timestamp": "2026-03-24T04:55:47.909872Z"}
+{"event": "GEMINI_API_KEY environment variable not set.", "timestamp": "2026-03-24T04:55:47.909934Z"}
+{"experiment": "Pilot Emotion Study", "event": "Starting OpenVirtualAgentFramework Server...", "timestamp": "2026-03-24T04:55:47.941098Z"}
+{"address": "tcp://*:5555", "event": "ZMQ Publisher bound", "timestamp": "2026-03-24T04:55:47.941473Z"}
+{"address": "tcp://*:5556", "event": "ZMQ Subscriber bound", "timestamp": "2026-03-24T04:55:47.941553Z"}
+{"event": "ZMQ Transport started.", "timestamp": "2026-03-24T04:55:47.941577Z"}
+{"event": "WebSocket Transport initialized (Awaiting FastAPI mount).", "timestamp": "2026-03-24T04:55:47.941591Z"}
+{"client_id": "woz_console", "total_clients": 1, "event": "WebSocket client connected", "timestamp": "2026-03-24T04:55:50.607524Z"}
+{"client_id": "xreal_01", "total_clients": 2, "event": "WebSocket client connected", "timestamp": "2026-03-24T04:55:59.584318Z"}
+{"client_id": "woz_console", "total_clients": 1, "event": "WebSocket client disconnected", "timestamp": "2026-03-24T04:56:06.841758Z"}
+{"client_id": "woz_console", "total_clients": 2, "event": "WebSocket client connected", "timestamp": "2026-03-24T04:56:07.116950Z"}
+{"host_timestamp": 1774328168.6487858, "sender": "woz_console", "target_device": "quest_vr_01", "target_agent": "agent_alpha", "command_type": "action", "command": "execute_state", "subcommand": {"emotions": "surprised"}, "event": "interaction", "timestamp": "2026-03-24T04:56:08.648825Z"}
+{"target": "quest_vr_01", "topic": "action", "message_len": 171, "event": "ZMQ Sent message", "timestamp": "2026-03-24T04:56:08.649867Z"}
+{"host_timestamp": 1774328180.2349088, "sender": "woz_console", "target_device": "all", "target_agent": "agent_alpha", "command_type": "action", "command": "execute_state", "subcommand": {"emotions": "surprised"}, "event": "interaction", "timestamp": "2026-03-24T04:56:20.234926Z"}
+{"target": "all", "topic": "action", "message_len": 163, "event": "ZMQ Sent message", "timestamp": "2026-03-24T04:56:20.235282Z"}
+{"event": "Orchestrator: Starting STT...", "timestamp": "2026-03-24T04:56:30.610771Z"}
+{"text": "Hey, can you hear me?\n", "stt_ms": 1743, "event": "Orchestrator: STT Result", "timestamp": "2026-03-24T04:56:32.354175Z"}
+{"client_id": "xreal_01", "total_clients": 1, "event": "WebSocket client disconnected", "timestamp": "2026-03-24T04:57:23.658621Z"}
+{"client_id": "woz_console", "total_clients": 0, "event": "WebSocket client disconnected", "timestamp": "2026-03-24T04:57:41.586927Z"}
+{"event": "Stopping ZMQ Transport...", "timestamp": "2026-03-24T04:57:41.694392Z"}
+{"event": "ZMQ Transport stopped.", "timestamp": "2026-03-24T04:57:41.695057Z"}
+{"event": "Stopping WebSocket Transport...", "timestamp": "2026-03-24T04:57:41.695153Z"}
+{"event": "WebSocket Transport stopped.", "timestamp": "2026-03-24T04:57:41.695197Z"}
+{"event": "OVAF Server fully stopped.", "timestamp": "2026-03-24T04:57:41.695227Z"}

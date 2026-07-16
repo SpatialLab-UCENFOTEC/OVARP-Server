@@ -1,0 +1,155 @@
+﻿# OpenVirtualAgentResearchPlatform (OVARP) - Experiment Configuration
+# This file dynamically defines the properties available to the framework and the IA tools.
+
+experiment:
+  name: "Pilot Emotion Study"
+  description: "A pilot study to test agent reactions to basic commands."
+  version: "1.0.0"
+
+# Devices connected to the framework via ZMQ or WebSockets
+devices:
+  - id: "quest_vr_01"
+    name: "Player 1 VR Headset"
+    type: "xr" # xr, web, mobile
+  - id: "xreal_01"
+    name: "XREAL Glasses"
+    type: "xr"
+  - id: "web_panel_01"
+    name: "Researcher Web Dashboard"
+    type: "web"
+
+# Available Agents in the scene that can receive commands
+agents:
+  - id: "agent_alpha"
+    name: "Alpha"
+    description: "Main conversational agent."
+  - id: "agent_beta"
+    name: "Beta"
+    description: "Support agent in the background."
+
+# Custom Properties & Commands
+# The server will automatically generate validation schemas for these types.
+custom_commands:
+  emotions:
+    description: "Agent emotional states"
+    values:
+      - "neutral"
+      - "happy"
+      - "sad"
+      - "angry"
+      - "surprised"
+      
+  actions:
+    description: "Discrete physical actions the agent can perform"
+    values:
+      - "wave"
+      - "point_left"
+      - "point_right"
+      - "nod"
+      - "shake_head"
+      - "bow"
+      - "thinking"
+      - "shrug"
+      - "idle"
+
+  looks:
+    description: "Targets the agent can look at"
+    values:
+      - "user"
+      - "away"
+      - "agent_beta"
+
+  movement:
+    description: "Move the agent relative to the user"
+    values:
+      - "move_closer"
+      - "move_farther"
+      - "move_left"
+      - "move_right"
+      - "reset_position"
+
+  avatar:
+    description: "Change the agent's avatar appearance"
+    values:
+      - "default"
+      - "male_casual"
+      - "female_formal"
+      - "robot"
+
+# Experimental Conditions
+# Each condition bundles a system prompt, avatar, and voice into a one-click preset.
+# Researchers can switch conditions mid-session via the WoZ console or API.
+conditions:
+  empathetic:
+    description: "Agent responds with high empathy and warm tone"
+    system_prompt: >
+      You are an embodied virtual agent in an XR environment.
+      Be warm, empathetic, and supportive in every response.
+      Mirror the user's emotional state and validate their feelings.
+      Always call the update_agent_state function with your spoken reply and appropriate state.
+    avatar: "female_formal"
+    voice: "Kore"
+  neutral:
+    description: "Agent responds factually and neutrally"
+    system_prompt: >
+      You are an embodied virtual agent in an XR environment.
+      Be neutral, factual, and concise. Avoid emotional language.
+      Focus on delivering accurate information without embellishment.
+      Always call the update_agent_state function with your spoken reply and appropriate state.
+    avatar: "default"
+    voice: "Puck"
+
+# Pre-programmed Event Markers
+# These appear as one-click quick-fire buttons in the WoZ Study Session panel.
+# Researchers can still type free-text markers; these are just shortcuts.
+# Connected devices and agents can also fire these programmatically via WebSocket.
+event_markers:
+  - id: task_started
+    label: "Task Started"
+    description: "Participant begins the assigned task"
+    color: "#28a745"
+  - id: task_completed
+    label: "Task Completed"
+    color: "#17a2b8"
+  - id: participant_confused
+    label: "Participant Confused"
+    color: "#ffc107"
+  - id: participant_distressed
+    label: "Participant Distressed"
+    color: "#dc3545"
+  - id: agent_error
+    label: "Agent Error"
+    description: "The agent behaved unexpectedly"
+    color: "#fd7e14"
+  - id: technical_issue
+    label: "Technical Issue"
+    color: "#6c757d"
+
+# TTS Voice Options
+# Each provider has a list of available voices with gender metadata.
+# The WoZ console voice picker uses these to populate the dropdown.
+tts:
+  openai:
+    - { id: "alloy",   label: "Alloy",   gender: "neutral" }
+    - { id: "ash",     label: "Ash",     gender: "masculine" }
+    - { id: "ballad",  label: "Ballad",  gender: "masculine" }
+    - { id: "coral",   label: "Coral",   gender: "feminine" }
+    - { id: "echo",    label: "Echo",    gender: "masculine" }
+    - { id: "fable",   label: "Fable",   gender: "neutral" }
+    - { id: "nova",    label: "Nova",    gender: "feminine" }
+    - { id: "onyx",    label: "Onyx",    gender: "masculine" }
+    - { id: "sage",    label: "Sage",    gender: "neutral" }
+    - { id: "shimmer", label: "Shimmer", gender: "feminine" }
+  gemini:
+    - { id: "Kore",    label: "Kore",    gender: "feminine" }
+    - { id: "Puck",    label: "Puck",    gender: "masculine" }
+    - { id: "Charon",  label: "Charon",  gender: "masculine" }
+    - { id: "Fenrir",  label: "Fenrir",  gender: "masculine" }
+    - { id: "Aoede",   label: "Aoede",   gender: "feminine" }
+    - { id: "Leda",    label: "Leda",    gender: "feminine" }
+    - { id: "Orus",    label: "Orus",    gender: "masculine" }
+    - { id: "Zephyr",  label: "Zephyr",  gender: "neutral" }
+    - { id: "Achernar", label: "Achernar", gender: "feminine" }
+    - { id: "Gacrux",  label: "Gacrux",  gender: "masculine" }
+    - { id: "Sulafat", label: "Sulafat", gender: "feminine" }
+    - { id: "Schedar", label: "Schedar", gender: "masculine" }

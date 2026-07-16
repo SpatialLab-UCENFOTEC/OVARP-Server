@@ -1,0 +1,17 @@
+{"session_id": "20260323_225949", "file": "data/sessions/session_20260323_225949.jsonl", "event": "Telemetry Session Started", "timestamp": "2026-03-24T04:59:49.484961Z"}
+{"transport_type": "ZMQTransport", "event": "Transport registered to Router", "timestamp": "2026-03-24T04:59:50.031153Z"}
+{"transport_type": "WebSocketTransport", "event": "Transport registered to Router", "timestamp": "2026-03-24T04:59:50.031203Z"}
+{"event": "GEMINI_API_KEY environment variable not set.", "timestamp": "2026-03-24T04:59:50.052365Z"}
+{"event": "GEMINI_API_KEY environment variable not set.", "timestamp": "2026-03-24T04:59:50.052437Z"}
+{"experiment": "Pilot Emotion Study", "event": "Starting OpenVirtualAgentFramework Server...", "timestamp": "2026-03-24T04:59:50.080656Z"}
+{"address": "tcp://*:5555", "event": "ZMQ Publisher bound", "timestamp": "2026-03-24T04:59:50.081002Z"}
+{"address": "tcp://*:5556", "event": "ZMQ Subscriber bound", "timestamp": "2026-03-24T04:59:50.081095Z"}
+{"event": "ZMQ Transport started.", "timestamp": "2026-03-24T04:59:50.081122Z"}
+{"event": "WebSocket Transport initialized (Awaiting FastAPI mount).", "timestamp": "2026-03-24T04:59:50.081137Z"}
+{"client_id": "woz_console", "total_clients": 1, "event": "WebSocket client connected", "timestamp": "2026-03-24T04:59:54.039404Z"}
+{"client_id": "woz_console", "total_clients": 0, "event": "WebSocket client disconnected", "timestamp": "2026-03-24T05:01:11.725344Z"}
+{"event": "Stopping ZMQ Transport...", "timestamp": "2026-03-24T05:01:11.833044Z"}
+{"event": "ZMQ Transport stopped.", "timestamp": "2026-03-24T05:01:11.834712Z"}
+{"event": "Stopping WebSocket Transport...", "timestamp": "2026-03-24T05:01:11.834886Z"}
+{"event": "WebSocket Transport stopped.", "timestamp": "2026-03-24T05:01:11.834972Z"}
+{"event": "OVAF Server fully stopped.", "timestamp": "2026-03-24T05:01:11.835035Z"}

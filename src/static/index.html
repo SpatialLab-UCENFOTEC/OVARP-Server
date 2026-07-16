@@ -1,0 +1,2281 @@
+﻿<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OVARP: Wizard of Oz Console</title>
+    <!-- Use a simple modern CSS framework for MVP -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Three.js + VRM Import Map for ES Modules -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/",
+            "@pixiv/three-vrm": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3/lib/three-vrm.module.min.js"
+        }
+    }
+    </script>
+    <style>
+        body {
+            background-color: #121212;
+            color: #f8f9fa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .card {
+            background-color: #1e1e1e;
+            border: 1px solid #333;
+            margin-bottom: 20px;
+        }
+
+        .card-header {
+            border-bottom: 1px solid #333;
+            background-color: #2c2c2c;
+            font-weight: bold;
+        }
+
+        .form-control,
+        .form-select {
+            background-color: #2a2a2a;
+            color: white;
+            border: 1px solid #444;
+        }
+
+        .form-control:focus,
+        .form-select:focus {
+            background-color: #333;
+            color: white;
+            border-color: #0d6efd;
+            box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.25);
+        }
+
+        .btn-action {
+            margin: 5px;
+        }
+
+        /* Toast Notification */
+        .OVARP-toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 9999;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 0.9em;
+            font-weight: 500;
+            color: white;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.3s ease;
+            pointer-events: none;
+            max-width: 400px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+        }
+        .OVARP-toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .OVARP-toast.success { background: linear-gradient(135deg, #198754, #20c997); }
+        .OVARP-toast.info    { background: linear-gradient(135deg, #0d6efd, #6ea8fe); }
+        .OVARP-toast.warning { background: linear-gradient(135deg, #fd7e14, #ffc107); color: #000; }
+        .OVARP-toast.error   { background: linear-gradient(135deg, #dc3545, #ff6b6b); }
+
+        /* Profile Card Hover & Selected */
+        .profile-card {
+            transition: all 0.2s ease;
+            border-left: 3px solid transparent !important;
+        }
+        .profile-card:hover {
+            background-color: #2a2a3a !important;
+            border-left-color: #e879f9 !important;
+            transform: translateX(2px);
+        }
+        .profile-card.selected {
+            background-color: #2a2a3a !important;
+            border-left-color: #e879f9 !important;
+            box-shadow: 0 0 8px rgba(232, 121, 249, 0.2);
+        }
+
+        /* Action Button Hover */
+        .btn-action-cmd {
+            transition: all 0.15s ease;
+            background-color: transparent;
+        }
+        .btn-action-cmd:hover {
+            background-color: rgba(255,255,255,0.1);
+            transform: scale(1.05);
+        }
+        .btn-action-cmd:active {
+            transform: scale(0.95);
+        }
+        .btn-action-cmd.flash {
+            background-color: rgba(25, 135, 84, 0.3) !important;
+            border-color: #198754 !important;
+        }
+
+        /* Active profile indicator */
+        .active-profile-badge {
+            font-size: 0.7em;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #6f42c1, #e879f9);
+            color: white;
+            font-weight: bold;
+        }
+
+        /* Session Timer States */
+        .timer-idle { color: #6c757d; }
+        .timer-active { color: #20c997; text-shadow: 0 0 8px rgba(32, 201, 151, 0.3); }
+        .timer-paused { color: #ffc107; animation: pulse-timer 1.5s ease-in-out infinite; }
+        @keyframes pulse-timer {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Unsaved changes dot */
+        .unsaved-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ffc107;
+            margin-left: 6px;
+            animation: pulse-dot 1.2s ease-in-out infinite;
+        }
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        /* Connection status dot */
+        .conn-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+        .conn-dot.connected { background: #20c997; box-shadow: 0 0 4px rgba(32, 201, 151, 0.5); }
+        .conn-dot.disconnected { background: #dc3545; }
+
+        /* Revert link */
+        .revert-link {
+            font-size: 0.75em;
+            color: #6ea8fe;
+            cursor: pointer;
+            text-decoration: underline;
+            opacity: 0.8;
+            transition: opacity 0.2s;
+        }
+        .revert-link:hover { opacity: 1; }
+
+        /* Help Banner */
+        .help-banner {
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            border: 1px solid #0d6efd44;
+            border-radius: 8px;
+            padding: 16px 20px;
+            margin-bottom: 16px;
+            font-size: 0.88em;
+        }
+        .help-banner .help-toggle {
+            cursor: pointer;
+            user-select: none;
+        }
+        .help-banner ol {
+            margin-bottom: 0;
+            padding-left: 20px;
+        }
+        .help-banner ol li {
+            margin-bottom: 6px;
+        }
+        .help-banner kbd {
+            background: #333;
+            border: 1px solid #555;
+            border-radius: 3px;
+            padding: 1px 5px;
+            font-size: 0.85em;
+        }
+
+        #log-window {
+            height: 250px;
+            overflow-y: scroll;
+            background: #000;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 0.85em;
+            border: 1px solid #333;
+        }
+
+        .log-sent {
+            color: #0dcaf0;
+        }
+
+        .log-recv {
+            color: #20c997;
+        }
+
+        .log-err {
+            color: #dc3545;
+        }
+
+        /* Chat Styles */
+        .chat-container {
+            height: 400px;
+            overflow-y: auto;
+            background: #1e1e1e;
+            padding: 15px;
+            border: 1px solid #333;
+            border-radius: 5px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .chat-bubble {
+            max-width: 80%;
+            padding: 10px 15px;
+            border-radius: 15px;
+            font-size: 0.95em;
+            word-wrap: break-word;
+        }
+
+        .msg-user {
+            background-color: #0d6efd;
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 2px;
+        }
+
+        .msg-agent {
+            background-color: #333;
+            color: #f8f9fa;
+            align-self: flex-start;
+            border-bottom-left-radius: 2px;
+            border: 1px solid #444;
+        }
+
+        /* Avatar Styles */
+        .avatar-card {
+            position: relative;
+            background: #1a1a2e;
+        }
+
+        .avatar-card canvas {
+            width: 100% !important;
+            height: 100% !important;
+            display: block;
+            border-radius: 0 0 5px 5px;
+        }
+
+        .avatar-status {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            z-index: 10;
+        }
+
+        .action-tag {
+            font-size: 0.75em;
+            padding: 2px 6px;
+            margin-right: 4px;
+            border-radius: 10px;
+            background-color: #ffc107;
+            color: black;
+            font-weight: bold;
+            display: inline-block;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container mt-4">
+        <h2 class="mb-3">🪄 OpenVirtualAgentResearchPlatform <span class="badge bg-primary fs-6">WoZ Console</span></h2>
+
+        <!-- Collapsible Getting Started Banner -->
+        <div class="help-banner" id="help-banner">
+            <div class="d-flex justify-content-between align-items-center help-toggle" onclick="document.getElementById('help-body').classList.toggle('d-none'); this.querySelector('.chevron').textContent = document.getElementById('help-body').classList.contains('d-none') ? '▶' : '▼';">
+                <span>💡 <strong>Getting Started</strong> <span class="text-muted">— Quick guide for new users</span></span>
+                <span class="chevron text-muted">▼</span>
+            </div>
+            <div id="help-body" class="mt-2">
+                <ol>
+                    <li><strong>Configure</strong> the LLM provider, system prompt, and voice in the <span class="text-info">LLM Playground</span> tab, then click <span class="text-success">💾 Save & Apply</span>.</li>
+                    <li><strong>Set up a profile</strong> in the <span style="color:#e879f9">👤 Profiles</span> tab — or select an existing one and click <span class="text-success">Apply Profile</span> to load a pre-built persona.</li>
+                    <li><strong>Run a study</strong> in <span class="text-success">🧪 Study Session</span> — enter a Participant ID, hit <span class="text-success">▶ Start</span>, and use <span class="text-warning">Event Markers</span> to annotate key moments.</li>
+                    <li><strong>Control the agent</strong> live via <span class="text-white">🎮 Remote Agent Control</span> — trigger emotions, actions, and gestures in real time.</li>
+                </ol>
+                <small class="text-muted">Keyboard: <kbd>Enter</kbd> sends chat messages and markers. <kbd>Hold 🎤</kbd> for voice input. <a href="#" class="text-muted" onclick="event.preventDefault(); document.getElementById('help-banner').style.display='none'; localStorage.setItem('OVARP_hide_help','1');">Dismiss permanently</a></small>
+            </div>
+        </div>
+
+        <!-- Bootstrap Nav Tabs (ordered by research workflow) -->
+        <ul class="nav nav-tabs mb-3 border-secondary" id="wozTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active text-white bg-dark border-secondary border-bottom-0" id="xr-tab"
+                    data-bs-toggle="tab" data-bs-target="#xr-panel" type="button" role="tab" aria-controls="xr-panel"
+                    aria-selected="true">🎮 Remote Agent Control</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link border-secondary" id="profiles-tab" data-bs-toggle="tab"
+                    data-bs-target="#profiles-panel" type="button" role="tab" aria-controls="profiles-panel"
+                    aria-selected="false" style="color: #e879f9;">👤 Profiles</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link text-success border-secondary" id="session-tab" data-bs-toggle="tab"
+                    data-bs-target="#session-panel" type="button" role="tab" aria-controls="session-panel"
+                    aria-selected="false">🧪 Study Session</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link text-info border-secondary" id="llm-tab" data-bs-toggle="tab"
+                    data-bs-target="#llm-panel" type="button" role="tab" aria-controls="llm-panel"
+                    aria-selected="false">🧠 LLM Playground</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link text-warning border-secondary" id="logs-tab" data-bs-toggle="tab"
+                    data-bs-target="#logs-panel" type="button" role="tab" aria-controls="logs-panel"
+                    aria-selected="false">🖥️ System Logs</button>
+            </li>
+        </ul>
+
+        <!-- Tab Contents -->
+        <div class="tab-content" id="wozTabsContent">
+
+            <!-- TAB: REMOTE AGENT CONTROL (appears as 1st tab, active by default) -->
+            <div class="tab-pane fade show active" id="xr-panel" role="tabpanel" aria-labelledby="xr-tab">
+
+                <div class="row">
+                    <!-- Settings Panel -->
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-header">🎯 Target Selection</div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label class="form-label">Device ID</label>
+                                    <select id="target-device" class="form-select"></select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Agent ID</label>
+                                    <select id="target-agent" class="form-select"></select>
+                                </div>
+                                <hr class="border-secondary">
+                                <div>
+                                    <span id="ws-status" class="badge bg-danger">Disconnected</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- XR Connection Info -->
+                        <div class="card border-info">
+                            <div class="card-header">🥽 XR Connection</div>
+                            <div class="card-body">
+                                <small class="text-muted d-block mb-1">Server IP to enter in the XREAL / Unity app:</small>
+                                <div class="input-group mb-2">
+                                    <input id="server-ip" type="text" class="form-control fw-bold fs-5 text-info"
+                                        value="…" readonly aria-label="Server LAN IP address">
+                                    <button id="copy-ip-btn" class="btn btn-outline-info" title="Copy IP"
+                                        aria-label="Copy server IP to clipboard">📋</button>
+                                </div>
+                                <small class="text-muted d-block">
+                                    WebSocket: <code id="conn-ws-port">8000</code> ·
+                                    ZMQ PUB <code id="conn-zmq-pub">5555</code> /
+                                    SUB <code id="conn-zmq-sub">5556</code>
+                                </small>
+                                <small class="text-muted d-block mt-1">
+                                    URL: <code id="conn-ws-url" class="text-break">ws://…/ws/client/&lt;device_id&gt;</code>
+                                </small>
+                                <small class="text-warning d-block mt-1">⚠️ The headset must be on the same Wi-Fi.</small>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-header">📢 Direct TTS Message</div>
+                            <div class="card-body">
+                                <textarea id="direct-msg" class="form-control mb-2" rows="3"
+                                    placeholder="Type what the agent should say..." aria-label="Direct TTS message text"></textarea>
+                                <button id="send-msg-btn" class="btn btn-primary w-100" aria-label="Send text directly to TTS">🔊 Speak This Text</button>
+                                <small class="text-muted mt-1 d-block">Bypasses the LLM and sends directly to
+                                    TTS.</small>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Dynamic Actions Panel -->
+                    <div class="col-md-8">
+                        <div class="card">
+                            <div class="card-header">⚡ Dynamic Actions</div>
+                            <div class="card-body" id="dynamic-actions-container">
+                                <div class="text-center text-muted col-12 my-5">
+                                    <div class="spinner-border spinner-border-sm" role="status"></div> Loading
+                                    configuration...
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <span>📡 Telemetry & Router Logs</span>
+                                <button id="export-btn" class="btn btn-sm btn-outline-success">Export Telemetry
+                                    CSV</button>
+                            </div>
+                            <div class="card-body p-0">
+                                <div id="log-window"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div> <!-- End XR Control -->
+
+            <!-- TAB: LLM PLAYGROUND (appears as 4th tab) -->
+            <div class="tab-pane fade" id="llm-panel" role="tabpanel" aria-labelledby="llm-tab">
+                <div class="row">
+                    <!-- LLM Configuration -->
+                    <div class="col-md-3">
+                        <div class="card">
+                            <div class="card-header">🧠 Agent Configuration</div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label class="form-label text-info">Active LLM Provider</label>
+                                    <select id="llm-provider-select" class="form-select"></select>
+                                    <div id="provider-health" class="mt-1 d-flex gap-2 flex-wrap"></div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label text-warning">System Prompt (Personality)</label>
+                                    <textarea id="system-prompt" class="form-control text-warning" rows="10"
+                                        style="font-family: monospace; font-size: 0.85em;"></textarea>
+                                </div>
+                                <button id="save-llm-btn" class="btn btn-success w-100">💾 Save & Apply</button>
+                                <div class="d-flex gap-2 mt-2">
+                                    <button id="tts-toggle-btn" class="btn btn-outline-warning flex-fill">🔊 TTS
+                                        ON</button>
+                                    <button id="clear-history-btn" class="btn btn-outline-danger flex-fill">🗑️ Reset
+                                        Agent</button>
+                                </div>
+                                <!-- TTS Provider Picker -->
+                                <div class="mt-3">
+                                    <label class="form-label text-info">TTS Provider</label>
+                                    <select id="tts-provider-select" class="form-select"></select>
+                                    <small class="text-muted mt-1 d-block">Choose which service generates speech. Independent of the LLM.</small>
+                                </div>
+                                <!-- Voice Picker -->
+                                <div class="mt-3">
+                                    <label class="form-label text-info">TTS Voice</label>
+                                    <select id="tts-voice-select" class="form-select"></select>
+                                    <small id="tts-voice-info" class="text-muted mt-1 d-block"></small>
+                                </div>
+
+                                <!-- Custom Provider Registration -->
+                                <hr class="border-secondary my-3">
+                                <div>
+                                    <a href="#" class="text-info text-decoration-none" onclick="event.preventDefault(); document.getElementById('custom-provider-form').classList.toggle('d-none'); this.querySelector('.cp-chevron').textContent = document.getElementById('custom-provider-form').classList.contains('d-none') ? '▶' : '▼';">
+                                        <span class="cp-chevron">▶</span> ➕ Register Custom Endpoint
+                                    </a>
+                                    <div id="custom-provider-form" class="d-none mt-2">
+                                        <div class="mb-2">
+                                            <input type="text" id="cp-name" class="form-control form-control-sm" placeholder="Name (e.g. my-ollama)" aria-label="Custom provider name">
+                                        </div>
+                                        <div class="mb-2">
+                                            <input type="text" id="cp-base-url" class="form-control form-control-sm" placeholder="Base URL (e.g. http://localhost:11434/v1)" aria-label="Custom provider base URL">
+                                        </div>
+                                        <div class="mb-2">
+                                            <input type="password" id="cp-api-key" class="form-control form-control-sm" placeholder="API Key (optional for local)" aria-label="Custom provider API key">
+                                        </div>
+                                        <div class="mb-2">
+                                            <input type="text" id="cp-model" class="form-control form-control-sm" placeholder="Model ID (e.g. llama3.1)" aria-label="Custom provider model">
+                                        </div>
+                                        <div class="mb-2 d-flex gap-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="cp-type-llm" checked>
+                                                <label class="form-check-label text-muted" for="cp-type-llm">LLM</label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="cp-type-tts">
+                                                <label class="form-check-label text-muted" for="cp-type-tts">TTS</label>
+                                            </div>
+                                        </div>
+                                        <div class="d-flex gap-2">
+                                            <button class="btn btn-outline-info btn-sm flex-fill" id="cp-test-btn" title="Test connectivity before registering">🔗 Test</button>
+                                            <button class="btn btn-success btn-sm flex-fill" id="cp-register-btn" title="Register this endpoint">📝 Register</button>
+                                        </div>
+                                        <small id="cp-status" class="text-muted mt-1 d-block"></small>
+                                    </div>
+                                    <!-- List of custom providers -->
+                                    <div id="custom-providers-list" class="mt-2"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- LLM Chat Interface -->
+                    <div class="col-md-5">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <span>💬 Simulated Conversation</span>
+                                <span id="llm-conn-status"><span class="conn-dot disconnected"></span><small class="text-muted">Offline</small></span>
+                            </div>
+                            <div class="card-body p-0">
+                                <div id="chat-window" class="chat-container">
+                                    <div class="text-center text-muted mt-5">
+                                        <small>Say something to start the conversation.</small><br>
+                                        <small>Responses and triggered actions will appear here.</small>
+                                    </div>
+                                </div>
+                                <div class="p-3 border-top border-secondary" style="background: #2a2a2a;">
+                                    <div class="input-group">
+                                        <button class="btn btn-danger" id="mic-btn" style="width:50px; font-size:1.2em;"
+                                            title="Hold to Talk">🎤</button>
+                                        <input type="text" id="chat-input" class="form-control"
+                                            placeholder="Type or hold Mic to talk..." aria-label="Chat message input">
+                                        <button class="btn btn-primary" id="chat-send-btn" title="Send message to LLM (Enter)">Send (Trigger LLM)</button>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2 mt-2">
+                                        <small class="text-muted">STT:</small>
+                                        <select id="stt-provider-select" class="form-select form-select-sm" style="width: auto; flex: 0 0 auto;">
+                                            <option value="webspeech" selected>🌐 WebSpeech (Browser)</option>
+                                            <option value="openai">🔑 OpenAI (Whisper)</option>
+                                        </select>
+                                        <small id="stt-status" class="text-muted"></small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 3D Avatar Panel -->
+                    <div class="col-md-4">
+                        <div class="card avatar-card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <span>🧑 Embodied Agent</span>
+                                <span id="avatar-status" class="badge bg-secondary avatar-status">Loading...</span>
+                            </div>
+                            <div class="p-2 border-bottom border-secondary" style="background: #1e1e30;">
+                                <div class="d-flex gap-2 align-items-center">
+                                    <select id="avatar-select" class="form-select form-select-sm" style="flex:1">
+                                        <option value="/models/default_avatar.vrm">👩 Female (Default)</option>
+                                    </select>
+                                    <label class="btn btn-sm btn-outline-info" style="white-space:nowrap;">
+                                        📂 Upload
+                                        <input type="file" id="avatar-upload" accept=".vrm" style="display:none">
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="card-body p-0" style="height: 400px; position: relative;">
+                                <canvas id="avatar-canvas"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div> <!-- End LLM Playground -->
+
+            <!-- TAB: STUDY SESSION (appears as 3rd tab) -->
+            <div class="tab-pane fade" id="session-panel" role="tabpanel" aria-labelledby="session-tab">
+                <div class="row">
+                    <!-- Session Controls Column -->
+                    <div class="col-md-5">
+                        <!-- Session Control Card -->
+                        <div class="card" style="border-color: #198754; background: linear-gradient(135deg, #1a2e1a, #1e2e1e);">
+                            <div class="card-header d-flex justify-content-between align-items-center" style="background: #19875422; border-color: #19875455;">
+                                <span>🧪 Experiment Session</span>
+                                <span id="session-status-badge" class="badge bg-secondary">No Session</span>
+                            </div>
+                            <div class="card-body">
+                                <div class="d-flex align-items-center gap-3 flex-wrap mb-3">
+                                    <!-- Participant ID -->
+                                    <div class="input-group input-group-sm" style="max-width: 220px;">
+                                        <span class="input-group-text" style="background:#333; border-color:#555; color:#aaa;">Participant</span>
+                                        <input type="text" id="participant-id" class="form-control form-control-sm" placeholder="e.g. P001" style="max-width:100px;">
+                                    </div>
+                                    <!-- Timer (enlarged, color-coded) -->
+                                    <span id="session-timer-wrap" class="timer-idle" style="font-family: 'Courier New', monospace;">
+                                        ⏱️ <span id="session-timer" style="font-size: 1.6em; font-weight: bold;">00:00</span>
+                                    </span>
+                                </div>
+                                <!-- Session Controls -->
+                                <div class="btn-group w-100 mb-3">
+                                    <button id="session-start-btn" class="btn btn-outline-success" onclick="startSession()" disabled>▶ Start</button>
+                                    <button id="session-pause-btn" class="btn btn-outline-warning" onclick="pauseSession()" disabled>⏸ Pause</button>
+                                    <button id="session-resume-btn" class="btn btn-outline-info" onclick="resumeSession()" style="display:none;">▶ Resume</button>
+                                    <button id="session-end-btn" class="btn btn-outline-danger" onclick="endSession()" disabled>⏹ End</button>
+                                </div>
+                                <!-- Marker Count -->
+                                <span id="session-marker-count" class="badge bg-dark" style="display:none;">📌 0 markers</span>
+                            </div>
+                        </div>
+
+                        <!-- Event Marker Card -->
+                        <div class="card" id="marker-card">
+                            <div class="card-header" style="color: #ffc107;">📌 Event Markers</div>
+                            <div class="card-body">
+                                <!-- Preset Quick-Fire Buttons -->
+                                <div id="marker-presets" class="d-flex flex-wrap gap-2 mb-3"></div>
+                                <div class="d-flex align-items-center gap-2" id="marker-row">
+                                    <div class="input-group input-group-sm">
+                                        <input type="text" id="marker-label" class="form-control form-control-sm" placeholder="Custom event label..." aria-label="Event marker label">
+                                        <button class="btn btn-warning btn-sm" onclick="addMarker()" title="Add timestamped marker (Enter)">Mark</button>
+                                    </div>
+                                </div>
+                                <small class="text-muted mt-1 d-block">Use a preset above or type a custom label. Agents and devices can also fire markers programmatically.</small>
+                                <!-- Marker History -->
+                                <div id="marker-history" class="mt-3" style="max-height: 300px; overflow-y: auto;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Agent Configuration Column -->
+                    <div class="col-md-7">
+                        <!-- Agent Profile Shortcut Card -->
+                        <div class="card" style="border-color: #e879f9;">
+                            <div class="card-header d-flex justify-content-between align-items-center" style="background: #e879f922; border-color: #e879f955;">
+                                <span>👤 Agent Profile</span>
+                                <span id="active-profile-session-badge" class="badge bg-secondary">None</span>
+                            </div>
+                            <div class="card-body">
+                                <div class="d-flex align-items-center gap-3">
+                                    <span class="text-muted" style="font-size: 0.9em;">Configure agent persona, voice, and personality via the Profiles tab.</span>
+                                    <button class="btn btn-sm btn-outline-light" onclick="document.getElementById('profiles-tab').click();">👤 Open Profiles</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Session Info Card -->
+                        <div class="card">
+                            <div class="card-header">📋 Session Summary</div>
+                            <div class="card-body">
+                                <div id="session-summary-content" class="text-muted">
+                                    <small>Start a session to see live details here.</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Scenario Runner Card -->
+                        <div class="card" style="border-color: #fd7e14;">
+                            <div class="card-header d-flex justify-content-between align-items-center" style="background: #fd7e1422; border-color: #fd7e1455;">
+                                <span>🎬 Scenario Runner</span>
+                                <span id="scenario-status-badge" class="badge bg-secondary">No Scenario</span>
+                            </div>
+                            <div class="card-body">
+                                <!-- Scenario Selection -->
+                                <div id="scenario-select-row" class="d-flex align-items-center gap-3 mb-3">
+                                    <select id="scenario-select" class="form-select form-select-sm" style="max-width: 280px;">
+                                        <option value="">Select a scenario...</option>
+                                    </select>
+                                    <button class="btn btn-sm btn-outline-warning" onclick="loadScenario()">🎬 Load</button>
+                                </div>
+                                <!-- Active Step Display -->
+                                <div id="scenario-active-step" style="display: none;">
+                                    <div class="progress mb-2" style="height: 6px;">
+                                        <div id="scenario-progress-bar" class="progress-bar bg-warning" style="width: 0%;"></div>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <small id="scenario-progress-text" class="text-muted">Step 1 / 5</small>
+                                        <small id="scenario-step-id" class="text-warning font-monospace"></small>
+                                    </div>
+                                    <div id="scenario-instruction" class="p-2 rounded mb-3" style="background: #2a2a3a; border-left: 3px solid #fd7e14; font-size: 0.9em;"></div>
+                                    <!-- Auto-applied badges -->
+                                    <div id="scenario-badges" class="mb-3"></div>
+                                    <!-- Controls -->
+                                    <div class="btn-group w-100">
+                                        <button class="btn btn-warning" onclick="advanceScenario()">▶ Next Step</button>
+                                        <button class="btn btn-outline-danger" onclick="stopScenario()">⏹ Stop</button>
+                                    </div>
+                                </div>
+                                <!-- Idle message -->
+                                <div id="scenario-idle-msg" class="text-muted" style="font-size: 0.85em;">
+                                    <small>Load a scenario to guide your experiment with step-by-step instructions.</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div> <!-- End Study Session -->
+
+            <!-- TAB: SYSTEM LOGS (appears as 5th tab) -->
+            <div class="tab-pane fade" id="logs-panel" role="tabpanel" aria-labelledby="logs-tab">
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <span>Live System Logs & Web Errors</span>
+                                <div>
+                                    <button class="btn btn-sm btn-outline-info me-2"
+                                        onclick="navigator.clipboard.writeText(document.getElementById('syslogs-window').innerText).then(()=>{this.textContent='✅ Copied!'; setTimeout(()=>this.textContent='📋 Copy All', 1500)})">📋
+                                        Copy
+                                        All</button>
+                                    <button class="btn btn-sm btn-outline-danger"
+                                        onclick="document.getElementById('syslogs-window').innerHTML=''">Clear
+                                        Console</button>
+                                </div>
+                            </div>
+                            <div class="card-body p-0">
+                                <div id="syslogs-window" class="chat-container"
+                                    style="height: 65vh; font-family: monospace;">
+                                    <div class="text-center text-muted mt-3">
+                                        <small>Listening to server stdout and browser window.onerror events...</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div> <!-- End System Logs -->
+
+            <!-- TAB: AGENT PROFILES (appears as 2nd tab) -->
+            <div class="tab-pane fade" id="profiles-panel" role="tabpanel" aria-labelledby="profiles-tab">
+                <div class="row">
+                    <!-- Profile List -->
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center"
+                                style="color: #e879f9;">
+                                <span>Available Profiles</span>
+                                <button id="refresh-profiles-btn" class="btn btn-sm btn-outline-light"
+                                    onclick="loadProfiles()">Refresh</button>
+                            </div>
+                            <div class="card-body p-2" id="profiles-list"
+                                style="max-height: 70vh; overflow-y: auto;">
+                                <div class="text-center text-muted mt-3">
+                                    <small>Loading profiles...</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Profile Detail -->
+                    <div class="col-md-8">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center"
+                                style="color: #e879f9;">
+                                <span id="profile-detail-title">Select a profile</span>
+                                <div class="d-flex gap-2 align-items-center">
+                                    <select id="profile-agent-select" class="form-select form-select-sm"
+                                        style="width: auto;">
+                                        <option value="all">All Agents</option>
+                                    </select>
+                                    <button id="apply-profile-btn" class="btn btn-sm btn-success" disabled>Apply
+                                        Profile</button>
+                                </div>
+                                <div id="profile-revert-container" class="mt-1"></div>
+                            </div>
+                            <div class="card-body" id="profile-detail-body"
+                                style="max-height: 70vh; overflow-y: auto;">
+                                <div class="text-center text-muted mt-5">
+                                    <small>Click a profile from the list to view details.</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div> <!-- End Agent Profiles -->
+
+        </div>
+    </div>
+
+    <!-- Load bootstrap JS for tabs -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script type="module">
+        import OVARPClientSDK from './sdk/OVARP-client.js';
+
+        let ws = null;
+        const logWindow = document.getElementById('log-window');
+
+        // Helper to escape HTML entities (prevent XSS)
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        function log(message, type = "info") {
+            const div = document.createElement('div');
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            if (type === 'sent') div.className = 'log-sent';
+            if (type === 'recv') div.className = 'log-recv';
+            if (type === 'error') div.className = 'log-err';
+            logWindow.appendChild(div);
+            logWindow.scrollTop = logWindow.scrollHeight;
+        }
+
+        const sysLogWindow = document.getElementById('syslogs-window');
+
+        function sysLog(level, name, message) {
+            if (!sysLogWindow) return;
+            // Remove placeholder if present
+            const placeholders = sysLogWindow.querySelectorAll('.text-muted');
+            placeholders.forEach(p => p.remove());
+
+            const div = document.createElement('div');
+            div.style.marginBottom = "5px";
+            div.style.borderBottom = "1px solid #333";
+            div.style.paddingBottom = "5px";
+
+            let color = '#ccc';
+            if (level === 'ERROR' || level === 'CRITICAL') color = '#ff4444';
+            else if (level === 'WARNING') color = '#ffbb33';
+            else if (level === 'INFO') color = '#33b5e5';
+            else if (level === 'DEBUG') color = '#888';
+
+            div.innerHTML = `<strong style="color:${color}">[${level}]</strong> <span class="text-muted">[${name}]</span> ${message}`;
+            sysLogWindow.appendChild(div);
+            sysLogWindow.scrollTop = sysLogWindow.scrollHeight;
+        }
+
+        // Global Error Handlers for debugging without DevTools
+        window.onerror = function (msg, src, ln, col, err) {
+            log(`JS Error: ${msg} [Line ${ln}]`, 'error');
+            sysLog('ERROR', 'WebClient', `${msg} at line ${ln} in ${src}`);
+            return false;
+        };
+        window.addEventListener('unhandledrejection', function (evt) {
+            log(`Promise Error: ${evt.reason}`, 'error');
+            sysLog('ERROR', 'WebClient Promise', `${evt.reason}`);
+        });
+
+        // Connect SysLogs WS
+        let sysLogsReconnecting = false;
+        function connectSysLogsWS() {
+            if (sysLogsReconnecting) return;
+            sysLogsReconnecting = true;
+            const wsUrl = `ws://${window.location.host}/ws/logs`;
+            const logsWs = new WebSocket(wsUrl);
+            logsWs.onopen = () => { sysLogsReconnecting = false; };
+            logsWs.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    sysLog(data.level, data.name, data.message);
+                } catch (e) { }
+            };
+            // Only reconnect on close (onerror always fires before onclose, so this avoids double-reconnect)
+            logsWs.onclose = () => { sysLogsReconnecting = false; setTimeout(connectSysLogsWS, 5000); };
+            logsWs.onerror = () => { /* onclose will handle reconnection */ };
+        }
+
+        // --- OVARP Web SDK Initialization ---
+        const OVARPClient = new OVARPClientSDK({
+            deviceId: 'woz_console',
+            canvas: document.getElementById('avatar-canvas'),
+            callbacks: {
+                onConnect: () => {
+                    document.getElementById('ws-status').className = 'badge bg-success';
+                    document.getElementById('ws-status').textContent = 'Connected';
+                    // Update LLM connection indicator
+                    const connEl = document.getElementById('llm-conn-status');
+                    if (connEl) connEl.innerHTML = '<span class="conn-dot connected"></span><small class="text-success">Online</small>';
+                },
+                onDisconnect: () => {
+                    document.getElementById('ws-status').className = 'badge bg-danger';
+                    document.getElementById('ws-status').textContent = 'Disconnected';
+                    // Update LLM connection indicator
+                    const connEl = document.getElementById('llm-conn-status');
+                    if (connEl) connEl.innerHTML = '<span class="conn-dot disconnected"></span><small class="text-muted">Offline</small>';
+                    setTimeout(() => OVARPClient.connect(), 2000); // auto-reconnect
+                },
+                onLog: (msg, type) => log(msg, type),
+                onMessage: (sub) => {
+                    const cw = document.getElementById('chat-window');
+                    const bubble = document.createElement('div');
+                    bubble.className = "chat-bubble msg-agent";
+
+                    // Build latency line if available
+                    let latencyHtml = '';
+                    if (sub.latency) {
+                        const lat = sub.latency;
+                        const parts = [];
+                        if (lat.stt_ms) parts.push(`STT: ${lat.stt_ms}ms`);
+                        if (lat.llm_ms) parts.push(`LLM: ${lat.llm_ms}ms`);
+                        latencyHtml = parts.length > 0
+                            ? `<br><small class="text-info" style="font-size:0.65em; opacity:0.8;">⏱️ ${parts.join(' | ')}</small>`
+                            : '';
+                    }
+
+                    // Build the agent reply bubble with provider info and latency
+                    const replyText = escapeHtml(sub.text);
+                    const providerLabel = escapeHtml(sub.provider || '');
+                    const modelLabel = escapeHtml(sub.model || '');
+
+                    bubble.innerHTML = `
+                        <strong>Agent:</strong><br>
+                        ${replyText}<br>
+                        <small class="text-muted" style="font-size:0.7em;">🧠 ${providerLabel} · ${modelLabel}</small>
+                        ${latencyHtml}
+                    `;
+
+                    const tagsContainer = document.createElement('div');
+                    tagsContainer.className = "action-tags-container mt-1";
+                    bubble.appendChild(tagsContainer);
+
+                    // Placeholder for replay button (filled by onTTSReady)
+                    const replayContainer = document.createElement('div');
+                    replayContainer.className = "replay-container mt-1";
+                    bubble.appendChild(replayContainer);
+
+                    cw.appendChild(bubble);
+                    cw.scrollTop = cw.scrollHeight;
+                },
+                onAgentAction: (sub) => {
+                    const cw = document.getElementById('chat-window');
+                    const agentBubbles = cw.getElementsByClassName('msg-agent');
+                    if (agentBubbles.length > 0) {
+                        const tagsCtr = agentBubbles[agentBubbles.length - 1].querySelector('.action-tags-container');
+                        for (const [key, value] of Object.entries(sub)) {
+                            const tag = document.createElement('span');
+                            tag.className = "action-tag";
+                            tag.textContent = `⚡ [${key}: ${value}]`;
+                            tagsCtr.appendChild(tag);
+                        }
+                    }
+                },
+                onTTSReady: (blobUrl) => {
+                    // Attach replay button to the most recent agent bubble
+                    const cw = document.getElementById('chat-window');
+                    const agentBubbles = cw.getElementsByClassName('msg-agent');
+                    if (agentBubbles.length > 0) {
+                        const latest = agentBubbles[agentBubbles.length - 1];
+                        const replayCtr = latest.querySelector('.replay-container');
+                        if (replayCtr) {
+                            const btn = document.createElement('button');
+                            btn.className = 'btn btn-outline-info btn-sm mt-1';
+                            btn.style.cssText = 'font-size:0.7em; padding:2px 8px;';
+                            btn.textContent = '🔁 Replay';
+                            btn.onclick = () => {
+                                const audio = new Audio(blobUrl);
+                                audio.play().catch(e => log(`Replay failed: ${e}`, 'error'));
+                            };
+                            replayCtr.appendChild(btn);
+                        }
+                    }
+                }
+            }
+        });
+
+        // Helper override for the WoZ Console to spoof target_device/agent via UI dropdowns
+        function sendCommand(cmdType, cmdName, subcmd = {}) {
+            if (!OVARPClient.ws || OVARPClient.ws.readyState !== WebSocket.OPEN) {
+                log('Cannot send: Not connected.', 'error');
+                return;
+            }
+            const payload = {
+                sender: "woz_console",
+                target_device: document.getElementById('target-device').value,
+                target_agent: document.getElementById('target-agent').value,
+                command_type: cmdType,
+                command: cmdName,
+                subcommand: subcmd
+            };
+            const jsonStr = JSON.stringify(payload);
+            OVARPClient.ws.send(jsonStr);
+            log(`SENT: ${jsonStr}`, 'sent');
+        }
+
+        // Fetch the server's LAN IP + ports so researchers know what to enter
+        // in XR clients (XREAL/Unity headsets) to connect.
+        async function loadServerInfo() {
+            try {
+                const info = await (await fetch('/api/server/info')).json();
+                document.getElementById('server-ip').value = info.lan_ip;
+                document.getElementById('conn-ws-port').textContent = info.ws_port;
+                document.getElementById('conn-zmq-pub').textContent = info.zmq_pub_port;
+                document.getElementById('conn-zmq-sub').textContent = info.zmq_sub_port;
+                document.getElementById('conn-ws-url').textContent = info.ws_url_template;
+            } catch (e) {
+                document.getElementById('server-ip').value = 'unavailable';
+                console.warn('[ServerInfo] Failed to load:', e);
+            }
+        }
+
+        // Copy the server IP to the clipboard
+        document.getElementById('copy-ip-btn').addEventListener('click', async () => {
+            const ip = document.getElementById('server-ip').value;
+            try {
+                await navigator.clipboard.writeText(ip);
+            } catch (e) {
+                document.getElementById('server-ip').select(); // fallback: select for manual copy
+            }
+            const btn = document.getElementById('copy-ip-btn');
+            const original = btn.textContent;
+            btn.textContent = '✅';
+            setTimeout(() => { btn.textContent = original; }, 1000);
+        });
+
+        // Load Config and Generate UI
+        async function initConfig() {
+            try {
+                const resp = await fetch('/api/config');
+                const config = await resp.json();
+
+                // Populate Dropdowns
+                const dSelect = document.getElementById('target-device');
+                config.devices.forEach(d => dSelect.add(new Option(`${d.name} (${d.id})`, d.id)));
+                dSelect.add(new Option("all", "all"));
+
+                const aSelect = document.getElementById('target-agent');
+                config.agents.forEach(a => aSelect.add(new Option(`${a.name} (${a.id})`, a.id)));
+                aSelect.add(new Option("all", "all"));
+
+                // Build Dynamic Action Buttons
+                const container = document.getElementById('dynamic-actions-container');
+                container.innerHTML = '';
+
+                // Create a row for each command category
+                for (const [catName, catData] of Object.entries(config.custom_commands || {})) {
+                    const heading = document.createElement('h6');
+                    heading.className = 'mt-3 text-info border-bottom border-secondary pb-1';
+                    heading.innerHTML = `${catName.toUpperCase()} <small class="text-muted fw-normal">- ${catData.description}</small>`;
+                    container.appendChild(heading);
+
+                    const btnGroup = document.createElement('div');
+
+                    catData.values.forEach(val => {
+                        const btn = document.createElement('button');
+                        btn.className = 'btn btn-outline-light btn-action btn-action-cmd btn-sm';
+                        btn.textContent = val;
+                        btn.title = `Send ${catName}: ${val}`;
+                        btn.setAttribute('aria-label', `Trigger ${catName} ${val}`);
+                        btn.onclick = () => {
+                            // Creates subcammand dictionary like {"emotion": "happy"}
+                            const subcmd = {};
+                            subcmd[catName] = val;
+                            sendCommand('action', 'execute_state', subcmd);
+                            // Visual feedback: flash green
+                            btn.className = 'btn btn-success btn-action btn-sm';
+                            btn.textContent = `✅ ${val}`;
+                            setTimeout(() => {
+                                btn.className = 'btn btn-outline-light btn-action btn-sm';
+                                btn.textContent = val;
+                            }, 800);
+                        };
+                        btnGroup.appendChild(btn);
+                    });
+                    container.appendChild(btnGroup);
+                }
+
+                log('Dynamic UI generated from config.', 'info');
+
+                // Populate XR connection info (server LAN IP + ports)
+                loadServerInfo();
+
+                // Additionally fetch LLM Config
+                const llmResp = await fetch('/api/llm/config');
+                const llmConfig = await llmResp.json();
+
+                const pSelect = document.getElementById('llm-provider-select');
+                pSelect.innerHTML = '';  // Clear before populating to prevent duplicates
+                llmConfig.available_providers.forEach(p => pSelect.add(new Option(p.toUpperCase(), p)));
+                pSelect.value = llmConfig.active_provider;
+
+                // Populate TTS Provider dropdown (independent of LLM)
+                const ttsProvSelect = document.getElementById('tts-provider-select');
+                ttsProvSelect.innerHTML = '';
+                (llmConfig.available_tts_providers || []).forEach(p => ttsProvSelect.add(new Option(p.toUpperCase(), p)));
+                ttsProvSelect.value = llmConfig.active_tts_provider || llmConfig.active_provider;
+
+                document.getElementById('system-prompt').value = llmConfig.system_prompt;
+                // Sync TTS button with server state
+                if (typeof updateTTSButton === 'function') updateTTSButton(llmConfig.tts_enabled);
+
+                // Load available TTS voices for the active provider
+                await loadTtsVoices();
+
+                // Check provider API key health
+                await checkProviderHealth();
+
+            } catch (e) {
+                log(`Failed to load config: ${e}`, 'error');
+            }
+        }
+
+        async function checkProviderHealth() {
+            const container = document.getElementById('provider-health');
+            if (!container) return;
+            container.innerHTML = '<small class="text-muted">Checking API keys…</small>';
+            try {
+                const resp = await fetch('/api/health/providers');
+                const data = await resp.json();
+                const activeProvider = document.getElementById('llm-provider-select')?.value;
+                container.innerHTML = '';
+                for (const [name, status] of Object.entries(data)) {
+                    if (name.endsWith('_error')) continue;
+                    const ok = status === 'ok';
+                    const isActive = name === activeProvider;
+                    const badge = document.createElement('span');
+                    // Active provider: solid badge. Others: outline to avoid confusion.
+                    if (ok) {
+                        badge.className = isActive ? 'badge bg-success' : 'badge border border-success text-success';
+                    } else {
+                        badge.className = 'badge bg-danger';
+                    }
+                    badge.style.cssText = !isActive && ok ? 'opacity: 0.6;' : '';
+                    badge.title = ok ? `${name} API key valid${isActive ? ' (active)' : ''}` : (data[`${name}_error`] || 'Auth error');
+                    badge.textContent = ok ? `${name} ${isActive ? '● active' : '✓ ready'}` : `${name} ✗`;
+                    container.appendChild(badge);
+                }
+            } catch (e) {
+                container.innerHTML = '<small class="text-danger">Health check failed</small>';
+            }
+        }
+
+        // Save LLM Config
+        document.getElementById('save-llm-btn').onclick = async () => {
+            const provider = document.getElementById('llm-provider-select').value;
+            const prompt = document.getElementById('system-prompt').value;
+
+            try {
+                const resp = await fetch('/api/llm/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        provider_id: provider,
+                        system_prompt: prompt
+                    })
+                });
+                const data = await resp.json();
+                log(`LLM Config Updated: ${provider}`, 'info');
+                showToast('Configuration applied successfully', 'success');
+                // Sync TTS button state from server response
+                updateTTSButton(data.tts_enabled);
+                // Reload voices since provider may have changed
+                await loadTtsVoices();
+            } catch (e) {
+                log(`Failed to update LLM Config: ${e}`, 'error');
+            }
+        };
+
+        // --- Custom Provider Registration ---
+        async function refreshCustomProviders() {
+            try {
+                const resp = await fetch('/api/providers');
+                const data = await resp.json();
+                const listEl = document.getElementById('custom-providers-list');
+                listEl.innerHTML = '';
+                const custom = data.custom || {};
+                for (const [name, cfg] of Object.entries(custom)) {
+                    const badge = document.createElement('div');
+                    badge.className = 'd-flex align-items-center justify-content-between mt-1 px-2 py-1 rounded';
+                    badge.style.cssText = 'background: rgba(56,189,248,0.1); border: 1px solid rgba(56,189,248,0.2);';
+                    badge.innerHTML = `
+                        <small class="text-info">${name} <span class="text-muted">(${(cfg.types||[]).join(', ')})</span></small>
+                        <button class="btn btn-link btn-sm text-danger p-0" title="Remove ${name}" onclick="removeCustomProvider('${name}')">✕</button>
+                    `;
+                    listEl.appendChild(badge);
+                }
+                // Refresh the provider dropdown too
+                const pSelect = document.getElementById('llm-provider-select');
+                const currentVal = pSelect.value;
+                pSelect.innerHTML = '';
+                (data.available_llm || []).forEach(p => {
+                    const opt = new Option(p.toUpperCase(), p);
+                    pSelect.add(opt);
+                });
+                pSelect.value = currentVal || data.active_llm;
+            } catch (e) {
+                console.warn('Could not refresh custom providers:', e);
+            }
+        }
+
+        document.getElementById('cp-test-btn').onclick = async () => {
+            const statusEl = document.getElementById('cp-status');
+            statusEl.textContent = '⏳ Testing...';
+            statusEl.className = 'text-warning mt-1 d-block';
+            try {
+                const resp = await fetch('/api/providers/test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        base_url: document.getElementById('cp-base-url').value,
+                        api_key: document.getElementById('cp-api-key').value,
+                        model: document.getElementById('cp-model').value
+                    })
+                });
+                const result = await resp.json();
+                statusEl.textContent = result.ok ? `✅ ${result.detail}` : `❌ ${result.detail}`;
+                statusEl.className = (result.ok ? 'text-success' : 'text-danger') + ' mt-1 d-block';
+            } catch (e) {
+                statusEl.textContent = `❌ ${e}`;
+                statusEl.className = 'text-danger mt-1 d-block';
+            }
+        };
+
+        document.getElementById('cp-register-btn').onclick = async () => {
+            const name = document.getElementById('cp-name').value.trim();
+            const baseUrl = document.getElementById('cp-base-url').value.trim();
+            const model = document.getElementById('cp-model').value.trim();
+            if (!name || !baseUrl || !model) {
+                showToast('Please fill in Name, Base URL, and Model.', 'warning');
+                return;
+            }
+            const types = [];
+            if (document.getElementById('cp-type-llm').checked) types.push('llm');
+            if (document.getElementById('cp-type-tts').checked) types.push('tts');
+            if (types.length === 0) {
+                showToast('Select at least one type (LLM or TTS).', 'warning');
+                return;
+            }
+            try {
+                const resp = await fetch('/api/providers/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name, base_url: baseUrl,
+                        api_key: document.getElementById('cp-api-key').value,
+                        model, types
+                    })
+                });
+                const result = await resp.json();
+                if (result.error) {
+                    showToast(result.error, 'danger');
+                } else {
+                    showToast(`Provider "${result.name}" registered`, 'success');
+                    log(`Custom provider registered: ${result.name}`, 'info');
+                    // Clear form
+                    document.getElementById('cp-name').value = '';
+                    document.getElementById('cp-base-url').value = '';
+                    document.getElementById('cp-api-key').value = '';
+                    document.getElementById('cp-model').value = '';
+                    document.getElementById('cp-status').textContent = '';
+                    await refreshCustomProviders();
+                }
+            } catch (e) {
+                showToast(`Registration failed: ${e}`, 'danger');
+            }
+        };
+
+        window.removeCustomProvider = async (name) => {
+            if (!confirm(`Remove custom provider "${name}"?`)) return;
+            try {
+                await fetch(`/api/providers/${name}`, { method: 'DELETE' });
+                showToast(`Provider "${name}" removed`, 'info');
+                log(`Custom provider removed: ${name}`, 'info');
+                await refreshCustomProviders();
+            } catch (e) {
+                showToast(`Failed to remove: ${e}`, 'danger');
+            }
+        };
+
+        // Load custom providers on boot
+        refreshCustomProviders();
+
+        // TTS Toggle
+        function updateTTSButton(enabled) {
+            const btn = document.getElementById('tts-toggle-btn');
+            btn.textContent = enabled ? '🔊 TTS ON' : '🔇 TTS OFF';
+            btn.className = 'btn flex-fill ' + (enabled ? 'btn-outline-warning' : 'btn-outline-secondary');
+        }
+
+        document.getElementById('tts-toggle-btn').onclick = async function () {
+            this.disabled = true;
+            this.textContent = '⏳ ...';
+            try {
+                const resp = await fetch('/api/llm/tts', { method: 'POST' });
+                const data = await resp.json();
+                updateTTSButton(data.tts_enabled);
+                log(`TTS toggled: ${data.tts_enabled ? 'ON' : 'OFF'}`, 'info');
+            } catch (e) {
+                log(`Failed to toggle TTS: ${e}`, 'error');
+            }
+            this.disabled = false;
+        };
+
+        // --- TTS Voice Picker ---
+        async function loadTtsVoices() {
+            try {
+                const resp = await fetch('/api/tts/voices');
+                const data = await resp.json();
+                const select = document.getElementById('tts-voice-select');
+                const info = document.getElementById('tts-voice-info');
+                select.innerHTML = '';
+
+                // Gender icon helper
+                const genderIcon = (g) => {
+                    if (g === 'masculine') return '\u2642\uFE0F';
+                    if (g === 'feminine') return '\u2640\uFE0F';
+                    return '\u26A7\uFE0F';
+                };
+
+                // Populate the dropdown
+                data.voices.forEach(v => {
+                    const icon = genderIcon(v.gender);
+                    const opt = new Option(`${icon} ${v.label} (${v.gender})`, v.id);
+                    opt.selected = (v.id === data.current_voice);
+                    select.add(opt);
+                });
+
+                info.textContent = `Provider: ${data.provider} | Active: ${data.current_voice}`;
+            } catch (e) {
+                console.warn('Could not load TTS voices:', e);
+            }
+        }
+
+        document.getElementById('tts-voice-select').addEventListener('change', async function () {
+            const voiceId = this.value;
+            try {
+                const resp = await fetch('/api/tts/voice', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ voice_id: voiceId })
+                });
+                const data = await resp.json();
+                document.getElementById('tts-voice-info').textContent =
+                    `Provider: ${data.provider} | Active: ${data.current_voice}`;
+                log(`TTS voice changed to: ${data.current_voice}`, 'info');
+            } catch (e) {
+                log(`Failed to switch TTS voice: ${e}`, 'error');
+            }
+        });
+
+        // TTS Provider change — independent of LLM
+        document.getElementById('tts-provider-select').addEventListener('change', async function () {
+            const providerId = this.value;
+            try {
+                const resp = await fetch('/api/tts/provider', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ provider_id: providerId })
+                });
+                const data = await resp.json();
+                if (data.error) {
+                    showToast(data.error, 'warning');
+                    return;
+                }
+                log(`TTS provider changed to: ${providerId}`, 'info');
+                showToast(`TTS provider: ${providerId.toUpperCase()}`, 'success');
+                // Refresh voice list for the new provider
+                await loadTtsVoices();
+            } catch (e) {
+                log(`Failed to switch TTS provider: ${e}`, 'error');
+            }
+        });
+
+        // Clear History (with confirmation)
+        document.getElementById('clear-history-btn').onclick = async function () {
+            if (!confirm('This will clear the conversation history, chat window, and all saved state. Continue?')) return;
+            this.disabled = true;
+            try {
+                await fetch('/api/llm/history/clear', { method: 'POST' });
+                // Clear chat window
+                document.getElementById('chat-window').innerHTML = '<div class="text-center text-muted mt-5"><small>Agent reset. Say something to start a new conversation.</small></div>';
+                // Clear localStorage
+                localStorage.removeItem('OVARP_chat_html');
+                localStorage.removeItem('OVARP_avatar');
+                localStorage.removeItem('OVARP_llm_provider');
+                localStorage.removeItem('OVARP_system_prompt');
+                localStorage.removeItem('OVARP_tts_enabled');
+                this.textContent = '✅ Agent Reset!';
+                showToast('Agent fully reset', 'success');
+                log('Agent fully reset: history, chat, and saved state cleared', 'info');
+                setTimeout(() => { this.textContent = '🗑️ Reset Agent'; this.disabled = false; }, 1500);
+            } catch (e) {
+                log(`Failed to reset agent: ${e}`, 'error');
+                showToast('Could not reset agent. Check your connection and try again.', 'error');
+                this.disabled = false;
+            }
+        };
+
+        // Setup direct inputs
+        document.getElementById('send-msg-btn').onclick = () => {
+            const text = document.getElementById('direct-msg').value;
+            if (text) {
+                sendCommand('message', 'direct_tts', { text: text });
+                document.getElementById('direct-msg').value = '';
+            }
+        };
+
+        document.getElementById('export-btn').onclick = () => {
+            window.open('/api/export', '_blank');
+            log('Requested telemetry CSV export from server.', 'info');
+        };
+
+        // Chat Input Event
+        function sendChatMsg() {
+            const input = document.getElementById('chat-input');
+            const text = input.value.trim();
+            if (text) {
+                // Remove placeholder if present
+                const cw = document.getElementById('chat-window');
+                const placeholders = cw.querySelectorAll('.text-muted.mt-5');
+                placeholders.forEach(p => p.remove());
+
+                // Add User Bubble
+                const bubble = document.createElement('div');
+                bubble.className = "chat-bubble msg-user";
+                bubble.innerHTML = `<strong>You:</strong><br>${escapeHtml(text)}`;
+                cw.appendChild(bubble);
+                cw.scrollTop = cw.scrollHeight;
+
+                // Send to Server
+                sendCommand('message', 'llm_request', { text: text });
+                input.value = '';
+            }
+        }
+
+        document.getElementById('chat-send-btn').onclick = sendChatMsg;
+        document.getElementById('chat-input').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') sendChatMsg();
+        });
+
+        // Mic STT Events — Dual mode: WebSpeech (browser) or OpenAI (server)
+        const micBtn = document.getElementById('mic-btn');
+        const chatInput = document.getElementById('chat-input');
+        let _webSpeechRecognition = null;
+
+        function getActiveSttProvider() {
+            return document.getElementById('stt-provider-select')?.value || 'webspeech';
+        }
+
+        // --- WebSpeech STT (browser-native, zero API keys) ---
+        function startWebSpeechSTT() {
+            const SpeechRecog = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecog) {
+                showToast('WebSpeech not supported in this browser. Try Chrome or Edge.', 'warning');
+                return;
+            }
+            _webSpeechRecognition = new SpeechRecog();
+            _webSpeechRecognition.continuous = false;
+            _webSpeechRecognition.interimResults = false;
+            _webSpeechRecognition.lang = 'en-US';
+
+            _webSpeechRecognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                if (transcript) {
+                    log(`🎤 WebSpeech: "${transcript}"`, 'info');
+                    // Remove placeholder
+                    const cw = document.getElementById('chat-window');
+                    cw.querySelectorAll('.text-muted.mt-5').forEach(p => p.remove());
+                    // Add user bubble
+                    const bubble = document.createElement('div');
+                    bubble.className = 'chat-bubble msg-user';
+                    bubble.innerHTML = `<strong>You:</strong><br>${escapeHtml(transcript)}`;
+                    cw.appendChild(bubble);
+                    cw.scrollTop = cw.scrollHeight;
+                    // Send to LLM
+                    sendCommand('message', 'llm_request', { text: transcript });
+                }
+            };
+
+            _webSpeechRecognition.onerror = (event) => {
+                log(`WebSpeech error: ${event.error}`, 'error');
+                resetMicUI();
+            };
+
+            _webSpeechRecognition.onend = () => {
+                resetMicUI();
+            };
+
+            _webSpeechRecognition.start();
+            micBtn.textContent = '🛑';
+            micBtn.classList.replace('btn-danger', 'btn-outline-danger');
+            chatInput.placeholder = 'Listening (browser STT)...';
+            document.getElementById('stt-status').textContent = '🔴 Listening...';
+        }
+
+        function stopWebSpeechSTT() {
+            if (_webSpeechRecognition) {
+                _webSpeechRecognition.stop();
+                _webSpeechRecognition = null;
+            }
+            resetMicUI();
+        }
+
+        function resetMicUI() {
+            micBtn.textContent = '🎤';
+            micBtn.classList.remove('btn-outline-danger');
+            micBtn.classList.add('btn-danger');
+            chatInput.placeholder = 'Type or hold Mic to talk...';
+            document.getElementById('stt-status').textContent = '';
+        }
+
+        // --- Mic button wiring (switches between WebSpeech and OpenAI) ---
+        micBtn.onmousedown = () => {
+            if (getActiveSttProvider() === 'webspeech') {
+                startWebSpeechSTT();
+            } else {
+                OVARPClient.startMic();
+                micBtn.textContent = '🛑';
+                micBtn.classList.replace('btn-danger', 'btn-outline-danger');
+                chatInput.placeholder = 'Recording (OpenAI Whisper)...';
+            }
+        };
+
+        const stopMic = () => {
+            if (getActiveSttProvider() === 'webspeech') {
+                stopWebSpeechSTT();
+            } else {
+                if (!OVARPClient.isRecording) return;
+                OVARPClient.stopMic();
+                resetMicUI();
+            }
+        };
+
+        micBtn.onmouseup = stopMic;
+        micBtn.onmouseleave = stopMic;
+
+        // --- localStorage Persistence ---
+        const STORAGE_KEYS = {
+            chat: 'OVARP_chat_html',
+            avatar: 'OVARP_avatar',
+            llm: 'OVARP_llm_provider',
+            prompt: 'OVARP_system_prompt',
+            tts: 'OVARP_tts_enabled'
+        };
+
+        function saveState() {
+            try {
+                localStorage.setItem(STORAGE_KEYS.chat, document.getElementById('chat-window').innerHTML);
+                localStorage.setItem(STORAGE_KEYS.llm, document.getElementById('llm-provider-select').value);
+                localStorage.setItem(STORAGE_KEYS.prompt, document.getElementById('system-prompt').value);
+                const ttsBtn = document.getElementById('tts-toggle-btn');
+                localStorage.setItem(STORAGE_KEYS.tts, ttsBtn.textContent.includes('ON') ? 'true' : 'false');
+            } catch (e) {
+                console.warn('[Persistence] Save failed:', e);
+            }
+        }
+
+        function restoreState() {
+            try {
+                const chatHtml = localStorage.getItem(STORAGE_KEYS.chat);
+                if (chatHtml) document.getElementById('chat-window').innerHTML = chatHtml;
+
+                const savedPrompt = localStorage.getItem(STORAGE_KEYS.prompt);
+                if (savedPrompt) document.getElementById('system-prompt').value = savedPrompt;
+            } catch (e) {
+                console.warn('[Persistence] Restore failed:', e);
+            }
+        }
+
+        // Auto-save on chat changes (observer)
+        const chatObserver = new MutationObserver(() => saveState());
+        chatObserver.observe(document.getElementById('chat-window'), { childList: true, subtree: true });
+
+        // Boot
+        window.onload = () => {
+            restoreState();
+            initConfig();
+            OVARPClient.connect();
+            connectSysLogsWS();
+            loadMarkerPresets();
+
+            // Respect help banner dismissal preference
+            if (localStorage.getItem('OVARP_hide_help') === '1') {
+                const hb = document.getElementById('help-banner');
+                if (hb) hb.style.display = 'none';
+            }
+
+            // Restore LLM provider after config loads
+            setTimeout(() => {
+                const savedLlm = localStorage.getItem(STORAGE_KEYS.llm);
+                if (savedLlm) {
+                    const sel = document.getElementById('llm-provider-select');
+                    if (sel) { sel.value = savedLlm; }
+                }
+            }, 500);
+        };
+
+        // --- Participant ID → Enable Start Button ---
+        document.getElementById('participant-id').addEventListener('input', function () {
+            const startBtn = document.getElementById('session-start-btn');
+            // Only enable if there's a PID and no session is active (start btn would be hidden otherwise)
+            startBtn.disabled = !this.value.trim();
+        });
+
+        // --- Unsaved Changes Indicator ---
+        let _savedPromptValue = '';
+        const _promptLabel = document.querySelector('label[for="system-prompt"], label.text-warning');
+
+        document.getElementById('system-prompt').addEventListener('input', function () {
+            if (this.value !== _savedPromptValue && !document.getElementById('unsaved-dot')) {
+                const dot = document.createElement('span');
+                dot.id = 'unsaved-dot';
+                dot.className = 'unsaved-dot';
+                dot.title = 'Unsaved changes';
+                if (_promptLabel) _promptLabel.appendChild(dot);
+            } else if (this.value === _savedPromptValue) {
+                const dot = document.getElementById('unsaved-dot');
+                if (dot) dot.remove();
+            }
+        });
+
+        // Hook into save button to clear the dot and update saved value
+        const _origSaveHandler = document.getElementById('save-llm-btn').onclick;
+        document.getElementById('save-llm-btn').onclick = async function () {
+            await _origSaveHandler.call(this);
+            _savedPromptValue = document.getElementById('system-prompt').value;
+            const dot = document.getElementById('unsaved-dot');
+            if (dot) dot.remove();
+        };
+
+        // Capture initial prompt value after config loads
+        setTimeout(() => {
+            _savedPromptValue = document.getElementById('system-prompt').value;
+        }, 1500);
+
+        // --- Avatar Loading ---
+        // Expose avatar loading function to override
+        function loadAvatar(url) {
+            const statusBadge = document.getElementById('avatar-status');
+            statusBadge.style.display = '';
+            statusBadge.textContent = 'Loading...';
+            statusBadge.className = 'badge bg-warning avatar-status';
+
+            OVARPClient.loadAvatar(url)
+                .then(() => {
+                    statusBadge.textContent = 'Ready';
+                    statusBadge.className = 'badge bg-success avatar-status';
+                    setTimeout(() => { statusBadge.style.display = 'none'; }, 3000);
+                    localStorage.setItem('OVARP_avatar', url);
+                })
+                .catch((err) => {
+                    statusBadge.textContent = 'Error';
+                    statusBadge.className = 'badge bg-danger avatar-status';
+                });
+        }
+
+        // Initialize scene
+        const canvas = document.getElementById('avatar-canvas');
+        if (canvas) {
+            // AvatarController.init(canvas); // Removed, assuming OVARPClient handles this or it's not needed here
+
+            // Load saved avatar or default
+            const savedAvatar = localStorage.getItem('OVARP_avatar');
+            const avatarUrl = savedAvatar || '/models/default_avatar.vrm';
+            loadAvatar(avatarUrl);
+
+            // If saved URL matches a select option, set it
+            const avatarSelect = document.getElementById('avatar-select');
+            if (avatarSelect) {
+                for (const opt of avatarSelect.options) {
+                    if (opt.value === avatarUrl) { avatarSelect.value = avatarUrl; break; }
+                }
+            }
+        }
+
+        // Avatar selector dropdown
+        document.getElementById('avatar-select')?.addEventListener('change', (e) => {
+            if (e.target.value) loadAvatar(e.target.value);
+        });
+
+        // Upload custom VRM
+        document.getElementById('avatar-upload')?.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const url = URL.createObjectURL(file);
+            // Add to dropdown
+            const select = document.getElementById('avatar-select');
+            const opt = document.createElement('option');
+            opt.value = url;
+            opt.textContent = `📁 ${file.name}`;
+            select.appendChild(opt);
+            select.value = url;
+            loadAvatar(url);
+        });
+
+        // --- Session Management ---
+        let sessionTimerInterval = null;
+        let sessionStartTime = null;
+        let sessionPausedAccumulator = 0;
+        let sessionPausedAt = null;
+
+        function updateSessionUI(data) {
+            const badge = document.getElementById('session-status-badge');
+            const startBtn = document.getElementById('session-start-btn');
+            const pauseBtn = document.getElementById('session-pause-btn');
+            const resumeBtn = document.getElementById('session-resume-btn');
+            const endBtn = document.getElementById('session-end-btn');
+            const pidInput = document.getElementById('participant-id');
+            const markerCount = document.getElementById('session-marker-count');
+            const summaryEl = document.getElementById('session-summary-content');
+
+            if (!data.active) {
+                badge.textContent = 'No Session';
+                badge.className = 'badge bg-secondary';
+                startBtn.disabled = !document.getElementById('participant-id').value.trim();
+                pauseBtn.disabled = true;
+                pauseBtn.style.display = '';
+                resumeBtn.style.display = 'none';
+                endBtn.disabled = true;
+                pidInput.disabled = false;
+                markerCount.style.display = 'none';
+                clearInterval(sessionTimerInterval);
+                document.getElementById('session-timer').textContent = '00:00';
+                document.getElementById('session-timer-wrap').className = 'timer-idle';
+                summaryEl.innerHTML = '<small>Start a session to see live details here.</small>';
+                document.getElementById('marker-history').innerHTML = '';
+                return;
+            }
+
+            pidInput.disabled = true;
+            pidInput.value = data.participant_id;
+            endBtn.disabled = false;
+            markerCount.style.display = '';
+            // Marker count label (handle singular vs plural)
+            const markerLabel = data.marker_count !== 1 ? 'markers' : 'marker';
+            markerCount.textContent = `📌 ${data.marker_count} ${markerLabel}`;
+
+            if (data.status === 'active') {
+                badge.textContent = `● Active — ${data.participant_id}`;
+                badge.className = 'badge bg-success';
+                pauseBtn.disabled = false;
+                pauseBtn.style.display = '';
+                resumeBtn.style.display = 'none';
+                document.getElementById('session-timer-wrap').className = 'timer-active';
+            } else if (data.status === 'paused') {
+                badge.textContent = `⏸ Paused — ${data.participant_id}`;
+                badge.className = 'badge bg-warning text-dark';
+                pauseBtn.style.display = 'none';
+                resumeBtn.style.display = '';
+                document.getElementById('session-timer-wrap').className = 'timer-paused';
+            }
+
+            // Update session summary
+            summaryEl.innerHTML = `
+                <div class="d-flex flex-column gap-1" style="font-size: 0.9em;">
+                    <div><strong>Session ID:</strong> <code>${data.session_id || 'N/A'}</code></div>
+                    <div><strong>Participant:</strong> ${data.participant_id}</div>
+                    <div><strong>Started:</strong> ${data.started_at || 'N/A'}</div>
+                    <div><strong>Elapsed:</strong> ${Math.round(data.elapsed_seconds || 0)}s</div>
+                    <div><strong>Markers:</strong> ${data.marker_count}</div>
+                </div>`;
+
+            // Render marker history list
+            if (data.markers && data.markers.length > 0) {
+                const historyEl = document.getElementById('marker-history');
+                const markerRows = data.markers.map(m => {
+                    const timeStr = new Date(m.timestamp * 1000).toLocaleTimeString();
+                    return `
+                        <div class="d-flex justify-content-between align-items-center py-1 border-bottom border-secondary" style="font-size: 0.85em;">
+                            <span class="text-warning">📌 ${escapeHtml(m.label)}</span>
+                            <small class="text-muted">${timeStr}</small>
+                        </div>
+                    `;
+                });
+                historyEl.innerHTML = markerRows.join('');
+            }
+        }
+
+        function startSessionTimer() {
+            sessionStartTime = Date.now();
+            sessionPausedAccumulator = 0;
+            sessionPausedAt = null;
+            clearInterval(sessionTimerInterval);
+            sessionTimerInterval = setInterval(() => {
+                let elapsed = (Date.now() - sessionStartTime) / 1000;
+                elapsed -= sessionPausedAccumulator;
+                if (sessionPausedAt) elapsed -= (Date.now() - sessionPausedAt) / 1000;
+                const mins = Math.floor(elapsed / 60).toString().padStart(2, '0');
+                const secs = Math.floor(elapsed % 60).toString().padStart(2, '0');
+                document.getElementById('session-timer').textContent = `${mins}:${secs}`;
+            }, 1000);
+        }
+
+        window.startSession = async function() {
+            const pid = document.getElementById('participant-id').value.trim();
+            if (!pid) { showToast('Enter a Participant ID first', 'warning'); return; }
+            try {
+                const resp = await fetch('/api/session/start', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ participant_id: pid })
+                });
+                const data = await resp.json();
+                updateSessionUI(data);
+                startSessionTimer();
+                showToast(`Session started for ${pid}`, 'success');
+                log(`🧪 Session started for ${pid}`, 'info');
+            } catch (e) { log(`Session start failed: ${e}`, 'error'); }
+        };
+
+        window.pauseSession = async function() {
+            try {
+                const resp = await fetch('/api/session/pause', { method: 'POST' });
+                const data = await resp.json();
+                updateSessionUI(data);
+                sessionPausedAt = Date.now();
+                log('⏸ Session paused', 'info');
+            } catch (e) { log(`Pause failed: ${e}`, 'error'); }
+        };
+
+        window.resumeSession = async function() {
+            try {
+                const resp = await fetch('/api/session/resume', { method: 'POST' });
+                const data = await resp.json();
+                updateSessionUI(data);
+                if (sessionPausedAt) {
+                    sessionPausedAccumulator += (Date.now() - sessionPausedAt) / 1000;
+                    sessionPausedAt = null;
+                }
+                log('▶ Session resumed', 'info');
+            } catch (e) { log(`Resume failed: ${e}`, 'error'); }
+        };
+
+        window.endSession = async function() {
+            if (!confirm('End this experiment session?')) return;
+            try {
+                const resp = await fetch('/api/session/end', { method: 'POST' });
+                const data = await resp.json();
+                updateSessionUI({ active: false });
+
+                // Safely get marker count from the response
+                const markerTotal = data.session?.markers?.length || 0;
+                log(`⏹ Session ended | markers: ${markerTotal}`, 'info');
+                showToast(`Session ended — ${markerTotal} markers recorded`, 'info');
+            } catch (e) { log(`End failed: ${e}`, 'error'); }
+        };
+
+        window.addMarker = async function() {
+            const label = document.getElementById('marker-label').value.trim();
+            if (!label) return;
+            try {
+                const resp = await fetch('/api/session/marker', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ label })
+                });
+                const data = await resp.json();
+                document.getElementById('marker-label').value = '';
+                showToast(`Marker: "${label}"`, 'info');
+                log(`📌 Marker added: "${label}"`, 'info');
+                // Refresh session state (includes markers)
+                const statusResp = await fetch('/api/session/status');
+                const statusData = await statusResp.json();
+                updateSessionUI(statusData);
+                // Flash the marker button green briefly for feedback
+                const markerBtn = document.querySelector('#marker-row .btn-warning');
+                if (markerBtn) {
+                    markerBtn.className = 'btn btn-success btn-sm';
+                    markerBtn.textContent = '✅';
+                    setTimeout(() => {
+                        markerBtn.className = 'btn btn-warning btn-sm';
+                        markerBtn.textContent = 'Mark';
+                    }, 600);
+                }
+            } catch (e) { log(`Marker failed: ${e}`, 'error'); }
+        };
+
+        // Enter key for marker input
+        document.getElementById('marker-label')?.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') window.addMarker();
+        });
+
+        // --- Pre-programmed Marker Presets ---
+        async function loadMarkerPresets() {
+            try {
+                const resp = await fetch('/api/session/markers/presets');
+                const data = await resp.json();
+                const container = document.getElementById('marker-presets');
+                if (!container) return;
+                container.innerHTML = '';
+                if (!data.presets || data.presets.length === 0) {
+                    container.innerHTML = '<small class="text-muted">No preset markers configured in config.yaml</small>';
+                    return;
+                }
+                data.presets.forEach(preset => {
+                    const btn = document.createElement('button');
+                    btn.className = 'btn btn-sm';
+                    btn.style.cssText = `border: 1px solid ${preset.color || '#ffc107'}; color: ${preset.color || '#ffc107'}; background: transparent; font-size: 0.82em; transition: all 0.15s;`;
+                    btn.textContent = preset.label;
+                    btn.title = preset.description || `Fire "${preset.id}" marker`;
+                    btn.setAttribute('data-preset-id', preset.id);
+                    btn.onmouseenter = () => { btn.style.background = preset.color || '#ffc107'; btn.style.color = '#000'; };
+                    btn.onmouseleave = () => { btn.style.background = 'transparent'; btn.style.color = preset.color || '#ffc107'; };
+                    btn.onclick = () => addPresetMarker(preset.id, preset.label, preset.color, btn);
+                    container.appendChild(btn);
+                });
+            } catch (e) {
+                console.warn('Could not load marker presets:', e);
+            }
+        }
+
+        async function addPresetMarker(id, label, color, btn) {
+            try {
+                const resp = await fetch('/api/session/marker', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ label: id, metadata: { preset: true } })
+                });
+                const data = await resp.json();
+                if (data.error) { showToast(data.error, 'warning'); return; }
+                showToast(`Marker: "${label}"`, 'info');
+                log(`📌 Preset marker: "${id}"`, 'info');
+                // Visual flash
+                if (btn) {
+                    const origText = btn.textContent;
+                    btn.style.background = color || '#ffc107';
+                    btn.style.color = '#000';
+                    btn.textContent = '✅ ' + label;
+                    setTimeout(() => {
+                        btn.style.background = 'transparent';
+                        btn.style.color = color || '#ffc107';
+                        btn.textContent = origText;
+                    }, 600);
+                }
+                // Refresh session state
+                const statusResp = await fetch('/api/session/status');
+                const statusData = await statusResp.json();
+                updateSessionUI(statusData);
+            } catch (e) { log(`Preset marker failed: ${e}`, 'error'); }
+        }
+
+        // --- Experimental Conditions (deprecated — use Agent Profiles instead) ---
+        // Legacy conditions are auto-migrated to profiles at startup.
+        // The API endpoints still exist for backward compatibility.
+
+        // --- Scenario Runner ---
+        async function loadScenarios() {
+            try {
+                const resp = await fetch('/api/scenarios');
+                const data = await resp.json();
+                const select = document.getElementById('scenario-select');
+                select.innerHTML = '<option value="">Select a scenario...</option>';
+                (data.scenarios || []).forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = s.id;
+                    opt.textContent = `${s.name} (${s.step_count} steps)`;
+                    select.appendChild(opt);
+                });
+            } catch (e) {
+                log(`Failed to load scenarios: ${e}`, 'error');
+            }
+        }
+
+        function updateScenarioUI(data) {
+            const badge = document.getElementById('scenario-status-badge');
+            const activeEl = document.getElementById('scenario-active-step');
+            const idleEl = document.getElementById('scenario-idle-msg');
+            const selectRow = document.getElementById('scenario-select-row');
+
+            if (!data.active) {
+                badge.textContent = 'No Scenario';
+                badge.className = 'badge bg-secondary';
+                activeEl.style.display = 'none';
+                idleEl.style.display = '';
+                selectRow.style.display = '';
+                return;
+            }
+
+            badge.textContent = `Step ${data.current_step}/${data.total_steps}`;
+            badge.className = 'badge bg-warning text-dark';
+            activeEl.style.display = '';
+            idleEl.style.display = 'none';
+            selectRow.style.display = 'none';
+
+            // Progress bar
+            document.getElementById('scenario-progress-bar').style.width = `${data.progress_pct}%`;
+            document.getElementById('scenario-progress-text').textContent = `Step ${data.current_step} / ${data.total_steps}`;
+            document.getElementById('scenario-step-id').textContent = data.step?.id || '';
+            document.getElementById('scenario-instruction').innerHTML = escapeHtml(data.step?.instruction || '');
+
+            // Show badges for any auto-applied features on this step
+            let badges = '';
+            if (data.step?.condition) {
+                badges += `<span class="badge bg-info me-1">🧬 ${data.step.condition}</span>`;
+            }
+            if (data.step?.auto_marker) {
+                badges += `<span class="badge bg-warning text-dark me-1">📌 ${data.step.auto_marker}</span>`;
+            }
+            if (data.step?.action) {
+                badges += `<span class="badge bg-success me-1">⚡ ${JSON.stringify(data.step.action)}</span>`;
+            }
+            document.getElementById('scenario-badges').innerHTML = badges;
+        }
+
+        window.loadScenario = async function() {
+            const scenarioId = document.getElementById('scenario-select').value;
+            if (!scenarioId) { alert('Select a scenario first'); return; }
+            try {
+                const resp = await fetch('/api/scenarios/load', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ scenario_id: scenarioId })
+                });
+                const data = await resp.json();
+                if (data.error) {
+                    log(`Scenario error: ${data.error}`, 'error');
+                    return;
+                }
+                updateScenarioUI(data);
+                log(`📋 Scenario loaded: ${data.scenario_name}`, 'info');
+
+                // Refresh session UI in case markers were auto-added
+                try {
+                    const statusResp = await fetch('/api/session/status');
+                    updateSessionUI(await statusResp.json());
+                } catch (ignored) { /* session may not be active */ }
+            } catch (e) {
+                log(`Scenario load failed: ${e}`, 'error');
+            }
+        };
+
+        window.advanceScenario = async function() {
+            try {
+                const resp = await fetch('/api/scenarios/advance', { method: 'POST' });
+                const data = await resp.json();
+                if (data.status === 'completed') {
+                    updateScenarioUI({ active: false });
+                    log('✅ Scenario completed!', 'info');
+                } else if (data.error) {
+                    log(`Scenario error: ${data.error}`, 'error');
+                } else {
+                    updateScenarioUI(data);
+                    log(`▶ Scenario step ${data.current_step}/${data.total_steps}: ${data.step?.id}`, 'info');
+                }
+
+                // Refresh session UI in case markers/conditions were auto-applied
+                try {
+                    const statusResp = await fetch('/api/session/status');
+                    updateSessionUI(await statusResp.json());
+                } catch (ignored) { /* session may not be active */ }
+            } catch (e) {
+                log(`Scenario advance failed: ${e}`, 'error');
+            }
+        };
+
+        window.stopScenario = async function() {
+            if (!confirm('Stop the active scenario?')) return;
+            try {
+                await fetch('/api/scenarios/stop', { method: 'POST' });
+                updateScenarioUI({ active: false });
+                log('⏹ Scenario stopped', 'info');
+            } catch (e) { log(`Scenario stop failed: ${e}`, 'error'); }
+        };
+
+        // Load scenarios on init
+        setTimeout(loadScenarios, 900);
+        setTimeout(async () => {
+            try {
+                const resp = await fetch('/api/session/status');
+                const data = await resp.json();
+                updateSessionUI(data);
+                if (data.active) {
+                    // Reconstruct the timer from server elapsed time
+                    sessionStartTime = Date.now() - (data.elapsed_seconds * 1000);
+                    sessionPausedAccumulator = 0;
+                    sessionPausedAt = data.status === 'paused' ? Date.now() : null;
+                    clearInterval(sessionTimerInterval);
+                    sessionTimerInterval = setInterval(() => {
+                        let elapsed = (Date.now() - sessionStartTime) / 1000;
+                        if (sessionPausedAt) elapsed -= (Date.now() - sessionPausedAt) / 1000;
+                        const mins = Math.floor(elapsed / 60).toString().padStart(2, '0');
+                        const secs = Math.floor(elapsed % 60).toString().padStart(2, '0');
+                        document.getElementById('session-timer').textContent = `${mins}:${secs}`;
+                    }, 1000);
+                }
+            } catch (e) { }
+        }, 600);
+
+        // --- Toast Notification System ---
+        let _toastTimeout = null;
+        function showToast(message, type = 'info') {
+            let toast = document.getElementById('OVARP-toast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'OVARP-toast';
+                toast.className = 'OVARP-toast';
+                document.body.appendChild(toast);
+            }
+            clearTimeout(_toastTimeout);
+            toast.className = `OVARP-toast ${type}`;
+            toast.textContent = message;
+            requestAnimationFrame(() => {
+                toast.classList.add('show');
+            });
+            _toastTimeout = setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // --- Agent Profiles ---
+        let _selectedProfileId = null;
+
+        // Gender icon helper
+        function profileGenderIcon(g) {
+            if (g === 'masculine') return '\u2642\uFE0F';
+            if (g === 'feminine') return '\u2640\uFE0F';
+            return '\u26A7\uFE0F';
+        }
+
+        async function loadProfiles() {
+            try {
+                const resp = await fetch('/api/profiles');
+                const data = await resp.json();
+                const list = document.getElementById('profiles-list');
+                list.innerHTML = '';
+
+                if (!data.profiles || data.profiles.length === 0) {
+                    list.innerHTML = '<div class="text-center text-muted p-3"><small>No profiles found. Add YAML files to the profiles/ directory.</small></div>';
+                    return;
+                }
+
+                data.profiles.forEach(p => {
+                    const icon = profileGenderIcon(p.gender);
+                    const card = document.createElement('div');
+                    card.className = 'card mb-2 bg-dark border-secondary profile-card';
+                    card.style.cursor = 'pointer';
+                    card.dataset.profileId = p.id;
+                    card.onclick = () => {
+                        // Remove selected from all cards
+                        document.querySelectorAll('.profile-card').forEach(c => c.classList.remove('selected'));
+                        card.classList.add('selected');
+                        showProfileDetail(p.id);
+                    };
+                    card.innerHTML = `
+                        <div class="card-body p-2">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong style="color: #e879f9;">${icon} ${p.name}</strong>
+                                    <br><small class="text-muted">${p.role || 'No role defined'}</small>
+                                </div>
+                                <div class="text-end">
+                                    <small class="text-muted">${p.voice_id || '—'}</small>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    list.appendChild(card);
+                });
+            } catch (e) {
+                console.warn('Failed to load profiles:', e);
+            }
+        }
+
+        async function showProfileDetail(profileId) {
+            _selectedProfileId = profileId;
+            document.getElementById('apply-profile-btn').disabled = false;
+
+            try {
+                const resp = await fetch(`/api/profiles/${profileId}`);
+                const p = await resp.json();
+                const body = document.getElementById('profile-detail-body');
+                document.getElementById('profile-detail-title').textContent = `${p.name} (${p.id})`;
+
+                let html = '';
+
+                // Identity section
+                if (p.identity) {
+                    const i = p.identity;
+                    html += `<h6 class="text-info border-bottom border-secondary pb-1 mt-2">Identity</h6>`;
+                    html += `<table class="table table-sm table-dark mb-3"><tbody>`;
+                    if (i.age) html += `<tr><td class="text-muted" style="width:30%">Age</td><td>${i.age}</td></tr>`;
+                    if (i.gender) html += `<tr><td class="text-muted">Gender</td><td>${profileGenderIcon(i.gender)} ${i.gender}</td></tr>`;
+                    if (i.role) html += `<tr><td class="text-muted">Role</td><td>${i.role}</td></tr>`;
+                    html += `</tbody></table>`;
+                    if (i.backstory) {
+                        html += `<div class="p-2 mb-3 rounded" style="background: #1a1a2e; font-size: 0.9em;">${i.backstory}</div>`;
+                    }
+                }
+
+                // Voice section
+                if (p.voice) {
+                    html += `<h6 class="text-info border-bottom border-secondary pb-1">Voice</h6>`;
+                    html += `<table class="table table-sm table-dark mb-3"><tbody>`;
+                    html += `<tr><td class="text-muted" style="width:30%">Provider</td><td>${p.voice.provider}</td></tr>`;
+                    html += `<tr><td class="text-muted">Voice ID</td><td>${p.voice.voice_id}</td></tr>`;
+                    html += `<tr><td class="text-muted">Speed</td><td>${p.voice.speed}x</td></tr>`;
+                    html += `</tbody></table>`;
+                }
+
+                // Personality section
+                if (p.personality) {
+                    html += `<h6 class="text-info border-bottom border-secondary pb-1">Personality</h6>`;
+                    html += `<div class="d-flex gap-2 mb-2">`;
+                    html += `<span class="badge bg-secondary">Empathy: ${p.personality.empathy}</span>`;
+                    html += `<span class="badge bg-secondary">Formality: ${p.personality.formality}</span>`;
+                    html += `<span class="badge bg-secondary">Self-disclosure: ${p.personality.self_disclosure}</span>`;
+                    html += `</div>`;
+                    html += `<div class="p-2 mb-3 rounded" style="background: #1a1a2e; font-size: 0.85em; font-family: monospace; white-space: pre-wrap;">${p.personality.system_prompt}</div>`;
+                }
+
+                // Guardrails section
+                if (p.guardrails && p.guardrails.rules && p.guardrails.rules.length > 0) {
+                    html += `<h6 class="text-danger border-bottom border-secondary pb-1">Guardrails</h6>`;
+                    html += `<ul class="mb-2" style="font-size: 0.9em;">`;
+                    p.guardrails.rules.forEach(r => {
+                        html += `<li>${r}</li>`;
+                    });
+                    html += `</ul>`;
+                    if (p.guardrails.max_response_words) {
+                        html += `<small class="text-muted">Max response: ${p.guardrails.max_response_words} words</small>`;
+                    }
+                }
+
+                // Avatar
+                if (p.avatar) {
+                    html += `<h6 class="text-info border-bottom border-secondary pb-1 mt-3">Avatar</h6>`;
+                    html += `<span class="badge bg-primary">${p.avatar}</span>`;
+                }
+
+                body.innerHTML = html;
+            } catch (e) {
+                console.warn('Failed to load profile detail:', e);
+            }
+        }
+
+        // Apply profile button handler
+        let _previousProfileId = null;
+        let _previousProfileName = null;
+        document.getElementById('apply-profile-btn').onclick = async function () {
+            if (!_selectedProfileId) return;
+            const agentId = document.getElementById('profile-agent-select').value;
+
+            this.disabled = true;
+            this.textContent = 'Applying...';
+            try {
+                const resp = await fetch('/api/profiles/apply', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        profile_id: _selectedProfileId,
+                        agent_id: agentId,
+                    })
+                });
+                const data = await resp.json();
+                this.textContent = '\u2705 Applied!';
+                showToast(`Profile "${data.profile_name}" applied to ${agentId}`, 'success');
+                // Update the session badge
+                const badge = document.getElementById('active-profile-session-badge');
+                if (badge) { badge.textContent = data.profile_name; badge.className = 'active-profile-badge'; }
+                log(`Profile '${data.profile_name}' applied to ${agentId}`, 'info');
+
+                // Show revert link if there was a previously applied profile
+                const revertContainer = document.getElementById('profile-revert-container');
+                if (revertContainer && _previousProfileId && _previousProfileId !== _selectedProfileId) {
+                    revertContainer.innerHTML = `<span class="revert-link" id="revert-profile-link">↩ Revert to ${_previousProfileName}</span>`;
+                    document.getElementById('revert-profile-link').onclick = () => {
+                        _selectedProfileId = _previousProfileId;
+                        document.getElementById('apply-profile-btn').click();
+                    };
+                }
+
+                // Track for next revert
+                _previousProfileId = _selectedProfileId;
+                _previousProfileName = data.profile_name;
+
+                setTimeout(() => {
+                    this.textContent = 'Apply Profile';
+                    this.disabled = false;
+                }, 1500);
+            } catch (e) {
+                this.textContent = 'Apply Profile';
+                this.disabled = false;
+                showToast('Could not apply profile. Is the server running?', 'error');
+                log(`Failed to apply profile: ${e}`, 'error');
+            }
+        };
+
+        // Populate the agent selector on the profiles tab
+        setTimeout(async () => {
+            try {
+                const resp = await fetch('/api/config');
+                const config = await resp.json();
+                const select = document.getElementById('profile-agent-select');
+                // Keep the "All Agents" option, add each agent
+                config.agents.forEach(a => {
+                    select.add(new Option(`${a.name} (${a.id})`, a.id));
+                });
+            } catch (e) { }
+            // Load profiles
+            loadProfiles();
+        }, 1000);
+
+    </script>
+</body>
+
+</html>

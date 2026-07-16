@@ -1,0 +1,22 @@
+{"session_id": "20260628_085520", "file": "data/sessions/session_20260628_085520.jsonl", "event": "Telemetry Session Started", "timestamp": "2026-06-28T14:55:20.867937Z"}
+{"transport_type": "ZMQTransport", "event": "Transport registered to Router", "timestamp": "2026-06-28T14:55:21.641050Z"}
+{"transport_type": "WebSocketTransport", "event": "Transport registered to Router", "timestamp": "2026-06-28T14:55:21.641141Z"}
+{"event": "GEMINI_API_KEY environment variable not set.", "timestamp": "2026-06-28T14:55:21.670181Z"}
+{"event": "GEMINI_API_KEY environment variable not set.", "timestamp": "2026-06-28T14:55:21.670275Z"}
+{"experiment": "Pilot Emotion Study", "event": "Starting OpenVirtualAgentResearchPlatform Server...", "timestamp": "2026-06-28T14:55:21.711085Z"}
+{"address": "tcp://*:5555", "event": "ZMQ Publisher bound", "timestamp": "2026-06-28T14:55:21.711380Z"}
+{"address": "tcp://*:5556", "event": "ZMQ Subscriber bound", "timestamp": "2026-06-28T14:55:21.711479Z"}
+{"event": "ZMQ Transport started.", "timestamp": "2026-06-28T14:55:21.711510Z"}
+{"event": "WebSocket Transport initialized (Awaiting FastAPI mount).", "timestamp": "2026-06-28T14:55:21.711530Z"}
+{"event": "GEMINI_API_KEY environment variable not set.", "timestamp": "2026-06-28T14:55:31.510811Z"}
+{"client_id": "woz_console", "total_clients": 1, "event": "WebSocket client connected", "timestamp": "2026-06-28T15:03:28.807041Z"}
+{"event": "GEMINI_API_KEY environment variable not set.", "timestamp": "2026-06-28T15:03:29.739394Z"}
+{"client_id": "woz_console", "total_clients": 0, "event": "WebSocket client disconnected", "timestamp": "2026-06-28T15:03:33.818008Z"}
+{"client_id": "woz_console", "total_clients": 1, "event": "WebSocket client connected", "timestamp": "2026-06-28T15:54:10.211804Z"}
+{"event": "GEMINI_API_KEY environment variable not set.", "timestamp": "2026-06-28T15:54:11.073733Z"}
+{"client_id": "woz_console", "total_clients": 0, "event": "WebSocket client disconnected", "timestamp": "2026-06-28T15:55:52.088146Z"}
+{"event": "Stopping ZMQ Transport...", "timestamp": "2026-06-28T15:55:52.194812Z"}
+{"event": "ZMQ Transport stopped.", "timestamp": "2026-06-28T15:55:52.196056Z"}
+{"event": "Stopping WebSocket Transport...", "timestamp": "2026-06-28T15:55:52.196170Z"}
+{"event": "WebSocket Transport stopped.", "timestamp": "2026-06-28T15:55:52.196242Z"}
+{"event": "OVARP Server fully stopped.", "timestamp": "2026-06-28T15:55:52.196299Z"}

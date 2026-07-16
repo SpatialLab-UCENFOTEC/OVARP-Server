@@ -1,0 +1,486 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OVARP Server | Headless Dashboard</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0F172A;
+            --surface-color: #1E293B;
+            --surface-hover: #334155;
+            --text-primary: #F8FAFC;
+            --text-secondary: #94A3B8;
+            --accent-color: #3B82F6;
+            --success-color: #10B981;
+            --warning-color: #F59E0B;
+            --danger-color: #EF4444;
+            --border-color: #334155;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header / Navbar */
+        header {
+            background-color: var(--surface-color);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .brand-container {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .brand-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.025em;
+            margin: 0;
+        }
+
+        .badge-headless {
+            background-color: var(--accent-color);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0.25rem 0.5rem;
+            border-radius: 9999px;
+            text-transform: uppercase;
+        }
+
+        .status-container {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--danger-color);
+            transition: background-color 0.3s ease;
+        }
+
+        .status-dot.connected {
+            background-color: var(--success-color);
+            box-shadow: 0 0 8px var(--success-color);
+        }
+
+        /* Main Content */
+        main {
+            flex: 1;
+            padding: 2rem;
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 2rem;
+            overflow: hidden;
+        }
+
+        /* Sidebar - System Config */
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .card {
+            background-color: var(--surface-color);
+            border: 1px solid var(--border-color);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-title {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-top: 0;
+            margin-bottom: 1rem;
+        }
+
+        .config-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .config-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .config-label {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .config-value {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .config-value.accent {
+            color: var(--accent-color);
+        }
+
+        /* Logs Panel */
+        .logs-panel {
+            background-color: #0b1121;
+            /* Darker than surface for terminal feel */
+            border: 1px solid var(--border-color);
+            border-radius: 0.75rem;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
+        }
+
+        .logs-header {
+            background-color: var(--surface-color);
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logs-header h2 {
+            margin: 0;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .btn-clear {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 0.25rem 0.75rem;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-clear:hover {
+            background-color: var(--surface-hover);
+            color: var(--text-primary);
+        }
+
+        .logs-container {
+            flex: 1;
+            padding: 1rem;
+            overflow-y: auto;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .log-entry {
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            word-wrap: break-word;
+        }
+
+        .log-entry:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .log-time {
+            color: #64748B;
+            margin-right: 0.5rem;
+        }
+
+        .log-level {
+            font-weight: 700;
+            margin-right: 0.5rem;
+            min-width: 50px;
+            display: inline-block;
+        }
+
+        .log-name {
+            color: var(--accent-color);
+            margin-right: 0.5rem;
+        }
+
+        .level-INFO {
+            color: var(--success-color);
+        }
+
+        .level-WARNING {
+            color: var(--warning-color);
+        }
+
+        .level-ERROR {
+            color: var(--danger-color);
+        }
+
+        .level-DEBUG {
+            color: #8B5CF6;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            main {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr;
+            }
+
+            .sidebar {
+                flex-direction: row;
+                flex-wrap: wrap;
+            }
+
+            .card {
+                flex: 1;
+                min-width: 250px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <div class="brand-container">
+            <h1 class="brand-title">OVARP Server</h1>
+            <span class="badge-headless">Headless Mode</span>
+        </div>
+        <div class="status-container">
+            <div class="status-item">
+                <div class="status-dot" id="ws-dot"></div>
+                <span id="ws-status">Disconnected</span>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <div class="sidebar">
+            <div class="card">
+                <h3 class="card-title">System Status</h3>
+                <ul class="config-list">
+                    <li class="config-item">
+                        <span class="config-label">Experiment Name</span>
+                        <span class="config-value" id="cfg-name">-</span>
+                    </li>
+                    <li class="config-item">
+                        <span class="config-label">Version</span>
+                        <span class="config-value" id="cfg-version">-</span>
+                    </li>
+                    <li class="config-item">
+                        <span class="config-label">Transports</span>
+                        <span class="config-value accent">ZMQ + WebSockets</span>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <h3 class="card-title">AI Pipeline</h3>
+                <ul class="config-list">
+                    <li class="config-item">
+                        <span class="config-label">Active LLM</span>
+                        <span class="config-value" id="ai-llm">-</span>
+                    </li>
+                    <li class="config-item">
+                        <span class="config-label">TTS Provider</span>
+                        <span class="config-value" id="ai-tts-type">-</span>
+                    </li>
+                    <li class="config-item">
+                        <span class="config-label">Speech Output</span>
+                        <span class="config-value" id="ai-tts-status">-</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="logs-panel">
+            <div class="logs-header">
+                <h2>Real-time Telemetry & Logs</h2>
+                <button class="btn-clear" onclick="clearLogs()">Clear</button>
+            </div>
+            <div class="logs-container" id="logs-container">
+                <!-- Logs injected here -->
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // DOM Elements
+        const wsDot = document.getElementById('ws-dot');
+        const wsStatus = document.getElementById('ws-status');
+        const logsContainer = document.getElementById('logs-container');
+
+        // Data fetching
+        async function fetchConfig() {
+            try {
+                // Fetch Base Config
+                const resConfig = await fetch('/api/config');
+                const config = await resConfig.json();
+                document.getElementById('cfg-name').textContent = config.experiment.name;
+                document.getElementById('cfg-version').textContent = 'v' + config.experiment.version;
+
+                // Fetch AI Config
+                const resLLM = await fetch('/api/llm/config');
+                const llm = await resLLM.json();
+                document.getElementById('ai-llm').textContent = llm.active_provider.toUpperCase();
+                document.getElementById('ai-tts-type').textContent = llm.active_provider.toUpperCase(); // TTS follows LLM
+
+                const ttsStatusEl = document.getElementById('ai-tts-status');
+                if (llm.tts_enabled) {
+                    ttsStatusEl.textContent = 'Enabled';
+                    ttsStatusEl.style.color = 'var(--success-color)';
+                } else {
+                    ttsStatusEl.textContent = 'Disabled';
+                    ttsStatusEl.style.color = 'var(--warning-color)';
+                }
+            } catch (error) {
+                console.error("Failed to fetch config:", error);
+            }
+        }
+
+        // WebSocket Logging
+        let socket;
+        function connectWebSocket() {
+            const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+            const wsUri = `${protocol}//${window.location.host}/ws/logs`;
+
+            socket = new WebSocket(wsUri);
+
+            socket.onopen = () => {
+                wsDot.classList.add('connected');
+                wsStatus.textContent = 'Streaming';
+                addLog('SYSTEM', 'INFO', 'Connected to telemetry stream.');
+            };
+
+            socket.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+
+                    // The backend already formats the string nicely in `data.message`, 
+                    // but we can parse it to colorize the level.
+                    // Format from backend: "2026-02-26 12:00:00 - [INFO] - logger_name - text"
+
+                    const timeMatch = data.message.match(/^[\d-]+\s[\d:,]+/);
+                    const timeStr = timeMatch ? timeMatch[0] : new Date().toLocaleTimeString();
+
+                    // Extract the actual message body (removing timestamp and level tag)
+                    let msgBody = data.message;
+                    if (timeMatch) msgBody = msgBody.substring(timeMatch[0].length).trim();
+                    if (msgBody.startsWith('- ')) msgBody = msgBody.substring(2).trim();
+
+                    // Remove the [LEVEL] tag if it matches
+                    const levelRegex = new RegExp(`^\\[${data.level}\\]\\s*-\\s*`);
+                    msgBody = msgBody.replace(levelRegex, "");
+
+                    // Remove logger name
+                    const nameRegex = new RegExp(`^${data.name}\\s*-\\s*`);
+                    msgBody = msgBody.replace(nameRegex, "");
+
+                    addLog(data.name, data.level, msgBody, timeStr);
+                } catch (e) {
+                    addLog('RAW', 'DEBUG', event.data);
+                }
+            };
+
+            socket.onclose = () => {
+                wsDot.classList.remove('connected');
+                wsStatus.textContent = 'Disconnected';
+                addLog('SYSTEM', 'WARNING', 'Connection lost. Reconnecting in 3s...');
+                setTimeout(connectWebSocket, 3000);
+            };
+
+            socket.onerror = (error) => {
+                console.error("WebSocket Error:", error);
+            };
+        }
+
+        function addLog(name, level, message, timeText) {
+            const time = timeText || new Date().toLocaleTimeString();
+
+            const div = document.createElement('div');
+            div.className = 'log-entry';
+
+            div.innerHTML = `
+                <span class="log-time">[${time}]</span>
+                <span class="log-level level-${level}">${level}</span>
+                <span class="log-name">[${name}]</span>
+                <span class="log-message">${escapeHtml(message)}</span>
+            `;
+
+            logsContainer.appendChild(div);
+
+            // Auto-scroll to bottom
+            logsContainer.scrollTop = logsContainer.scrollHeight;
+
+            // Keep only latest 200 logs to prevent memory leaks in the browser
+            if (logsContainer.children.length > 200) {
+                logsContainer.removeChild(logsContainer.firstChild);
+            }
+        }
+
+        function clearLogs() {
+            logsContainer.innerHTML = '';
+            addLog('SYSTEM', 'INFO', 'Logs cleared.');
+        }
+
+        // XSS Protection
+        function escapeHtml(unsafe) {
+            return unsafe
+                .toString()
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchConfig();
+            connectWebSocket();
+
+            // Periodically refresh config in case settings change
+            setInterval(fetchConfig, 10000);
+        });
+    </script>
+</body>
+
+</html>

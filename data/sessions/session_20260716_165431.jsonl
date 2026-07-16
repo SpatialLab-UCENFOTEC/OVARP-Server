@@ -1,0 +1,15 @@
+{"session_id": "20260716_165431", "file": "data/sessions/session_20260716_165431.jsonl", "event": "Telemetry Session Started", "timestamp": "2026-07-16T22:54:31.573793Z"}
+{"transport_type": "ZMQTransport", "event": "Transport registered to Router", "timestamp": "2026-07-16T22:54:33.083536Z"}
+{"transport_type": "WebSocketTransport", "event": "Transport registered to Router", "timestamp": "2026-07-16T22:54:33.083662Z"}
+{"event": "GEMINI_API_KEY environment variable not set.", "timestamp": "2026-07-16T22:54:33.124756Z"}
+{"event": "GEMINI_API_KEY environment variable not set.", "timestamp": "2026-07-16T22:54:33.124890Z"}
+{"experiment": "Pilot Emotion Study", "event": "Starting OpenVirtualAgentResearchPlatform Server...", "timestamp": "2026-07-16T22:54:33.179065Z"}
+{"address": "tcp://*:5555", "event": "ZMQ Publisher bound", "timestamp": "2026-07-16T22:54:33.179416Z"}
+{"address": "tcp://*:5556", "event": "ZMQ Subscriber bound", "timestamp": "2026-07-16T22:54:33.179550Z"}
+{"event": "ZMQ Transport started.", "timestamp": "2026-07-16T22:54:33.179604Z"}
+{"event": "WebSocket Transport initialized (Awaiting FastAPI mount).", "timestamp": "2026-07-16T22:54:33.179628Z"}
+{"client_id": "woz_console", "total_clients": 1, "event": "WebSocket client connected", "timestamp": "2026-07-16T22:54:37.469145Z"}
+{"event": "GEMINI_API_KEY environment variable not set.", "timestamp": "2026-07-16T22:54:38.864017Z"}
+{"client_id": "woz_console", "total_clients": 0, "event": "WebSocket client disconnected", "timestamp": "2026-07-16T22:54:39.250712Z"}
+{"client_id": "woz_console", "total_clients": 1, "event": "WebSocket client connected", "timestamp": "2026-07-16T22:54:54.178915Z"}
+{"event": "GEMINI_API_KEY environment variable not set.", "timestamp": "2026-07-16T22:54:55.130314Z"}

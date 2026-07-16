@@ -1,0 +1,15 @@
+{"session_id": "20260323_101306", "file": "data/sessions/session_20260323_101306.jsonl", "event": "Telemetry Session Started", "timestamp": "2026-03-23T16:13:06.857439Z"}
+{"transport_type": "ZMQTransport", "event": "Transport registered to Router", "timestamp": "2026-03-23T16:13:07.380135Z"}
+{"transport_type": "WebSocketTransport", "event": "Transport registered to Router", "timestamp": "2026-03-23T16:13:07.380182Z"}
+{"experiment": "Pilot Emotion Study", "event": "Starting OpenVirtualAgentFramework Server...", "timestamp": "2026-03-23T16:13:07.433876Z"}
+{"address": "tcp://*:5555", "event": "ZMQ Publisher bound", "timestamp": "2026-03-23T16:13:07.434045Z"}
+{"address": "tcp://*:5556", "event": "ZMQ Subscriber bound", "timestamp": "2026-03-23T16:13:07.434113Z"}
+{"event": "ZMQ Transport started.", "timestamp": "2026-03-23T16:13:07.434129Z"}
+{"event": "WebSocket Transport initialized (Awaiting FastAPI mount).", "timestamp": "2026-03-23T16:13:07.434147Z"}
+{"client_id": "quest_vr_01", "total_clients": 1, "event": "WebSocket client connected", "timestamp": "2026-03-23T16:15:33.062841Z"}
+{"client_id": "quest_vr_01", "total_clients": 0, "event": "WebSocket client disconnected", "timestamp": "2026-03-23T16:15:57.334310Z"}
+{"event": "Stopping ZMQ Transport...", "timestamp": "2026-03-23T16:15:57.435584Z"}
+{"event": "ZMQ Transport stopped.", "timestamp": "2026-03-23T16:15:57.436738Z"}
+{"event": "Stopping WebSocket Transport...", "timestamp": "2026-03-23T16:15:57.436839Z"}
+{"event": "WebSocket Transport stopped.", "timestamp": "2026-03-23T16:15:57.436874Z"}
+{"event": "OVAF Server fully stopped.", "timestamp": "2026-03-23T16:15:57.436916Z"}
