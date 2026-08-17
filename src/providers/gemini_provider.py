@@ -52,11 +52,19 @@ class GeminiClientSingleton:
 
         return cls._client
 
+    @classmethod
+    def reset_client(cls):
+        """Drop the cached client so a new API key takes effect."""
+        cls._client = None
+
 class GeminiLLMProvider(BaseLLMProvider):
     """Google Gemini Language Model utilizing Native Tool Calling for configuration actions."""
     def __init__(self, model_name: str = "gemini-2.5-flash"):
         self.model = model_name
-        self.client = GeminiClientSingleton.get_client()
+
+    @property
+    def client(self):
+        return GeminiClientSingleton.get_client()
 
     def _build_tools_schema(self) -> list:
         """Dynamically build Gemini Tool Schema from the config_manager."""
@@ -213,7 +221,10 @@ class GeminiTTSProvider(BaseTTSProvider):
     def __init__(self, model_name: str = "gemini-2.5-flash-preview-tts", voice: str = "Kore"):
         self.model = model_name
         self.voice = voice
-        self.client = GeminiClientSingleton.get_client()
+
+    @property
+    def client(self):
+        return GeminiClientSingleton.get_client()
     
     async def synthesize_stream(self, text: str) -> AsyncGenerator[bytes, None]:
         if not self.client:

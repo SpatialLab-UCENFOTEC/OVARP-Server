@@ -339,6 +339,11 @@
                     aria-selected="false">🧠 LLM Playground</button>
             </li>
             <li class="nav-item" role="presentation">
+                <button class="nav-link text-warning border-secondary" id="keystore-tab" data-bs-toggle="tab"
+                    data-bs-target="#keystore-panel" type="button" role="tab" aria-controls="keystore-panel"
+                    aria-selected="false">🔑 API Key Store</button>
+            </li>
+            <li class="nav-item" role="presentation">
                 <button class="nav-link text-warning border-secondary" id="eval-tab" data-bs-toggle="tab"
                     data-bs-target="#eval-panel" type="button" role="tab" aria-controls="eval-panel"
                     aria-selected="false">📋 Evaluation</button>
@@ -711,6 +716,56 @@
                     </div>
                 </div>
             </div> <!-- End Study Session -->
+
+            <!-- TAB: API KEY STORE -->
+            <div class="tab-pane fade" id="keystore-panel" role="tabpanel" aria-labelledby="keystore-tab">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span>Secure API Key Store</span>
+                        <span id="keystore-summary-badge" class="badge bg-secondary">[NOT CONFIGURED]</span>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted small mb-4">Manage provider keys without editing .env by hand. Apply to memory for this session, or persist line-by-line to the server .env file.</p>
+                        <div class="mb-4 p-3 rounded border border-secondary">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <label class="form-label mb-0 text-info" for="key-openai">OpenAI API Key</label>
+                                <span id="status-key-openai" class="badge bg-secondary">[NOT CONFIGURED]</span>
+                            </div>
+                            <div class="input-group">
+                                <input type="password" id="key-openai" class="form-control" placeholder="sk-..." aria-label="OpenAI API key">
+                                <button class="btn btn-outline-secondary" type="button" onclick="toggleKeyVisibility('key-openai', 'openai', this)">Show</button>
+                                <button class="btn btn-outline-danger" type="button" onclick="clearKeyField('openai')">Clear Key</button>
+                            </div>
+                        </div>
+                        <div class="mb-4 p-3 rounded border border-secondary">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <label class="form-label mb-0 text-info" for="key-gemini">Gemini API Key</label>
+                                <span id="status-key-gemini" class="badge bg-secondary">[NOT CONFIGURED]</span>
+                            </div>
+                            <div class="input-group">
+                                <input type="password" id="key-gemini" class="form-control" placeholder="AIza..." aria-label="Gemini API key">
+                                <button class="btn btn-outline-secondary" type="button" onclick="toggleKeyVisibility('key-gemini', 'gemini', this)">Show</button>
+                                <button class="btn btn-outline-danger" type="button" onclick="clearKeyField('gemini')">Clear Key</button>
+                            </div>
+                        </div>
+                        <div class="mb-4 p-3 rounded border border-secondary">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <label class="form-label mb-0 text-info" for="key-elevenlabs">ElevenLabs API Key</label>
+                                <span id="status-key-elevenlabs" class="badge bg-secondary">[NOT CONFIGURED]</span>
+                            </div>
+                            <div class="input-group">
+                                <input type="password" id="key-elevenlabs" class="form-control" placeholder="sk_..." aria-label="ElevenLabs API key">
+                                <button class="btn btn-outline-secondary" type="button" onclick="toggleKeyVisibility('key-elevenlabs', 'elevenlabs', this)">Show</button>
+                                <button class="btn btn-outline-danger" type="button" onclick="clearKeyField('elevenlabs')">Clear Key</button>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-3 mt-4">
+                            <button class="btn btn-warning flex-fill" type="button" onclick="updateKeysInMemory()">Apply to Memory Only</button>
+                            <button class="btn btn-success flex-fill" type="button" onclick="persistKeysToEnv()">Save and Persist to .env</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <!-- TAB: EVALUATION -->
             <div class="tab-pane fade" id="eval-panel" role="tabpanel" aria-labelledby="eval-tab">
@@ -2327,6 +2382,147 @@
             }
         };
 
+
+
+        let _keyStoreData = {};
+
+        function setKeyBadgeStyle(el, badgeText) {
+            if (!el) return;
+            if (badgeText.includes('[SAVED IN .ENV]')) {
+                el.className = 'badge bg-success';
+            } else if (badgeText.includes('[IN MEMORY ONLY')) {
+                el.className = 'badge bg-warning text-dark';
+            } else {
+                el.className = 'badge bg-secondary';
+            }
+        }
+
+        function updateKeyFieldStatus(provider, keyInfo) {
+            const statusEl = document.getElementById('status-key-' + provider);
+            const inputEl = document.getElementById('key-' + provider);
+            if (!statusEl || !keyInfo) return;
+            _keyStoreData[provider] = keyInfo;
+            statusEl.textContent = keyInfo.badge;
+            setKeyBadgeStyle(statusEl, keyInfo.badge);
+            if (inputEl && !inputEl.value) {
+                if (keyInfo.is_set) {
+                    inputEl.placeholder = inputEl.type === 'password' ? '••••••••••••••••••••' : (keyInfo.masked_key || '');
+                } else if (provider === 'gemini') {
+                    inputEl.placeholder = 'AIza...';
+                } else if (provider === 'openai') {
+                    inputEl.placeholder = 'sk-...';
+                } else {
+                    inputEl.placeholder = 'sk_...';
+                }
+            }
+        }
+
+        async function loadKeyStoreStatus() {
+            try {
+                const resp = await fetch('/api/keys/status');
+                const data = await resp.json();
+                if (data.status !== 'ok' || !data.keys) return;
+                const keys = data.keys;
+                updateKeyFieldStatus('openai', keys.OPENAI_API_KEY);
+                updateKeyFieldStatus('gemini', keys.GEMINI_API_KEY);
+                updateKeyFieldStatus('elevenlabs', keys.ELEVENLABS_API_KEY);
+                const summary = document.getElementById('keystore-summary-badge');
+                const list = [keys.OPENAI_API_KEY, keys.GEMINI_API_KEY, keys.ELEVENLABS_API_KEY].filter(Boolean);
+                let mainBadge = '[NOT CONFIGURED]';
+                if (list.some(k => k.badge && k.badge.includes('[SAVED IN .ENV]'))) {
+                    mainBadge = '[SAVED IN .ENV]';
+                } else if (list.some(k => k.badge && k.badge.includes('[IN MEMORY ONLY'))) {
+                    mainBadge = '[IN MEMORY ONLY]';
+                }
+                if (summary) {
+                    summary.textContent = mainBadge;
+                    setKeyBadgeStyle(summary, mainBadge);
+                }
+            } catch (e) {
+                console.warn('Failed to load key status:', e);
+            }
+        }
+
+        window.toggleKeyVisibility = function(inputId, provider, btnEl) {
+            const input = document.getElementById(inputId);
+            if (!input) return;
+            const info = _keyStoreData[provider] || {};
+            if (input.type === 'password') {
+                input.type = 'text';
+                if (btnEl) btnEl.textContent = 'Hide';
+                if (info.full_key && !input.value) input.value = info.full_key;
+            } else {
+                input.type = 'password';
+                if (btnEl) btnEl.textContent = 'Show';
+                if (info.full_key && input.value === info.full_key) input.value = '';
+            }
+        };
+
+        window.clearKeyField = async function(provider) {
+            if (!confirm('Clear the ' + provider.toUpperCase() + ' API key from memory and .env?')) return;
+            const input = document.getElementById('key-' + provider);
+            if (input) {
+                input.value = '';
+                input.placeholder = '[CLEARED]';
+            }
+            const keys = {};
+            keys[provider] = '';
+            try {
+                await fetch('/api/keys/update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ keys: keys, persist: true })
+                });
+                showToast(provider.toUpperCase() + ' key cleared', 'info');
+                await loadKeyStoreStatus();
+            } catch (e) {
+                showToast('Could not clear key', 'error');
+            }
+        };
+
+        window.updateKeysInMemory = async function() {
+            const keys = {};
+            const openai = document.getElementById('key-openai').value.trim();
+            const gemini = document.getElementById('key-gemini').value.trim();
+            const elevenlabs = document.getElementById('key-elevenlabs').value.trim();
+            if (openai) keys.openai = openai;
+            if (gemini) keys.gemini = gemini;
+            if (elevenlabs) keys.elevenlabs = elevenlabs;
+            try {
+                await fetch('/api/keys/update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ keys: keys, persist: false })
+                });
+                showToast('API keys updated in memory', 'success');
+                await loadKeyStoreStatus();
+            } catch (e) {
+                showToast('Could not update keys', 'error');
+            }
+        };
+
+        window.persistKeysToEnv = async function() {
+            const keys = {};
+            const openai = document.getElementById('key-openai').value.trim();
+            const gemini = document.getElementById('key-gemini').value.trim();
+            const elevenlabs = document.getElementById('key-elevenlabs').value.trim();
+            if (openai) keys.openai = openai;
+            if (gemini) keys.gemini = gemini;
+            if (elevenlabs) keys.elevenlabs = elevenlabs;
+            try {
+                await fetch('/api/keys/persist', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ keys: keys })
+                });
+                showToast('API keys saved to .env', 'success');
+                await loadKeyStoreStatus();
+            } catch (e) {
+                showToast('Could not persist keys', 'error');
+            }
+        };
+
+        setTimeout(loadKeyStoreStatus, 400);
 
         window.submitOvarpEvaluation = async function() {
             const sus = [];

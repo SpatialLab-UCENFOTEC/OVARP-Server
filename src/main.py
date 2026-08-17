@@ -34,9 +34,20 @@ from src.transport.ws_layer import WebSocketTransport
 from src.core.telemetry import telemetry
 
 # Using OpenAI as the default fully functional provider for the MVP
-from src.providers.openai_provider import OpenAISTTProvider, OpenAILLMProvider, OpenAITTSProvider
-from src.providers.gemini_provider import GeminiLLMProvider, GeminiTTSProvider
+from src.providers.openai_provider import (
+    OpenAISTTProvider,
+    OpenAILLMProvider,
+    OpenAITTSProvider,
+    OpenAIClientSingleton,
+)
+from src.providers.gemini_provider import (
+    GeminiLLMProvider,
+    GeminiTTSProvider,
+    GeminiClientSingleton,
+)
 from pydantic import BaseModel
+from pathlib import Path
+from typing import Optional, Dict
 
 logger = get_logger()
 
@@ -115,6 +126,186 @@ else:
 from src.core.evaluations import evaluations_router
 
 app.include_router(evaluations_router)
+
+# --- API Key Store & Persistence ---
+ENV_KEY_MAP = {
+    "openai": "OPENAI_API_KEY",
+    "gemini": "GEMINI_API_KEY",
+    "elevenlabs": "ELEVENLABS_API_KEY",
+    "OPENAI_API_KEY": "OPENAI_API_KEY",
+    "GEMINI_API_KEY": "GEMINI_API_KEY",
+    "ELEVENLABS_API_KEY": "ELEVENLABS_API_KEY",
+}
+TRACKED_API_KEYS = ["OPENAI_API_KEY", "GEMINI_API_KEY", "ELEVENLABS_API_KEY"]
+
+
+def _get_env_file_path() -> Path:
+    return Path(".env")
+
+
+def _read_env_file_keys() -> dict:
+    env_path = _get_env_file_path()
+    if not env_path.exists():
+        return {}
+    keys = {}
+    with open(env_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line_str = line.strip()
+            if line_str and not line_str.startswith("#") and "=" in line_str:
+                k, v = line_str.split("=", 1)
+                keys[k.strip()] = v.strip().strip("'\"")
+    return keys
+
+
+def _build_key_status_item(key_name: str) -> dict:
+    mem_val = os.getenv(key_name)
+    file_val = _read_env_file_keys().get(key_name)
+    is_set = bool(mem_val)
+    persisted_in_env = bool(mem_val and file_val and mem_val == file_val)
+
+    if is_set and persisted_in_env:
+        badge = "[SAVED IN .ENV]"
+        state = "persisted"
+    elif is_set:
+        badge = "[IN MEMORY ONLY]"
+        state = "memory_only"
+    else:
+        badge = "[NOT CONFIGURED]"
+        state = "unconfigured"
+
+    masked = ""
+    if mem_val:
+        masked = mem_val[:4] + "..." + mem_val[-4:] if len(mem_val) > 8 else "***"
+
+    return {
+        "key_name": key_name,
+        "is_set": is_set,
+        "masked_key": masked,
+        "full_key": mem_val if mem_val else "",
+        "persisted": persisted_in_env,
+        "persisted_in_env": persisted_in_env,
+        "badge": badge,
+        "storage_badge": badge,
+        "storage_state": state,
+    }
+
+
+def _persist_to_env_file(key_updates: dict):
+    env_path = _get_env_file_path()
+    lines = []
+    if env_path.exists():
+        with open(env_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+
+    updated_keys = set()
+    new_lines = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped and not stripped.startswith("#") and "=" in stripped:
+            k, _ = stripped.split("=", 1)
+            k = k.strip()
+            if k in key_updates:
+                val = key_updates[k]
+                if val:
+                    new_lines.append(f"{k}={val}\n")
+                updated_keys.add(k)
+                continue
+        new_lines.append(line)
+
+    for k, v in key_updates.items():
+        if k not in updated_keys and v:
+            if new_lines and not new_lines[-1].endswith("\n"):
+                new_lines.append("\n")
+            new_lines.append(f"{k}={v}\n")
+
+    with open(env_path, "w", encoding="utf-8") as f:
+        f.writelines(new_lines)
+
+
+def _apply_key_updates(updates: dict):
+    for env_key, val in updates.items():
+        if val:
+            os.environ[env_key] = val
+        else:
+            os.environ.pop(env_key, None)
+    OpenAIClientSingleton.reset_client()
+    GeminiClientSingleton.reset_client()
+
+
+class KeyUpdateRequest(BaseModel):
+    provider: Optional[str] = None
+    api_key: Optional[str] = None
+    keys: Optional[Dict[str, str]] = None
+    persist: Optional[bool] = False
+
+
+class KeyPersistRequest(BaseModel):
+    provider: Optional[str] = None
+    api_key: Optional[str] = None
+    keys: Optional[Dict[str, str]] = None
+
+
+def _collect_key_updates(provider, api_key, keys) -> dict:
+    updates = {}
+    if provider and api_key is not None:
+        updates[ENV_KEY_MAP.get(provider, provider)] = api_key
+    if keys:
+        for k, v in keys.items():
+            updates[ENV_KEY_MAP.get(k, k)] = v
+    return updates
+
+
+@app.get("/api/keys/status")
+async def get_keys_status():
+    """Returns storage status and badges for tracked API keys."""
+    statuses = {k: _build_key_status_item(k) for k in TRACKED_API_KEYS}
+    return {"status": "ok", "keys": statuses}
+
+
+@app.post("/api/keys/update")
+async def update_api_keys(req: KeyUpdateRequest):
+    """Update API keys in memory, optionally persist to .env, and refresh clients."""
+    updates = _collect_key_updates(req.provider, req.api_key, req.keys)
+    _apply_key_updates(updates)
+    if req.persist and updates:
+        _persist_to_env_file(updates)
+
+    statuses = {k: _build_key_status_item(k) for k in TRACKED_API_KEYS}
+    badge = "[IN MEMORY ONLY]"
+    if req.persist:
+        badge = "[SAVED IN .ENV]"
+    elif updates:
+        first_key = list(updates.keys())[0]
+        badge = statuses.get(first_key, {}).get("badge", badge)
+
+    return {
+        "status": "ok",
+        "badge": badge,
+        "storage_badge": badge,
+        "keys": statuses,
+    }
+
+
+@app.post("/api/keys/persist")
+async def persist_api_keys(req: KeyPersistRequest):
+    """Persist in-memory API keys (or provided keys) to .env line by line."""
+    updates = _collect_key_updates(req.provider, req.api_key, req.keys)
+    _apply_key_updates(updates)
+    if not updates:
+        for key_name in TRACKED_API_KEYS:
+            val = os.getenv(key_name)
+            if val:
+                updates[key_name] = val
+    if updates:
+        _persist_to_env_file(updates)
+
+    statuses = {k: _build_key_status_item(k) for k in TRACKED_API_KEYS}
+    return {
+        "status": "ok",
+        "badge": "[SAVED IN .ENV]",
+        "storage_badge": "[SAVED IN .ENV]",
+        "keys": statuses,
+    }
 
 # 4. HTTP and WebSocket Mounts
 @app.get("/api/config")
