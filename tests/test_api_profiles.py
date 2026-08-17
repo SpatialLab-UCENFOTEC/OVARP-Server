@@ -26,6 +26,7 @@ def setup_app(monkeypatch):
     """Inject mock orchestrator, profile_manager, telemetry, and router into main module."""
     mgr = ProfileManager.__new__(ProfileManager)
     mgr._profiles = {}
+    mgr._profiles_dir = None
 
     # Seed test profiles
     mgr._profiles["researcher"] = AgentProfile(
@@ -157,6 +158,45 @@ class TestCreateProfile:
         })
         assert resp.status_code == 200
         assert resp.json()["status"] == "ok"
+
+    def test_create_profile_persists_yaml(self, client, setup_app, tmp_path):
+        setup_app["mgr"]._profiles_dir = tmp_path
+        resp = client.post("/api/profiles/create", json={
+            "id": "disk_agent",
+            "name": "Disk Agent",
+            "personality": {"system_prompt": "Saved to YAML."},
+        })
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "ok"
+        yaml_path = tmp_path / "disk_agent.yaml"
+        assert yaml_path.exists()
+        assert "Saved to YAML." in yaml_path.read_text(encoding="utf-8")
+
+    def test_duplicate_and_delete_profile(self, client, setup_app, tmp_path):
+        setup_app["mgr"]._profiles_dir = tmp_path
+        dup = client.post("/api/profiles/researcher/duplicate", json={
+            "new_id": "researcher_copy",
+            "new_name": "Research Assistant Copy",
+        })
+        assert dup.status_code == 200
+        assert dup.json()["status"] == "ok"
+        assert (tmp_path / "researcher_copy.yaml").exists()
+
+        deleted = client.delete("/api/profiles/researcher_copy")
+        assert deleted.status_code == 200
+        assert deleted.json()["status"] == "ok"
+        assert not (tmp_path / "researcher_copy.yaml").exists()
+
+    def test_update_profile(self, client, setup_app, tmp_path):
+        setup_app["mgr"]._profiles_dir = tmp_path
+        resp = client.put("/api/profiles/companion", json={
+            "name": "Updated Companion",
+            "personality": {"system_prompt": "Updated prompt."},
+        })
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "ok"
+        assert resp.json()["profile"]["name"] == "Updated Companion"
+        assert "Updated Companion" in (tmp_path / "companion.yaml").read_text(encoding="utf-8")
 
 
 class TestGetAgentState:

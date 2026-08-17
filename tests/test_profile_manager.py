@@ -17,6 +17,7 @@ def fresh_manager():
     """Return a fresh ProfileManager (not the singleton) for test isolation."""
     mgr = ProfileManager.__new__(ProfileManager)
     mgr._profiles = {}
+    mgr._profiles_dir = None
     return mgr
 
 
@@ -133,6 +134,58 @@ class TestProfileManager:
         """Should not crash when profiles dir is missing."""
         fresh_manager.load_profiles("nonexistent_dir_xyz")
         assert len(fresh_manager.list_profiles()) == 0
+
+    def test_create_profile_writes_yaml(self, fresh_manager, tmp_path):
+        fresh_manager._profiles_dir = tmp_path
+        fresh_manager.create_profile({
+            "id": "runtime_yaml",
+            "name": "YAML Agent",
+            "personality": {"system_prompt": "You persist."},
+        })
+        yaml_path = tmp_path / "runtime_yaml.yaml"
+        assert yaml_path.exists()
+        data = yaml_path.read_text(encoding="utf-8")
+        assert "runtime_yaml" in data
+        assert "You persist." in data
+
+    def test_create_profile_rejects_duplicate(self, fresh_manager, tmp_path):
+        fresh_manager._profiles_dir = tmp_path
+        fresh_manager.create_profile({"id": "dup", "name": "One"})
+        with pytest.raises(ValueError, match="already exists"):
+            fresh_manager.create_profile({"id": "dup", "name": "Two"})
+
+    def test_create_profile_rejects_unsafe_id(self, fresh_manager, tmp_path):
+        fresh_manager._profiles_dir = tmp_path
+        with pytest.raises(ValueError, match="Profile id"):
+            fresh_manager.create_profile({"id": "../etc/passwd", "name": "Bad"})
+
+    def test_update_profile_rewrites_yaml(self, fresh_manager, tmp_path):
+        fresh_manager._profiles_dir = tmp_path
+        fresh_manager.create_profile({"id": "edit_me", "name": "Old"})
+        updated = fresh_manager.update_profile("edit_me", {"name": "New"})
+        assert updated.name == "New"
+        assert "New" in (tmp_path / "edit_me.yaml").read_text(encoding="utf-8")
+
+    def test_duplicate_profile_writes_new_yaml(self, fresh_manager, tmp_path):
+        fresh_manager._profiles_dir = tmp_path
+        fresh_manager.create_profile({
+            "id": "source_p",
+            "name": "Source",
+            "personality": {"system_prompt": "Copy me."},
+        })
+        copy = fresh_manager.duplicate_profile("source_p", "source_p_copy", "Source Copy")
+        assert copy.id == "source_p_copy"
+        assert copy.name == "Source Copy"
+        assert (tmp_path / "source_p_copy.yaml").exists()
+        assert fresh_manager.get_profile("source_p") is not None
+
+    def test_delete_profile_removes_yaml(self, fresh_manager, tmp_path):
+        fresh_manager._profiles_dir = tmp_path
+        fresh_manager.create_profile({"id": "gone", "name": "Gone"})
+        assert (tmp_path / "gone.yaml").exists()
+        assert fresh_manager.delete_profile("gone") is True
+        assert fresh_manager.get_profile("gone") is None
+        assert not (tmp_path / "gone.yaml").exists()
 
 
 class TestConditionsMigration:

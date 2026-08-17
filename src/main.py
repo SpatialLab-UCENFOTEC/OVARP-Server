@@ -566,12 +566,50 @@ class ProfileCreateRequest(BaseModel):
 
 @app.post("/api/profiles/create")
 async def create_profile(req: ProfileCreateRequest):
-    """Create a new profile at runtime (from WoZ console or XR device)."""
+    """Create a new profile at runtime and persist it to profiles/<id>.yaml."""
     try:
         profile = profile_manager.create_profile(req.model_dump(exclude_none=True))
+        return {"status": "ok", "profile": profile.model_dump(), "persisted": profile_manager._profiles_dir is not None}
+    except Exception as e:
+        return {"error": str(e)}
+
+class ProfileUpdateRequest(BaseModel):
+    name: str
+    identity: dict = None
+    voice: dict = None
+    personality: dict = None
+    guardrails: dict = None
+    avatar: str = None
+
+@app.put("/api/profiles/{profile_id}")
+async def update_profile(profile_id: str, req: ProfileUpdateRequest):
+    """Update an existing profile and rewrite its YAML file."""
+    try:
+        profile = profile_manager.update_profile(profile_id, req.model_dump(exclude_none=True))
         return {"status": "ok", "profile": profile.model_dump()}
     except Exception as e:
         return {"error": str(e)}
+
+class ProfileDuplicateRequest(BaseModel):
+    new_id: str
+    new_name: str = None
+
+@app.post("/api/profiles/{profile_id}/duplicate")
+async def duplicate_profile(profile_id: str, req: ProfileDuplicateRequest):
+    """Copy a profile to a new id and persist it as YAML."""
+    try:
+        profile = profile_manager.duplicate_profile(profile_id, req.new_id, req.new_name)
+        return {"status": "ok", "profile": profile.model_dump()}
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.delete("/api/profiles/{profile_id}")
+async def delete_profile(profile_id: str):
+    """Delete a profile from memory and remove its YAML file if present."""
+    deleted = profile_manager.delete_profile(profile_id)
+    if not deleted:
+        return {"error": f"Profile '{profile_id}' not found"}
+    return {"status": "ok", "deleted": profile_id}
 
 @app.get("/api/agents/{agent_id}")
 async def get_agent_state(agent_id: str):
