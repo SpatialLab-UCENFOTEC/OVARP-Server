@@ -112,6 +112,10 @@ else:
     # Minimal app for testing — routes still get registered below
     app = FastAPI(title="OVARP Server (Test Mode)")
 
+from src.core.evaluations import evaluations_router
+
+app.include_router(evaluations_router)
+
 # 4. HTTP and WebSocket Mounts
 @app.get("/api/config")
 async def get_config():
