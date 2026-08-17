@@ -458,6 +458,16 @@
                                         style="font-family: monospace; font-size: 0.85em;"></textarea>
                                 </div>
                                 <button id="save-llm-btn" class="btn btn-success w-100">💾 Save & Apply</button>
+                                <div class="mt-3">
+                                    <label class="form-label" style="color:#e879f9;">Agent Profile</label>
+                                    <div class="d-flex gap-2">
+                                        <select id="playground-profile-select" class="form-select form-select-sm" aria-label="Apply profile from playground">
+                                            <option value="">Select a profile...</option>
+                                        </select>
+                                        <button id="playground-apply-profile-btn" class="btn btn-sm btn-outline-light" type="button">Apply</button>
+                                    </div>
+                                    <button id="playground-new-profile-btn" class="btn btn-sm btn-outline-info w-100 mt-2" type="button">+ New Profile</button>
+                                </div>
                                 <div class="d-flex gap-2 mt-2">
                                     <button id="tts-toggle-btn" class="btn btn-outline-warning flex-fill">🔊 TTS
                                         ON</button>
@@ -771,10 +781,17 @@
                                     onclick="loadProfiles()">Refresh</button>
                             </div>
                             <div class="card-body p-2" id="profiles-list"
-                                style="max-height: 70vh; overflow-y: auto;">
+                                style="max-height: 50vh; overflow-y: auto;">
                                 <div class="text-center text-muted mt-3">
                                     <small>Loading profiles...</small>
                                 </div>
+                            </div>
+                            <div class="card-footer border-secondary">
+                                <small class="text-muted d-block mb-2">Create a profile (saved as YAML)</small>
+                                <input id="new-profile-id" class="form-control form-control-sm mb-2" placeholder="id (e.g. my_agent)" aria-label="New profile id">
+                                <input id="new-profile-name" class="form-control form-control-sm mb-2" placeholder="Display name" aria-label="New profile name">
+                                <textarea id="new-profile-prompt" class="form-control form-control-sm mb-2" rows="3" placeholder="System prompt" aria-label="New profile system prompt"></textarea>
+                                <button id="create-profile-btn" class="btn btn-sm btn-success w-100" type="button">Save profile YAML</button>
                             </div>
                         </div>
                     </div>
@@ -792,6 +809,8 @@
                                     </select>
                                     <button id="apply-profile-btn" class="btn btn-sm btn-success" disabled>Apply
                                         Profile</button>
+                                    <button id="duplicate-profile-btn" class="btn btn-sm btn-outline-info" disabled>Duplicate</button>
+                                    <button id="delete-profile-btn" class="btn btn-sm btn-outline-danger" disabled>Delete</button>
                                 </div>
                                 <div id="profile-revert-container" class="mt-1"></div>
                             </div>
@@ -2126,12 +2145,24 @@
             return '\u26A7\uFE0F';
         }
 
+        function fillPlaygroundProfileSelect(profiles) {
+            const select = document.getElementById('playground-profile-select');
+            if (!select) return;
+            const current = select.value;
+            select.innerHTML = '<option value="">Select a profile...</option>';
+            (profiles || []).forEach(p => {
+                select.add(new Option(`${p.name} (${p.id})`, p.id));
+            });
+            if (current) select.value = current;
+        }
+
         async function loadProfiles() {
             try {
                 const resp = await fetch('/api/profiles');
                 const data = await resp.json();
                 const list = document.getElementById('profiles-list');
                 list.innerHTML = '';
+                fillPlaygroundProfileSelect(data.profiles);
 
                 if (!data.profiles || data.profiles.length === 0) {
                     list.innerHTML = '<div class="text-center text-muted p-3"><small>No profiles found. Add YAML files to the profiles/ directory.</small></div>';
@@ -2173,6 +2204,8 @@
         async function showProfileDetail(profileId) {
             _selectedProfileId = profileId;
             document.getElementById('apply-profile-btn').disabled = false;
+            document.getElementById('duplicate-profile-btn').disabled = false;
+            document.getElementById('delete-profile-btn').disabled = false;
 
             try {
                 const resp = await fetch(`/api/profiles/${profileId}`);
@@ -2338,6 +2371,112 @@
                 showToast('Could not submit evaluation', 'error');
             }
         };
+
+        document.getElementById('create-profile-btn')?.addEventListener('click', async () => {
+            const id = (document.getElementById('new-profile-id').value || '').trim();
+            const name = (document.getElementById('new-profile-name').value || '').trim();
+            const prompt = (document.getElementById('new-profile-prompt').value || '').trim();
+            if (!id || !name) {
+                showToast('Profile id and name are required', 'warning');
+                return;
+            }
+            const payload = { id, name };
+            if (prompt) payload.personality = { system_prompt: prompt };
+            try {
+                const resp = await fetch('/api/profiles/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await resp.json();
+                if (data.error) {
+                    showToast(data.error, 'error');
+                    return;
+                }
+                showToast(`Profile "${data.profile.name}" saved to YAML`, 'success');
+                document.getElementById('new-profile-id').value = '';
+                document.getElementById('new-profile-name').value = '';
+                document.getElementById('new-profile-prompt').value = '';
+                await loadProfiles();
+            } catch (e) {
+                showToast('Could not create profile', 'error');
+            }
+        });
+
+        document.getElementById('duplicate-profile-btn')?.addEventListener('click', async () => {
+            if (!_selectedProfileId) return;
+            const newId = prompt('New profile id', _selectedProfileId + '_copy');
+            if (!newId) return;
+            try {
+                const resp = await fetch(`/api/profiles/${_selectedProfileId}/duplicate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ new_id: newId.trim() })
+                });
+                const data = await resp.json();
+                if (data.error) {
+                    showToast(data.error, 'error');
+                    return;
+                }
+                showToast(`Duplicated as ${data.profile.id}`, 'success');
+                await loadProfiles();
+                showProfileDetail(data.profile.id);
+            } catch (e) {
+                showToast('Could not duplicate profile', 'error');
+            }
+        });
+
+        document.getElementById('delete-profile-btn')?.addEventListener('click', async () => {
+            if (!_selectedProfileId) return;
+            if (!confirm(`Delete profile "${_selectedProfileId}" and its YAML file?`)) return;
+            try {
+                const resp = await fetch(`/api/profiles/${_selectedProfileId}`, { method: 'DELETE' });
+                const data = await resp.json();
+                if (data.error) {
+                    showToast(data.error, 'error');
+                    return;
+                }
+                showToast(`Deleted ${_selectedProfileId}`, 'info');
+                _selectedProfileId = null;
+                document.getElementById('apply-profile-btn').disabled = true;
+                document.getElementById('duplicate-profile-btn').disabled = true;
+                document.getElementById('delete-profile-btn').disabled = true;
+                document.getElementById('profile-detail-title').textContent = 'Select a profile';
+                document.getElementById('profile-detail-body').innerHTML = '<div class="text-center text-muted mt-5"><small>Click a profile from the list to view details.</small></div>';
+                await loadProfiles();
+            } catch (e) {
+                showToast('Could not delete profile', 'error');
+            }
+        });
+
+        document.getElementById('playground-apply-profile-btn')?.addEventListener('click', async () => {
+            const profileId = document.getElementById('playground-profile-select').value;
+            if (!profileId) {
+                showToast('Select a profile first', 'warning');
+                return;
+            }
+            try {
+                const resp = await fetch('/api/profiles/apply', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ profile_id: profileId, agent_id: 'all' })
+                });
+                const data = await resp.json();
+                if (data.error) {
+                    showToast(data.error, 'error');
+                    return;
+                }
+                showToast(`Profile "${data.profile_name}" applied`, 'success');
+            } catch (e) {
+                showToast('Could not apply profile', 'error');
+            }
+        });
+
+        document.getElementById('playground-new-profile-btn')?.addEventListener('click', () => {
+            const tabEl = document.getElementById('profiles-tab');
+            if (tabEl) bootstrap.Tab.getOrCreateInstance(tabEl).show();
+            document.getElementById('new-profile-id')?.focus();
+        });
 
         // Populate the agent selector on the profiles tab
         setTimeout(async () => {
