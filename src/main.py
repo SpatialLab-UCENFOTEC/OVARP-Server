@@ -788,6 +788,12 @@ logging.getLogger("fastapi").addHandler(file_handler)
 # Mount the UI based on OVARP_HEADLESS mode
 # If headless is set, the root URL will serve a lightweight dashboard instead of the full 3D WoZ Console
 static_path = os.path.join(os.path.dirname(__file__), "static")
+
+@app.get("/player")
+async def serve_player():
+    """Standalone web player (avatar + chat + mic), separate from the WoZ console."""
+    return FileResponse(os.path.join(static_path, "player.html"))
+
 _headless_new = os.environ.get("OVARP_HEADLESS", "").lower() in ["true", "1", "yes"]
 _headless_legacy = os.environ.get("OAF_HEADLESS", "").lower() in ["true", "1", "yes"]
 if _headless_legacy and not _headless_new:
