@@ -185,3 +185,41 @@ async def test_process_direct_tts_routes_to_selected_device(orchestrator):
     assert cmd.target_agent == "agent_alpha"
     assert cmd.subcommand["text"] == "Hello headset"
     assert cmd.subcommand["provider"] == "woz_direct"
+
+
+@pytest.mark.asyncio
+async def test_process_text_logs_and_broadcasts_final_latency(orchestrator):
+    """After TTS (or skip), persist latency and notify clients with final tts/total."""
+    from unittest.mock import patch
+    from src.core.config import OVARPConfig, config_manager
+
+    prev = config_manager._config
+    config_manager._config = OVARPConfig(
+        experiment={"name": "t", "description": "d", "version": "1"},
+        devices=[{"id": "headset_01", "name": "Headset", "type": "xr"}],
+        agents=[{"id": "agent_alpha", "name": "Alpha"}],
+        custom_commands={},
+    )
+    orchestrator.tts_enabled = False
+    mock_router = MagicMock()
+    mock_router.route_command = AsyncMock()
+    mock_tel = MagicMock()
+
+    try:
+        with patch("src.core.orchestrator.router", mock_router), \
+             patch("src.core.orchestrator.telemetry", mock_tel):
+            await orchestrator.process_text_interaction(
+                "hello", "all", "agent_alpha"
+            )
+    finally:
+        config_manager._config = prev
+
+    mock_tel.log_latency.assert_called_once()
+    lat = mock_tel.log_latency.call_args[0][0]
+    assert lat["tts_ms"] == 0
+    assert "llm_ms" in lat
+    assert "total_ms" in lat
+    cmds = [call.args[0] for call in mock_router.route_command.await_args_list]
+    latency_cmds = [c for c in cmds if getattr(c, "command", None) == "latency"]
+    assert len(latency_cmds) == 1
+    assert latency_cmds[0].subcommand["total_ms"] == lat["total_ms"]

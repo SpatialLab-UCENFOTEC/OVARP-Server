@@ -846,11 +846,12 @@
  .eval-toolbar {
  display: flex;
  align-items: flex-end;
+ flex-wrap: wrap;
  gap: 16px;
  margin-bottom: 14px;
  }
- .eval-toolbar p { flex: 1; margin: 0; }
- .eval-toolbar .eval-pid { width: 200px; flex-shrink: 0; }
+ .eval-toolbar p { flex: 1 1 220px; margin: 0; }
+ .eval-toolbar .eval-pid { width: 200px; flex: 0 1 200px; }
  .eval-grid {
  display: grid;
  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
@@ -1091,7 +1092,18 @@
  <button class="btn btn-launcher text-start" onclick="switchTab('eval-tab')">
  <strong>Evaluation</strong> : SUS, UEQ-S, and qualitative feedback about OVARP
  </button>
+ <button class="btn btn-launcher text-start" onclick="window.open('/player','_blank')">
+ <strong>Web Player</strong> : VR stand-in to test the server without a headset
+ </button>
+ <button class="btn btn-launcher text-start" onclick="switchTab('session-tab')">
+ <strong>Validation protocols</strong> : Researcher usability + latency scenarios
+ </button>
  </div>
+ <p class="small text-muted mt-3 mb-0">
+ For investigators: Study Session → load <code>researcher_usability</code> or
+ <code>latency_validation</code>. Pair WoZ Device with the player id
+ (<code>web_panel_01</code> unless <code>/player?device=…</code>).
+ </p>
  </div>
  </div>
  </div>
@@ -1671,11 +1683,39 @@
  <div class="card">
  <div class="card-header fw-bold">OVARP Usability Evaluation</div>
  <div class="card-body">
+ <div class="eval-protocol small mb-3 p-3 rounded border border-secondary">
+ <strong>Facilitator protocol (researchers)</strong>
+ <ol class="mb-2 mt-2">
+ <li>Start a Study Session with the investigator’s ID.</li>
+ <li>Load scenario <code>researcher_usability</code> (or <code>latency_validation</code> for timing).</li>
+ <li>Open <a href="/player" target="_blank" rel="noopener">/player</a> as the VR stand-in; in WoZ Control set Device to that id.</li>
+ <li>Complete the scenario steps, then fill SUS + UEQ-S below (rate OVARP, not the agent).</li>
+ </ol>
+ <div class="d-flex flex-wrap gap-2">
+ <a class="btn btn-sm btn-outline-info" href="/api/evaluations/ovarp/export">Export evaluations CSV</a>
+ <button class="btn btn-sm btn-outline-secondary" type="button" onclick="prefillEvalFromSession()">Fill from active session</button>
+ </div>
+ </div>
  <div class="eval-toolbar">
  <p class="text-muted small">Rate OVARP itself (not the virtual agent). SUS: 1 = strongly disagree, 5 = strongly agree. UEQ-S: −3 to +3.</p>
  <div class="eval-pid">
  <label class="form-label" for="eval-participant">Participant / researcher ID</label>
  <input id="eval-participant" class="form-control form-control-sm" placeholder="P01">
+ </div>
+ <div class="eval-pid">
+ <label class="form-label" for="eval-session">Session ID</label>
+ <input id="eval-session" class="form-control form-control-sm" placeholder="from Study Session">
+ </div>
+ <div class="eval-pid">
+ <label class="form-label" for="eval-scenario">Scenario</label>
+ <input id="eval-scenario" class="form-control form-control-sm" placeholder="researcher_usability">
+ </div>
+ <div class="eval-pid">
+ <label class="form-label" for="eval-role">Role</label>
+ <select id="eval-role" class="form-select form-select-sm">
+ <option value="researcher" selected>Researcher</option>
+ <option value="facilitator">Facilitator</option>
+ </select>
  </div>
  </div>
 
@@ -2116,6 +2156,10 @@
  onTTSReady: (url) => {
  log(`TTS Audio Ready: ${url}`, 'info');
  if (window.appendSysLog) window.appendSysLog('INFO', 'tts', `TTS Audio Chunk Ready`, { url });
+ },
+ onLatency: (lat) => {
+ if (window.updatePlaygroundLatency) window.updatePlaygroundLatency(lat);
+ if (window.appendSysLog) window.appendSysLog('INFO', 'telemetry', `Latency stt=${lat?.stt_ms} llm=${lat?.llm_ms} tts=${lat?.tts_ms} total=${lat?.total_ms}`);
  }
  }
  });
@@ -2178,6 +2222,9 @@
   }
   const payload = {
     participant_id: (document.getElementById('eval-participant').value || '').trim(),
+    session_id: (document.getElementById('eval-session')?.value || '').trim(),
+    scenario_id: (document.getElementById('eval-scenario')?.value || '').trim(),
+    role: (document.getElementById('eval-role')?.value || 'researcher').trim(),
     sus,
     ueq,
     qualitative: {
@@ -2204,6 +2251,31 @@
     showToast('Evaluation saved', 'success');
   } catch (err) {
     showToast('Could not submit evaluation', 'error');
+  }
+ };
+
+ window.prefillEvalFromSession = async function() {
+  try {
+    const resp = await fetch('/api/session/status');
+    const data = await resp.json();
+    if (!data || !data.active) {
+      showToast('No active Study Session', 'warning');
+      return;
+    }
+    const pid = document.getElementById('eval-participant');
+    const sid = document.getElementById('eval-session');
+    if (pid && data.participant_id) pid.value = data.participant_id;
+    if (sid && data.session_id) sid.value = data.session_id;
+    const scenResp = await fetch('/api/scenarios/status');
+    if (scenResp.ok) {
+      const scen = await scenResp.json();
+      const sidEl = document.getElementById('eval-scenario');
+      const scenId = scen.scenario_id || scen.active_scenario_id || scen.scenario?.id;
+      if (sidEl && scenId) sidEl.value = scenId;
+    }
+    showToast('Filled from active session', 'success');
+  } catch (err) {
+    showToast('Could not read session status', 'error');
   }
  };
 

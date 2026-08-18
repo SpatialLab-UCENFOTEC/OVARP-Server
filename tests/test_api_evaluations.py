@@ -47,6 +47,9 @@ class TestEvaluationAPI:
         client = TestClient(app)
         payload = {
             "participant_id": "P01",
+            "session_id": "sess-1",
+            "scenario_id": "researcher_usability",
+            "role": "researcher",
             "sus": [4, 2, 4, 2, 4, 2, 4, 2, 4, 2],
             "ueq": [2, 1, 2, 1, 1, 2, 0, 1],
             "qualitative": {
@@ -64,6 +67,9 @@ class TestEvaluationAPI:
         assert data["sus_score"] == 75.0
         assert data["ueq_pragmatic"] == 1.5
         assert data["participant_id"] == "P01"
+        assert data["session_id"] == "sess-1"
+        assert data["scenario_id"] == "researcher_usability"
+        assert data["role"] == "researcher"
         assert (tmp_path / "evaluations.jsonl").exists()
 
         listed = client.get("/api/evaluations/ovarp")
@@ -71,6 +77,29 @@ class TestEvaluationAPI:
         body = listed.json()
         assert body["count"] >= 1
         assert body["evaluations"][-1]["id"] == data["id"]
+
+    def test_export_evaluations_csv(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("src.core.evaluations.EVAL_DIR", tmp_path)
+        client = TestClient(app)
+        client.post(
+            "/api/evaluations/ovarp",
+            json={
+                "participant_id": "P02",
+                "session_id": "s2",
+                "scenario_id": "latency_validation",
+                "role": "facilitator",
+                "sus": [5, 1, 5, 1, 5, 1, 5, 1, 5, 1],
+                "ueq": [3, 3, 3, 3, 2, 2, 2, 2],
+            },
+        )
+        resp = client.get("/api/evaluations/ovarp/export")
+        assert resp.status_code == 200
+        assert "text/csv" in resp.headers["content-type"]
+        body = resp.text
+        assert "sus_score" in body
+        assert "P02" in body
+        assert "latency_validation" in body
+        assert "100.0" in body
 
     def test_post_rejects_short_sus(self, tmp_path, monkeypatch):
         monkeypatch.setattr("src.core.evaluations.EVAL_DIR", tmp_path)

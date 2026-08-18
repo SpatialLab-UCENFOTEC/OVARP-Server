@@ -31,6 +31,7 @@ export default class OVARPClient {
             onLog: (msg, type) => { }, // General SDK logs
             onTTSReady: (blobUrl) => { }, // When TTS audio blob is ready for playback
             onMarkerLogged: (label, metadata) => { }, // When an event marker is confirmed by server
+            onLatency: (latency) => { }, // Final STT/LLM/TTS ms after a pipeline turn
             onMicStart: () => { },
             onMicStop: () => { }
         }, config.callbacks);
@@ -265,6 +266,11 @@ export default class OVARPClient {
                 const sub = data.subcommand || {};
                 this.callbacks.onMarkerLogged(sub.label, sub.metadata);
                 this.callbacks.onLog(`[Marker] ${sub.label}`, 'info');
+            }
+            else if (data.command_type === "system" && data.command === "latency") {
+                const sub = data.subcommand || {};
+                this.callbacks.onLatency(sub);
+                this.callbacks.onLog(`[Latency] total=${sub.total_ms ?? '—'}ms`, 'info');
             }
 
         } catch (err) {
