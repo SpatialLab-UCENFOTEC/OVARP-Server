@@ -70,13 +70,17 @@
  /* --- Base --- */
  *, *::before, *::after { box-sizing: border-box; }
 
+ html, body {
+ height: 100%;
+ overflow: hidden;
+ }
  body {
  background: var(--bg);
  color: var(--text);
  font-family: var(--font-sans);
  font-size: 0.9375rem;
- line-height: 1.6;
- min-height: 100vh;
+ line-height: 1.5;
+ margin: 0;
  transition: background 0.25s ease, color 0.25s ease;
  }
 
@@ -87,9 +91,10 @@
  display: flex;
  align-items: center;
  justify-content: space-between;
- padding: 14px 0 10px;
+ padding: 6px 0 6px;
  border-bottom: 1px solid var(--border);
- margin-bottom: 20px;
+ margin-bottom: 8px;
+ flex-shrink: 0;
  }
 
  .brand-logo {
@@ -135,10 +140,11 @@
  background: var(--bg-card);
  border: 1px solid var(--border);
  border-radius: var(--radius-card);
- padding: 14px 18px;
- margin-bottom: 16px;
+ padding: 8px 14px;
+ margin-bottom: 8px;
  font-size: 0.84rem;
  color: var(--text-label);
+ flex-shrink: 0;
  }
  .help-banner strong { color: var(--text); }
  .help-banner .help-toggle { cursor: pointer; user-select: none; }
@@ -159,21 +165,23 @@
  background: var(--bg-card);
  border: 1px solid var(--border);
  border-radius: var(--radius-card);
- padding: 6px 8px;
- margin-bottom: 24px;
+ padding: 4px 6px;
+ margin-bottom: 8px;
  display: flex;
+ flex-shrink: 0;
+ overflow-x: auto;
  }
 
- .pill-nav-container .nav { gap: 4px; }
+ .pill-nav-container .nav { gap: 4px; flex-wrap: nowrap; }
 
  .pill-nav-container .nav-link {
  font-family: var(--font-mono);
- font-size: 0.72rem;
+ font-size: 0.68rem;
  font-weight: 500;
  letter-spacing: 0.04em;
  color: var(--text-muted);
  border-radius: var(--radius-sm);
- padding: 7px 14px;
+ padding: 6px 11px;
  border: none;
  background: transparent;
  transition: all 0.15s ease;
@@ -198,16 +206,16 @@
  border: 1px solid var(--border);
  border-radius: var(--radius-card);
  box-shadow: var(--shadow);
- margin-bottom: 20px;
+ margin-bottom: 10px;
  overflow: hidden;
  }
 
  .card-header {
  background: var(--bg-card-header);
  border-bottom: 1px solid var(--border);
- padding: 12px 18px;
+ padding: 8px 14px;
  font-weight: 600;
- font-size: 0.88rem;
+ font-size: 0.84rem;
  color: var(--text);
  display: flex;
  align-items: center;
@@ -215,7 +223,7 @@
  gap: 10px;
  }
 
- .card-body { padding: 18px; }
+ .card-body { padding: 12px 14px; }
 
  /* Nested card inside card-body: no double border collapse */
  .card-body > .card {
@@ -465,10 +473,14 @@
  /* --- LLM Playground layout --- */
  .pg-shell {
  display: grid;
- grid-template-columns: minmax(260px, 300px) minmax(0, 1.4fr) minmax(240px, 300px);
- gap: 16px;
+ grid-template-columns: minmax(240px, 270px) minmax(0, 1.8fr) minmax(300px, 380px);
+ gap: 12px;
  align-items: stretch;
- min-height: calc(100vh - 220px);
+ flex: 1;
+ min-height: 0;
+ height: 100%;
+ width: 100%;
+ overflow: hidden;
  }
  .pg-col {
  display: flex;
@@ -481,7 +493,7 @@
  flex-direction: column;
  margin-bottom: 0;
  }
- .pg-col .card-body { flex: 1; min-height: 0; }
+ .pg-col .card-body { flex: 1; min-height: 0; overflow-y: auto; }
  .pg-section {
  border: 1px solid var(--border);
  border-radius: var(--radius-btn);
@@ -536,7 +548,7 @@
  #llm-panel #chat-window {
  flex: 1;
  height: auto;
- min-height: 280px;
+ min-height: 160px;
  border: none;
  border-radius: 0;
  background: transparent;
@@ -569,23 +581,39 @@
  margin-top: 10px;
  }
  .pg-avatar-stage {
- flex: 1;
- min-height: 320px;
+ flex: 1 1 auto;
+ min-height: 0;
  position: relative;
+ background: #1a1a2e;
  }
  .pg-avatar-stage #avatar-canvas {
+ position: absolute;
+ inset: 0;
  width: 100%;
  height: 100%;
- position: relative;
  overflow: hidden;
  background: #1a1a2e;
+ }
+ .pg-avatar-debug {
+ max-height: 40px;
+ overflow-y: auto;
+ font-size: 11px;
+ font-family: var(--font-mono);
+ color: var(--text-muted);
+ padding: 4px 10px;
+ border-top: 1px solid var(--border);
+ }
+ .pg-chat .pg-pipeline {
+ grid-template-columns: repeat(2, 1fr);
  }
  @media (max-width: 1199.98px) {
  .pg-shell {
  grid-template-columns: 1fr;
  min-height: 0;
+ overflow: auto;
  }
- .pg-avatar-stage { min-height: 280px; height: 320px; }
+ .pg-avatar-stage { min-height: min(48vh, 420px); }
+ .pg-chat .pg-pipeline { grid-template-columns: repeat(4, 1fr); }
  }
 
  /* --- Profile Cards --- */
@@ -693,13 +721,257 @@
  /* --- Revert link --- */
  .revert-link { font-size: 0.75em; color: var(--accent); cursor:pointer; text-decoration:underline; opacity:0.8; }
  .revert-link:hover { opacity:1; }
+
+ /* --- App shell: keep chrome fixed, tabs fill the remaining viewport --- */
+ .app-shell {
+ display: flex;
+ flex-direction: column;
+ height: 100%;
+ padding-top: 8px;
+ padding-bottom: 8px;
+ overflow: hidden;
+ }
+ #wozTabsContent.tab-content {
+ flex: 1 1 auto;
+ min-height: 0;
+ display: flex;
+ flex-direction: column;
+ overflow: hidden;
+ }
+ #wozTabsContent > .tab-pane.show.active {
+ display: flex !important;
+ flex-direction: column;
+ flex: 1 1 auto;
+ height: 100%;
+ min-height: 0;
+ overflow: hidden;
+ }
+ .tab-fill {
+ flex: 1 1 auto;
+ min-height: 0;
+ overflow: hidden;
+ display: flex;
+ flex-direction: column;
+ }
+ .tab-fill-row {
+ flex: 1 1 auto;
+ min-height: 0;
+ height: 100%;
+ width: 100%;
+ overflow: hidden;
+ margin-left: 0;
+ margin-right: 0;
+ }
+ .tab-fill-row > [class*="col-"] {
+ display: flex;
+ flex-direction: column;
+ min-height: 0;
+ max-height: 100%;
+ }
+ .tab-col-fill {
+ display: flex;
+ flex-direction: column;
+ min-height: 0;
+ overflow: hidden;
+ gap: 10px;
+ }
+ .tab-col-fill > .card {
+ display: flex;
+ flex-direction: column;
+ min-height: 0;
+ overflow: hidden;
+ margin-bottom: 0;
+ }
+ .tab-col-fill > .card:only-child,
+ .tab-col-fill > .card.tab-card-main {
+ flex: 1 1 auto;
+ }
+ .tab-col-fill > .card.tab-card-log {
+ flex: 0 0 168px;
+ }
+ .tab-col-fill .card-body {
+ flex: 1 1 auto;
+ min-height: 0;
+ overflow: auto;
+ }
+ .tab-col-fill .card-footer { flex-shrink: 0; }
+ .tab-col-stack {
+ display: flex;
+ flex-direction: column;
+ min-height: 0;
+ height: 100%;
+ overflow-x: hidden;
+ overflow-y: auto;
+ padding-bottom: 8px;
+ }
+ .tab-col-stack > .card { flex: 0 0 auto; }
+ .tab-col-stack > .card:last-child { margin-bottom: 0; }
+
+ #xr-panel .tab-fill-row > [class*="col-"] {
+ height: 100%;
+ max-height: 100%;
+ }
+ #xr-panel #server-ip { font-size: 0.95rem !important; }
+ #xr-panel #send-msg-btn { white-space: nowrap; }
+
+ /* Evaluation survey */
+ .eval-toolbar {
+ display: flex;
+ align-items: flex-end;
+ gap: 16px;
+ margin-bottom: 14px;
+ }
+ .eval-toolbar p { flex: 1; margin: 0; }
+ .eval-toolbar .eval-pid { width: 200px; flex-shrink: 0; }
+ .eval-grid {
+ display: grid;
+ grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+ gap: 14px;
+ align-items: start;
+ }
+ .eval-block {
+ background: var(--bg-card-header);
+ border: 1px solid var(--border);
+ border-radius: var(--radius-btn);
+ padding: 12px 14px;
+ }
+ .eval-block h6 {
+ margin: 0 0 4px;
+ font-size: 0.78rem;
+ font-weight: 700;
+ letter-spacing: 0.06em;
+ text-transform: uppercase;
+ color: var(--text-label);
+ }
+ .eval-hint {
+ font-size: 0.75rem;
+ color: var(--text-muted);
+ margin-bottom: 10px;
+ }
+ .eval-item {
+ display: grid;
+ grid-template-columns: minmax(0, 1fr) auto;
+ gap: 8px 14px;
+ align-items: center;
+ padding: 8px 0;
+ border-bottom: 1px solid var(--border);
+ }
+ .eval-item:last-child { border-bottom: none; }
+ .eval-q { font-size: 0.82rem; line-height: 1.35; color: var(--text); }
+ .eval-scale {
+ display: flex;
+ gap: 4px;
+ flex-shrink: 0;
+ }
+ .eval-scale label {
+ display: flex;
+ flex-direction: column;
+ align-items: center;
+ justify-content: center;
+ gap: 3px;
+ min-width: 32px;
+ margin: 0;
+ padding: 4px 2px;
+ font-size: 0.7rem;
+ font-family: var(--font-mono);
+ color: var(--text-muted);
+ cursor: pointer;
+ border-radius: 6px;
+ }
+ .eval-scale label:hover { background: rgba(99,102,241,0.08); color: var(--text); }
+ .eval-scale input { margin: 0; accent-color: var(--accent); cursor: pointer; }
+ .eval-ueq {
+ display: grid;
+ grid-template-columns: 92px minmax(0, 1fr) 92px;
+ gap: 8px;
+ align-items: center;
+ padding: 8px 0;
+ border-bottom: 1px solid var(--border);
+ }
+ .eval-ueq:last-child { border-bottom: none; }
+ .eval-end { font-size: 0.75rem; color: var(--text-muted); line-height: 1.25; }
+ .eval-end.right { text-align: right; }
+ .eval-ueq .eval-scale { justify-content: center; }
+ .eval-ueq .eval-scale label { min-width: 26px; font-size: 0.65rem; }
+ .eval-qual {
+ display: grid;
+ grid-template-columns: 1fr 1fr;
+ gap: 12px;
+ margin-top: 14px;
+ }
+ .eval-submit {
+ display: flex;
+ align-items: center;
+ gap: 14px;
+ margin-top: 14px;
+ padding-top: 12px;
+ border-top: 1px solid var(--border);
+ }
+ @media (max-width: 991.98px) {
+ .eval-grid, .eval-qual, .eval-item, .eval-ueq, .eval-toolbar {
+ display: flex;
+ flex-direction: column;
+ align-items: stretch;
+ }
+ .eval-toolbar .eval-pid { width: 100%; }
+ .eval-end.right { text-align: left; }
+ .eval-scale { justify-content: flex-start; }
+ }
+ .tab-scroll-card {
+ flex: 1 1 auto;
+ min-height: 0;
+ overflow: hidden;
+ display: flex;
+ flex-direction: column;
+ }
+ .tab-scroll-card > .card {
+ flex: 1 1 auto;
+ min-height: 0;
+ display: flex;
+ flex-direction: column;
+ overflow: hidden;
+ margin-bottom: 0;
+ }
+ .tab-scroll-card > .card > .card-body {
+ flex: 1 1 auto;
+ min-height: 0;
+ overflow: auto;
+ }
+ .tab-card-log #log-window {
+ height: 100%;
+ min-height: 0;
+ }
+ #logs-panel #syslogs-window {
+ height: auto !important;
+ flex: 1 1 auto;
+ min-height: 0;
+ }
+ .tab-scroll-card > .card > .card-body.p-0 {
+ display: flex;
+ flex-direction: column;
+ overflow: hidden;
+ }
+ #overview-panel .tab-col-fill > .card { flex: 1 1 auto; }
+
+ @media (max-width: 767.98px) {
+ html, body { overflow: auto; height: auto; }
+ .app-shell { height: auto; min-height: 100dvh; overflow: visible; }
+ #wozTabsContent > .tab-pane.show.active {
+ height: auto;
+ overflow: visible;
+ }
+ .tab-fill, .tab-fill-row, .tab-col-fill, .tab-scroll-card {
+ overflow: visible;
+ height: auto;
+ }
+ }
  </style>
 </head>
 
 
 <body>
 
- <div class="container-fluid px-4 mt-3">
+ <div class="container-fluid px-3 app-shell">
 
  <!-- Top Header -->
  <div class="brand-header">
@@ -765,10 +1037,10 @@
  <div class="tab-content" id="wozTabsContent">
 
  <!-- TAB 1: OVERVIEW DASHBOARD -->
- <div class="tab-pane fade show active" id="overview-panel" role="tabpanel" aria-labelledby="overview-tab">
- <div class="row">
+ <div class="tab-pane fade show active tab-fill" id="overview-panel" role="tabpanel" aria-labelledby="overview-tab">
+ <div class="row g-3 tab-fill-row">
  <!-- Quick-Start Action Launchers -->
- <div class="col-md-5">
+ <div class="col-md-5 tab-col-fill">
  <div class="card">
  <div class="card-header">Quick-Start Launchers</div>
  <div class="card-body">
@@ -795,7 +1067,7 @@
  </div>
 
  <!-- Telemetry & System Status Card -->
- <div class="col-md-7">
+ <div class="col-md-7 tab-col-fill">
  <div class="card">
  <div class="card-header d-flex justify-content-between align-items-center">
  <span>Server Telemetry & System Status</span>
@@ -847,25 +1119,21 @@
  </div>
 
  <!-- TAB 2: WOZ REMOTE LIVE AGENT CONTROL -->
- <div class="tab-pane fade" id="xr-panel" role="tabpanel" aria-labelledby="xr-tab">
+ <div class="tab-pane fade tab-fill" id="xr-panel" role="tabpanel" aria-labelledby="xr-tab">
 
- <div class="d-flex justify-content-between align-items-center mb-3">
- <h5 class="mb-0" style="font-weight:600; color:var(--text);">WoZ Remote Live Agent Control</h5>
- </div>
-
- <div class="row">
+ <div class="row g-3 tab-fill-row">
  <!-- Settings Panel -->
- <div class="col-md-4">
+ <div class="col-md-4 tab-col-stack">
  <div class="card">
  <div class="card-header"> Target Selection</div>
  <div class="card-body">
- <div class="mb-3">
+ <div class="mb-2">
  <label class="form-label">Device ID</label>
- <select id="target-device" class="form-select"></select>
+ <select id="target-device" class="form-select form-select-sm"></select>
  </div>
- <div class="mb-3">
+ <div class="mb-2">
  <label class="form-label">Agent ID</label>
- <select id="target-agent" class="form-select"></select>
+ <select id="target-agent" class="form-select form-select-sm"></select>
  </div>
  <hr class="border-secondary">
  <div>
@@ -878,8 +1146,8 @@
  <div class="card-header">XR Connection</div>
  <div class="card-body">
  <small class="text-muted d-block mb-1">Server IP to enter in the XREAL / Unity app:</small>
- <div class="input-group mb-2">
- <input id="server-ip" type="text" class="form-control fw-bold fs-5 text-info"
+ <div class="input-group input-group-sm mb-2 flex-nowrap">
+ <input id="server-ip" type="text" class="form-control fw-bold text-info"
  value="…" readonly aria-label="Server LAN IP address">
  <button id="copy-ip-btn" class="btn btn-outline-info" title="Copy IP"
  aria-label="Copy server IP to clipboard">Copy</button>
@@ -899,9 +1167,9 @@
  <div class="card">
  <div class="card-header"> Direct TTS Message</div>
  <div class="card-body">
- <textarea id="direct-msg" class="form-control mb-2" rows="3"
+ <textarea id="direct-msg" class="form-control mb-2" rows="2"
  placeholder="Type what the agent should say..." aria-label="Direct TTS message text"></textarea>
- <button id="send-msg-btn" class="btn btn-primary w-100" aria-label="Send text directly to TTS"> Speak This Text</button>
+ <button id="send-msg-btn" class="btn btn-primary w-100" aria-label="Send text directly to TTS">Speak This Text</button>
  <small class="text-muted mt-1 d-block">Bypasses the LLM and sends directly to TTS.</small>
  </div>
  </div>
@@ -909,8 +1177,8 @@
  </div>
 
  <!-- Dynamic Actions Panel -->
- <div class="col-md-8">
- <div class="card">
+ <div class="col-md-8 tab-col-fill">
+ <div class="card tab-card-main">
  <div class="card-header d-flex justify-content-between align-items-center">
  <span> Dynamic Actions & Remote Agent Control</span>
  <span class="badge badge-indigo">Interactive WoZ Controls</span>
@@ -922,7 +1190,7 @@
  </div>
  </div>
 
- <div class="card">
+ <div class="card tab-card-log">
  <div class="card-header d-flex justify-content-between align-items-center">
  <span> Telemetry & Router Logs</span>
  <button id="export-btn" class="btn btn-sm btn-outline-success" onclick="exportTelemetryCSV()">Export Telemetry CSV</button>
@@ -936,7 +1204,7 @@
  </div>
 
  <!-- TAB 3: LLM PLAYGROUND -->
- <div class="tab-pane fade" id="llm-panel" role="tabpanel" aria-labelledby="llm-tab">
+ <div class="tab-pane fade tab-fill" id="llm-panel" role="tabpanel" aria-labelledby="llm-tab">
  <div class="pg-shell">
 
  <aside class="pg-col" aria-label="Playground setup">
@@ -990,11 +1258,11 @@
  </div>
  </details>
 
- <details class="pg-section" open>
+ <details class="pg-section">
  <summary>Personality</summary>
  <div class="pg-section-body">
  <label class="form-label" for="system-prompt">System prompt</label>
- <textarea id="system-prompt" class="form-control" rows="5" style="font-family: var(--font-mono); font-size: 0.84rem;" placeholder="Who the agent is, how it should answer..."></textarea>
+ <textarea id="system-prompt" class="form-control" rows="3" style="font-family: var(--font-mono); font-size: 0.84rem;" placeholder="Who the agent is, how it should answer..."></textarea>
  <button id="save-llm-btn" class="btn btn-action-primary w-100 mt-2" onclick="saveLLMConfig()">Save &amp; Apply</button>
  </div>
  </details>
@@ -1034,7 +1302,35 @@
  </div>
  </aside>
 
- <section class="pg-col pg-stage" aria-label="Conversation">
+ <aside class="pg-col pg-agent" aria-label="Embodied agent">
+ <div class="card avatar-card">
+ <div class="card-header">
+ <div>
+ <div class="pg-kicker">Agent</div>
+ <span>Embodied preview</span>
+ </div>
+ <span id="avatar-status" class="badge bg-secondary avatar-status">Loading...</span>
+ </div>
+ <div class="p-2 border-bottom" style="border-color: var(--border) !important;">
+ <div class="d-flex gap-2 align-items-center">
+ <select id="avatar-select" class="form-select form-select-sm" style="flex:1" aria-label="Avatar model">
+ <option value="/models/friet256/FRIET256/model/friet256.fbx">Friet 256</option>
+ <option value="/models/default_avatar.vrm">Female avatar (VRM)</option>
+ </select>
+ <label class="btn btn-sm btn-ghost" style="white-space:nowrap; margin:0;">
+ Upload
+ <input type="file" id="avatar-upload" accept=".vrm,.glb,.fbx" style="display:none">
+ </label>
+ </div>
+ </div>
+ <div class="pg-avatar-stage">
+ <div id="avatar-canvas"></div>
+ </div>
+ <div id="avatar-debug" class="pg-avatar-debug"></div>
+ </div>
+ </aside>
+
+ <section class="pg-col pg-chat" aria-label="Conversation">
  <div class="card pg-stage-card">
  <div class="card-header">
  <div>
@@ -1098,42 +1394,14 @@
  </div>
  </section>
 
- <aside class="pg-col pg-agent" aria-label="Embodied agent">
- <div class="card avatar-card">
- <div class="card-header">
- <div>
- <div class="pg-kicker">Agent</div>
- <span>Embodied preview</span>
- </div>
- <span id="avatar-status" class="badge bg-secondary avatar-status">Loading...</span>
- </div>
- <div class="p-2 border-bottom" style="border-color: var(--border) !important;">
- <div class="d-flex gap-2 align-items-center">
- <select id="avatar-select" class="form-select form-select-sm" style="flex:1" aria-label="Avatar model">
- <option value="/models/friet256/FRIET256/model/friet256.fbx">Friet 256</option>
- <option value="/models/default_avatar.vrm">Female avatar (VRM)</option>
- </select>
- <label class="btn btn-sm btn-ghost" style="white-space:nowrap; margin:0;">
- Upload
- <input type="file" id="avatar-upload" accept=".vrm,.glb,.fbx" style="display:none">
- </label>
- </div>
- </div>
- <div class="pg-avatar-stage">
- <div id="avatar-canvas"></div>
- </div>
- <div id="avatar-debug" style="max-height:60px; overflow-y:auto; font-size:11px; font-family:var(--font-mono); color:var(--text-muted); padding:6px 10px; border-top:1px solid var(--border);"></div>
- </div>
- </aside>
-
  </div>
  </div>
 
  <!-- TAB 4: AGENT PROFILES -->
- <div class="tab-pane fade" id="profiles-panel" role="tabpanel" aria-labelledby="profiles-tab">
- <div class="row">
+ <div class="tab-pane fade tab-fill" id="profiles-panel" role="tabpanel" aria-labelledby="profiles-tab">
+ <div class="row g-3 tab-fill-row">
  <!-- Profile List -->
- <div class="col-md-4">
+ <div class="col-md-4 tab-col-fill">
  <div class="card">
  <div class="card-header d-flex justify-content-between align-items-center" style="color: #e879f9;">
  <span>Available Profiles</span>
@@ -1142,7 +1410,7 @@
  <button id="refresh-profiles-btn" class="btn btn-sm btn-outline-light" onclick="loadProfiles()">Refresh</button>
  </div>
  </div>
- <div class="card-body p-2" id="profiles-list" style="max-height: 70vh; overflow-y: auto;">
+ <div class="card-body p-2" id="profiles-list">
  <div class="text-center text-muted mt-3">
  <small>Loading profiles...</small>
  </div>
@@ -1151,7 +1419,7 @@
  </div>
 
  <!-- Profile Detail & Full CRUD controls -->
- <div class="col-md-8">
+ <div class="col-md-8 tab-col-fill">
  <div class="card">
  <div class="card-header d-flex justify-content-between align-items-center" style="color: #e879f9;">
  <span id="profile-detail-title">Select a profile</span>
@@ -1162,7 +1430,7 @@
  <button id="apply-profile-btn" class="btn btn-sm btn-success" disabled>Apply Profile</button>
  </div>
  </div>
- <div class="card-body" id="profile-detail-body" style="max-height: 70vh; overflow-y: auto;">
+ <div class="card-body" id="profile-detail-body">
  <div class="text-center text-muted mt-5">
  <small>Click a profile from the list to view details.</small>
  </div>
@@ -1178,10 +1446,10 @@
  </div>
 
  <!-- TAB 5: STUDY SESSION -->
- <div class="tab-pane fade" id="session-panel" role="tabpanel" aria-labelledby="session-tab">
- <div class="row">
+ <div class="tab-pane fade tab-fill" id="session-panel" role="tabpanel" aria-labelledby="session-tab">
+ <div class="row g-3 tab-fill-row">
  <!-- Session Controls Column -->
- <div class="col-md-5">
+ <div class="col-md-5 tab-col-stack">
  <!-- Session Control Card -->
  <div class="card" style="border-color: #198754; background: linear-gradient(135deg, #1a2e1a, #1e2e1e);">
  <div class="card-header d-flex justify-content-between align-items-center" style="background: #19875422; border-color: #19875455;">
@@ -1229,7 +1497,7 @@
  </div>
 
  <!-- Agent Configuration Column -->
- <div class="col-md-7">
+ <div class="col-md-7 tab-col-stack">
  <div class="card" style="border-color: #e879f9;">
  <div class="card-header d-flex justify-content-between align-items-center" style="background: #e879f922; border-color: #e879f955;">
  <span> Agent Profile</span>
@@ -1294,18 +1562,18 @@
 
 
  <!-- TAB 7: API KEY STORE -->
- <div class="tab-pane fade" id="keystore-panel" role="tabpanel" aria-labelledby="keystore-tab">
+ <div class="tab-pane fade tab-fill tab-scroll-card" id="keystore-panel" role="tabpanel" aria-labelledby="keystore-tab">
  <div class="card">
  <div class="card-header d-flex justify-content-between align-items-center">
  <span class="mb-0 fw-bold">Secure API Key Store</span>
  <span id="keystore-summary-badge" class="badge badge-indigo mono-font">[NOT CONFIGURED]</span>
  </div>
  <div class="card-body">
- <p class="text-muted small mb-4">
+ <p class="text-muted small mb-3">
  Manage API key secrets for AI providers. Keys update in runtime memory immediately and can optionally be persisted line-by-line to the server .env file.
  </p>
 
- <div class="mb-4 p-3 bg-dark rounded border border-secondary">
+ <div class="mb-3 p-3 bg-dark rounded border border-secondary">
  <div class="d-flex justify-content-between align-items-center mb-2">
  <label class="form-label mb-0 font-weight-bold text-info">OpenAI API Key</label>
  <span id="status-key-openai" class="badge bg-secondary">[NOT CONFIGURED]</span>
@@ -1317,7 +1585,7 @@
  </div>
  </div>
 
- <div class="mb-4 p-3 bg-dark rounded border border-secondary">
+ <div class="mb-3 p-3 bg-dark rounded border border-secondary">
  <div class="d-flex justify-content-between align-items-center mb-2">
  <label class="form-label mb-0 font-weight-bold text-info">Gemini API Key</label>
  <span id="status-key-gemini" class="badge bg-secondary">[NOT CONFIGURED]</span>
@@ -1329,7 +1597,7 @@
  </div>
  </div>
 
- <div class="mb-4 p-3 bg-dark rounded border border-secondary">
+ <div class="mb-3 p-3 bg-dark rounded border border-secondary">
  <div class="d-flex justify-content-between align-items-center mb-2">
  <label class="form-label mb-0 font-weight-bold text-info">ElevenLabs API Key</label>
  <span id="status-key-elevenlabs" class="badge bg-secondary">[NOT CONFIGURED]</span>
@@ -1341,7 +1609,7 @@
  </div>
  </div>
 
- <div class="d-flex gap-3 mt-4">
+ <div class="d-flex gap-3 mt-3">
  <button id="btn-update-keys-memory" class="btn btn-warning flex-fill fw-bold" onclick="updateKeysInMemory()">
  Apply to Memory Only
  </button>
@@ -1355,35 +1623,65 @@
 
 
  <!-- TAB 7: EVALUATION -->
- <div class="tab-pane fade" id="eval-panel" role="tabpanel" aria-labelledby="eval-tab">
+ <div class="tab-pane fade tab-fill tab-scroll-card" id="eval-panel" role="tabpanel" aria-labelledby="eval-tab">
  <div class="card">
  <div class="card-header fw-bold">OVARP Usability Evaluation</div>
  <div class="card-body">
- <p class="text-muted small">Rate OVARP itself (not the virtual agent). SUS uses 1=Strongly disagree to 5=Strongly agree. UEQ-S uses -3 to +3.</p>
- <div class="mb-3">
- <label class="form-label" for="eval-participant">Optional participant / researcher ID</label>
+ <div class="eval-toolbar">
+ <p class="text-muted small">Rate OVARP itself (not the virtual agent). SUS: 1 = strongly disagree, 5 = strongly agree. UEQ-S: −3 to +3.</p>
+ <div class="eval-pid">
+ <label class="form-label" for="eval-participant">Participant / researcher ID</label>
  <input id="eval-participant" class="form-control form-control-sm" placeholder="P01">
  </div>
- <h6 class="mt-4">System Usability Scale (SUS)</h6>
- <div class="mb-3 pb-2 border-bottom border-secondary"><div class="small mb-1">1. I think that I would like to use this system frequently.</div><div class="small"><label class="me-1"><input type="radio" name="sus-0" value="1" required> 1</label><label class="me-1"><input type="radio" name="sus-0" value="2" required> 2</label><label class="me-1"><input type="radio" name="sus-0" value="3" required> 3</label><label class="me-1"><input type="radio" name="sus-0" value="4" required> 4</label><label class="me-1"><input type="radio" name="sus-0" value="5" required> 5</label></div></div><div class="mb-3 pb-2 border-bottom border-secondary"><div class="small mb-1">2. I found the system unnecessarily complex.</div><div class="small"><label class="me-1"><input type="radio" name="sus-1" value="1" required> 1</label><label class="me-1"><input type="radio" name="sus-1" value="2" required> 2</label><label class="me-1"><input type="radio" name="sus-1" value="3" required> 3</label><label class="me-1"><input type="radio" name="sus-1" value="4" required> 4</label><label class="me-1"><input type="radio" name="sus-1" value="5" required> 5</label></div></div><div class="mb-3 pb-2 border-bottom border-secondary"><div class="small mb-1">3. I thought the system was easy to use.</div><div class="small"><label class="me-1"><input type="radio" name="sus-2" value="1" required> 1</label><label class="me-1"><input type="radio" name="sus-2" value="2" required> 2</label><label class="me-1"><input type="radio" name="sus-2" value="3" required> 3</label><label class="me-1"><input type="radio" name="sus-2" value="4" required> 4</label><label class="me-1"><input type="radio" name="sus-2" value="5" required> 5</label></div></div><div class="mb-3 pb-2 border-bottom border-secondary"><div class="small mb-1">4. I think that I would need the support of a technical person to be able to use this system.</div><div class="small"><label class="me-1"><input type="radio" name="sus-3" value="1" required> 1</label><label class="me-1"><input type="radio" name="sus-3" value="2" required> 2</label><label class="me-1"><input type="radio" name="sus-3" value="3" required> 3</label><label class="me-1"><input type="radio" name="sus-3" value="4" required> 4</label><label class="me-1"><input type="radio" name="sus-3" value="5" required> 5</label></div></div><div class="mb-3 pb-2 border-bottom border-secondary"><div class="small mb-1">5. I found the various functions in this system were well integrated.</div><div class="small"><label class="me-1"><input type="radio" name="sus-4" value="1" required> 1</label><label class="me-1"><input type="radio" name="sus-4" value="2" required> 2</label><label class="me-1"><input type="radio" name="sus-4" value="3" required> 3</label><label class="me-1"><input type="radio" name="sus-4" value="4" required> 4</label><label class="me-1"><input type="radio" name="sus-4" value="5" required> 5</label></div></div><div class="mb-3 pb-2 border-bottom border-secondary"><div class="small mb-1">6. I thought there was too much inconsistency in this system.</div><div class="small"><label class="me-1"><input type="radio" name="sus-5" value="1" required> 1</label><label class="me-1"><input type="radio" name="sus-5" value="2" required> 2</label><label class="me-1"><input type="radio" name="sus-5" value="3" required> 3</label><label class="me-1"><input type="radio" name="sus-5" value="4" required> 4</label><label class="me-1"><input type="radio" name="sus-5" value="5" required> 5</label></div></div><div class="mb-3 pb-2 border-bottom border-secondary"><div class="small mb-1">7. I would imagine that most people would learn to use this system very quickly.</div><div class="small"><label class="me-1"><input type="radio" name="sus-6" value="1" required> 1</label><label class="me-1"><input type="radio" name="sus-6" value="2" required> 2</label><label class="me-1"><input type="radio" name="sus-6" value="3" required> 3</label><label class="me-1"><input type="radio" name="sus-6" value="4" required> 4</label><label class="me-1"><input type="radio" name="sus-6" value="5" required> 5</label></div></div><div class="mb-3 pb-2 border-bottom border-secondary"><div class="small mb-1">8. I found the system very cumbersome to use.</div><div class="small"><label class="me-1"><input type="radio" name="sus-7" value="1" required> 1</label><label class="me-1"><input type="radio" name="sus-7" value="2" required> 2</label><label class="me-1"><input type="radio" name="sus-7" value="3" required> 3</label><label class="me-1"><input type="radio" name="sus-7" value="4" required> 4</label><label class="me-1"><input type="radio" name="sus-7" value="5" required> 5</label></div></div><div class="mb-3 pb-2 border-bottom border-secondary"><div class="small mb-1">9. I felt very confident using the system.</div><div class="small"><label class="me-1"><input type="radio" name="sus-8" value="1" required> 1</label><label class="me-1"><input type="radio" name="sus-8" value="2" required> 2</label><label class="me-1"><input type="radio" name="sus-8" value="3" required> 3</label><label class="me-1"><input type="radio" name="sus-8" value="4" required> 4</label><label class="me-1"><input type="radio" name="sus-8" value="5" required> 5</label></div></div><div class="mb-3 pb-2 border-bottom border-secondary"><div class="small mb-1">10. I needed to learn a lot of things before I could get going with this system.</div><div class="small"><label class="me-1"><input type="radio" name="sus-9" value="1" required> 1</label><label class="me-1"><input type="radio" name="sus-9" value="2" required> 2</label><label class="me-1"><input type="radio" name="sus-9" value="3" required> 3</label><label class="me-1"><input type="radio" name="sus-9" value="4" required> 4</label><label class="me-1"><input type="radio" name="sus-9" value="5" required> 5</label></div></div>
- <h6 class="mt-4">UEQ-S</h6>
- <div class="mb-3 pb-2 border-bottom border-secondary"><div class="d-flex justify-content-between small mb-1"><span>obstructive</span><span>supportive</span></div><div class="small"><label class="me-1"><input type="radio" name="ueq-0" value="-3" required> -3</label><label class="me-1"><input type="radio" name="ueq-0" value="-2" required> -2</label><label class="me-1"><input type="radio" name="ueq-0" value="-1" required> -1</label><label class="me-1"><input type="radio" name="ueq-0" value="0" required> 0</label><label class="me-1"><input type="radio" name="ueq-0" value="1" required> 1</label><label class="me-1"><input type="radio" name="ueq-0" value="2" required> 2</label><label class="me-1"><input type="radio" name="ueq-0" value="3" required> 3</label></div></div><div class="mb-3 pb-2 border-bottom border-secondary"><div class="d-flex justify-content-between small mb-1"><span>complicated</span><span>easy</span></div><div class="small"><label class="me-1"><input type="radio" name="ueq-1" value="-3" required> -3</label><label class="me-1"><input type="radio" name="ueq-1" value="-2" required> -2</label><label class="me-1"><input type="radio" name="ueq-1" value="-1" required> -1</label><label class="me-1"><input type="radio" name="ueq-1" value="0" required> 0</label><label class="me-1"><input type="radio" name="ueq-1" value="1" required> 1</label><label class="me-1"><input type="radio" name="ueq-1" value="2" required> 2</label><label class="me-1"><input type="radio" name="ueq-1" value="3" required> 3</label></div></div><div class="mb-3 pb-2 border-bottom border-secondary"><div class="d-flex justify-content-between small mb-1"><span>inefficient</span><span>efficient</span></div><div class="small"><label class="me-1"><input type="radio" name="ueq-2" value="-3" required> -3</label><label class="me-1"><input type="radio" name="ueq-2" value="-2" required> -2</label><label class="me-1"><input type="radio" name="ueq-2" value="-1" required> -1</label><label class="me-1"><input type="radio" name="ueq-2" value="0" required> 0</label><label class="me-1"><input type="radio" name="ueq-2" value="1" required> 1</label><label class="me-1"><input type="radio" name="ueq-2" value="2" required> 2</label><label class="me-1"><input type="radio" name="ueq-2" value="3" required> 3</label></div></div><div class="mb-3 pb-2 border-bottom border-secondary"><div class="d-flex justify-content-between small mb-1"><span>confusing</span><span>clear</span></div><div class="small"><label class="me-1"><input type="radio" name="ueq-3" value="-3" required> -3</label><label class="me-1"><input type="radio" name="ueq-3" value="-2" required> -2</label><label class="me-1"><input type="radio" name="ueq-3" value="-1" required> -1</label><label class="me-1"><input type="radio" name="ueq-3" value="0" required> 0</label><label class="me-1"><input type="radio" name="ueq-3" value="1" required> 1</label><label class="me-1"><input type="radio" name="ueq-3" value="2" required> 2</label><label class="me-1"><input type="radio" name="ueq-3" value="3" required> 3</label></div></div><div class="mb-3 pb-2 border-bottom border-secondary"><div class="d-flex justify-content-between small mb-1"><span>boring</span><span>exciting</span></div><div class="small"><label class="me-1"><input type="radio" name="ueq-4" value="-3" required> -3</label><label class="me-1"><input type="radio" name="ueq-4" value="-2" required> -2</label><label class="me-1"><input type="radio" name="ueq-4" value="-1" required> -1</label><label class="me-1"><input type="radio" name="ueq-4" value="0" required> 0</label><label class="me-1"><input type="radio" name="ueq-4" value="1" required> 1</label><label class="me-1"><input type="radio" name="ueq-4" value="2" required> 2</label><label class="me-1"><input type="radio" name="ueq-4" value="3" required> 3</label></div></div><div class="mb-3 pb-2 border-bottom border-secondary"><div class="d-flex justify-content-between small mb-1"><span>not interesting</span><span>interesting</span></div><div class="small"><label class="me-1"><input type="radio" name="ueq-5" value="-3" required> -3</label><label class="me-1"><input type="radio" name="ueq-5" value="-2" required> -2</label><label class="me-1"><input type="radio" name="ueq-5" value="-1" required> -1</label><label class="me-1"><input type="radio" name="ueq-5" value="0" required> 0</label><label class="me-1"><input type="radio" name="ueq-5" value="1" required> 1</label><label class="me-1"><input type="radio" name="ueq-5" value="2" required> 2</label><label class="me-1"><input type="radio" name="ueq-5" value="3" required> 3</label></div></div><div class="mb-3 pb-2 border-bottom border-secondary"><div class="d-flex justify-content-between small mb-1"><span>conventional</span><span>inventive</span></div><div class="small"><label class="me-1"><input type="radio" name="ueq-6" value="-3" required> -3</label><label class="me-1"><input type="radio" name="ueq-6" value="-2" required> -2</label><label class="me-1"><input type="radio" name="ueq-6" value="-1" required> -1</label><label class="me-1"><input type="radio" name="ueq-6" value="0" required> 0</label><label class="me-1"><input type="radio" name="ueq-6" value="1" required> 1</label><label class="me-1"><input type="radio" name="ueq-6" value="2" required> 2</label><label class="me-1"><input type="radio" name="ueq-6" value="3" required> 3</label></div></div><div class="mb-3 pb-2 border-bottom border-secondary"><div class="d-flex justify-content-between small mb-1"><span>usual</span><span>leading edge</span></div><div class="small"><label class="me-1"><input type="radio" name="ueq-7" value="-3" required> -3</label><label class="me-1"><input type="radio" name="ueq-7" value="-2" required> -2</label><label class="me-1"><input type="radio" name="ueq-7" value="-1" required> -1</label><label class="me-1"><input type="radio" name="ueq-7" value="0" required> 0</label><label class="me-1"><input type="radio" name="ueq-7" value="1" required> 1</label><label class="me-1"><input type="radio" name="ueq-7" value="2" required> 2</label><label class="me-1"><input type="radio" name="ueq-7" value="3" required> 3</label></div></div>
- <h6 class="mt-4">Qualitative questions</h6>
- <div class="mb-3"><label class="form-label">Would you use OVARP?</label><textarea id="eval-would-use" class="form-control" rows="2"></textarea></div>
- <div class="mb-3"><label class="form-label">For what?</label><textarea id="eval-for-what" class="form-control" rows="2"></textarea></div>
- <div class="mb-3"><label class="form-label">How would you improve it?</label><textarea id="eval-improve" class="form-control" rows="2"></textarea></div>
- <div class="mb-3"><label class="form-label">What do you like?</label><textarea id="eval-likes" class="form-control" rows="2"></textarea></div>
- <div class="mb-3"><label class="form-label">What do you dislike?</label><textarea id="eval-dislikes" class="form-control" rows="2"></textarea></div>
+ </div>
+
+ <div class="eval-grid">
+ <section class="eval-block">
+ <h6>System Usability Scale (SUS)</h6>
+ <div class="eval-hint">1 strongly disagree · 5 strongly agree</div>
+ <div class="eval-item"><div class="eval-q">1. I think that I would like to use this system frequently.</div><div class="eval-scale"><label><input type="radio" name="sus-0" value="1" required> 1</label><label><input type="radio" name="sus-0" value="2" required> 2</label><label><input type="radio" name="sus-0" value="3" required> 3</label><label><input type="radio" name="sus-0" value="4" required> 4</label><label><input type="radio" name="sus-0" value="5" required> 5</label></div></div>
+ <div class="eval-item"><div class="eval-q">2. I found the system unnecessarily complex.</div><div class="eval-scale"><label><input type="radio" name="sus-1" value="1" required> 1</label><label><input type="radio" name="sus-1" value="2" required> 2</label><label><input type="radio" name="sus-1" value="3" required> 3</label><label><input type="radio" name="sus-1" value="4" required> 4</label><label><input type="radio" name="sus-1" value="5" required> 5</label></div></div>
+ <div class="eval-item"><div class="eval-q">3. I thought the system was easy to use.</div><div class="eval-scale"><label><input type="radio" name="sus-2" value="1" required> 1</label><label><input type="radio" name="sus-2" value="2" required> 2</label><label><input type="radio" name="sus-2" value="3" required> 3</label><label><input type="radio" name="sus-2" value="4" required> 4</label><label><input type="radio" name="sus-2" value="5" required> 5</label></div></div>
+ <div class="eval-item"><div class="eval-q">4. I would need the support of a technical person to use this system.</div><div class="eval-scale"><label><input type="radio" name="sus-3" value="1" required> 1</label><label><input type="radio" name="sus-3" value="2" required> 2</label><label><input type="radio" name="sus-3" value="3" required> 3</label><label><input type="radio" name="sus-3" value="4" required> 4</label><label><input type="radio" name="sus-3" value="5" required> 5</label></div></div>
+ <div class="eval-item"><div class="eval-q">5. I found the various functions in this system were well integrated.</div><div class="eval-scale"><label><input type="radio" name="sus-4" value="1" required> 1</label><label><input type="radio" name="sus-4" value="2" required> 2</label><label><input type="radio" name="sus-4" value="3" required> 3</label><label><input type="radio" name="sus-4" value="4" required> 4</label><label><input type="radio" name="sus-4" value="5" required> 5</label></div></div>
+ <div class="eval-item"><div class="eval-q">6. I thought there was too much inconsistency in this system.</div><div class="eval-scale"><label><input type="radio" name="sus-5" value="1" required> 1</label><label><input type="radio" name="sus-5" value="2" required> 2</label><label><input type="radio" name="sus-5" value="3" required> 3</label><label><input type="radio" name="sus-5" value="4" required> 4</label><label><input type="radio" name="sus-5" value="5" required> 5</label></div></div>
+ <div class="eval-item"><div class="eval-q">7. Most people would learn to use this system very quickly.</div><div class="eval-scale"><label><input type="radio" name="sus-6" value="1" required> 1</label><label><input type="radio" name="sus-6" value="2" required> 2</label><label><input type="radio" name="sus-6" value="3" required> 3</label><label><input type="radio" name="sus-6" value="4" required> 4</label><label><input type="radio" name="sus-6" value="5" required> 5</label></div></div>
+ <div class="eval-item"><div class="eval-q">8. I found the system very cumbersome to use.</div><div class="eval-scale"><label><input type="radio" name="sus-7" value="1" required> 1</label><label><input type="radio" name="sus-7" value="2" required> 2</label><label><input type="radio" name="sus-7" value="3" required> 3</label><label><input type="radio" name="sus-7" value="4" required> 4</label><label><input type="radio" name="sus-7" value="5" required> 5</label></div></div>
+ <div class="eval-item"><div class="eval-q">9. I felt very confident using the system.</div><div class="eval-scale"><label><input type="radio" name="sus-8" value="1" required> 1</label><label><input type="radio" name="sus-8" value="2" required> 2</label><label><input type="radio" name="sus-8" value="3" required> 3</label><label><input type="radio" name="sus-8" value="4" required> 4</label><label><input type="radio" name="sus-8" value="5" required> 5</label></div></div>
+ <div class="eval-item"><div class="eval-q">10. I needed to learn a lot of things before I could get going.</div><div class="eval-scale"><label><input type="radio" name="sus-9" value="1" required> 1</label><label><input type="radio" name="sus-9" value="2" required> 2</label><label><input type="radio" name="sus-9" value="3" required> 3</label><label><input type="radio" name="sus-9" value="4" required> 4</label><label><input type="radio" name="sus-9" value="5" required> 5</label></div></div>
+ </section>
+
+ <section class="eval-block">
+ <h6>UEQ-S</h6>
+ <div class="eval-hint">−3 left pole · 0 neutral · +3 right pole</div>
+ <div class="eval-ueq"><span class="eval-end">obstructive</span><div class="eval-scale"><label><input type="radio" name="ueq-0" value="-3" required> −3</label><label><input type="radio" name="ueq-0" value="-2" required> −2</label><label><input type="radio" name="ueq-0" value="-1" required> −1</label><label><input type="radio" name="ueq-0" value="0" required> 0</label><label><input type="radio" name="ueq-0" value="1" required> 1</label><label><input type="radio" name="ueq-0" value="2" required> 2</label><label><input type="radio" name="ueq-0" value="3" required> 3</label></div><span class="eval-end right">supportive</span></div>
+ <div class="eval-ueq"><span class="eval-end">complicated</span><div class="eval-scale"><label><input type="radio" name="ueq-1" value="-3" required> −3</label><label><input type="radio" name="ueq-1" value="-2" required> −2</label><label><input type="radio" name="ueq-1" value="-1" required> −1</label><label><input type="radio" name="ueq-1" value="0" required> 0</label><label><input type="radio" name="ueq-1" value="1" required> 1</label><label><input type="radio" name="ueq-1" value="2" required> 2</label><label><input type="radio" name="ueq-1" value="3" required> 3</label></div><span class="eval-end right">easy</span></div>
+ <div class="eval-ueq"><span class="eval-end">inefficient</span><div class="eval-scale"><label><input type="radio" name="ueq-2" value="-3" required> −3</label><label><input type="radio" name="ueq-2" value="-2" required> −2</label><label><input type="radio" name="ueq-2" value="-1" required> −1</label><label><input type="radio" name="ueq-2" value="0" required> 0</label><label><input type="radio" name="ueq-2" value="1" required> 1</label><label><input type="radio" name="ueq-2" value="2" required> 2</label><label><input type="radio" name="ueq-2" value="3" required> 3</label></div><span class="eval-end right">efficient</span></div>
+ <div class="eval-ueq"><span class="eval-end">confusing</span><div class="eval-scale"><label><input type="radio" name="ueq-3" value="-3" required> −3</label><label><input type="radio" name="ueq-3" value="-2" required> −2</label><label><input type="radio" name="ueq-3" value="-1" required> −1</label><label><input type="radio" name="ueq-3" value="0" required> 0</label><label><input type="radio" name="ueq-3" value="1" required> 1</label><label><input type="radio" name="ueq-3" value="2" required> 2</label><label><input type="radio" name="ueq-3" value="3" required> 3</label></div><span class="eval-end right">clear</span></div>
+ <div class="eval-ueq"><span class="eval-end">boring</span><div class="eval-scale"><label><input type="radio" name="ueq-4" value="-3" required> −3</label><label><input type="radio" name="ueq-4" value="-2" required> −2</label><label><input type="radio" name="ueq-4" value="-1" required> −1</label><label><input type="radio" name="ueq-4" value="0" required> 0</label><label><input type="radio" name="ueq-4" value="1" required> 1</label><label><input type="radio" name="ueq-4" value="2" required> 2</label><label><input type="radio" name="ueq-4" value="3" required> 3</label></div><span class="eval-end right">exciting</span></div>
+ <div class="eval-ueq"><span class="eval-end">not interesting</span><div class="eval-scale"><label><input type="radio" name="ueq-5" value="-3" required> −3</label><label><input type="radio" name="ueq-5" value="-2" required> −2</label><label><input type="radio" name="ueq-5" value="-1" required> −1</label><label><input type="radio" name="ueq-5" value="0" required> 0</label><label><input type="radio" name="ueq-5" value="1" required> 1</label><label><input type="radio" name="ueq-5" value="2" required> 2</label><label><input type="radio" name="ueq-5" value="3" required> 3</label></div><span class="eval-end right">interesting</span></div>
+ <div class="eval-ueq"><span class="eval-end">conventional</span><div class="eval-scale"><label><input type="radio" name="ueq-6" value="-3" required> −3</label><label><input type="radio" name="ueq-6" value="-2" required> −2</label><label><input type="radio" name="ueq-6" value="-1" required> −1</label><label><input type="radio" name="ueq-6" value="0" required> 0</label><label><input type="radio" name="ueq-6" value="1" required> 1</label><label><input type="radio" name="ueq-6" value="2" required> 2</label><label><input type="radio" name="ueq-6" value="3" required> 3</label></div><span class="eval-end right">inventive</span></div>
+ <div class="eval-ueq"><span class="eval-end">usual</span><div class="eval-scale"><label><input type="radio" name="ueq-7" value="-3" required> −3</label><label><input type="radio" name="ueq-7" value="-2" required> −2</label><label><input type="radio" name="ueq-7" value="-1" required> −1</label><label><input type="radio" name="ueq-7" value="0" required> 0</label><label><input type="radio" name="ueq-7" value="1" required> 1</label><label><input type="radio" name="ueq-7" value="2" required> 2</label><label><input type="radio" name="ueq-7" value="3" required> 3</label></div><span class="eval-end right">leading edge</span></div>
+ </section>
+ </div>
+
+ <div class="eval-qual">
+ <div><label class="form-label">Would you use OVARP?</label><textarea id="eval-would-use" class="form-control" rows="2"></textarea></div>
+ <div><label class="form-label">For what?</label><textarea id="eval-for-what" class="form-control" rows="2"></textarea></div>
+ <div><label class="form-label">How would you improve it?</label><textarea id="eval-improve" class="form-control" rows="2"></textarea></div>
+ <div><label class="form-label">What do you like?</label><textarea id="eval-likes" class="form-control" rows="2"></textarea></div>
+ <div><label class="form-label">What do you dislike?</label><textarea id="eval-dislikes" class="form-control" rows="2"></textarea></div>
+ </div>
+ <div class="eval-submit">
  <button class="btn btn-primary" type="button" onclick="submitOvarpEvaluation()">Submit evaluation</button>
- <div id="eval-result" class="small mt-3"></div>
+ <div id="eval-result" class="small"></div>
+ </div>
  </div>
  </div>
  </div>
 
  <!-- TAB 8: SYSTEM LOGS -->
- <div class="tab-pane fade" id="logs-panel" role="tabpanel" aria-labelledby="logs-tab">
- <div class="row">
- <div class="col-12">
+ <div class="tab-pane fade tab-fill tab-scroll-card" id="logs-panel" role="tabpanel" aria-labelledby="logs-tab">
  <div class="card">
  <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
  <div class="d-flex align-items-center gap-2">
@@ -1407,11 +1705,9 @@
  </div>
  </div>
  <div class="card-body p-0">
- <div id="syslogs-window" class="chat-container" style="height: 65vh; font-family: monospace; padding: 12px; overflow-y: auto; background: #0c0d14;">
+ <div id="syslogs-window" class="chat-container" style="font-family: monospace; padding: 12px; overflow-y: auto; background: #0c0d14;">
  <div class="text-center text-muted mt-3">
  <small>Listening to system stdout, telemetry streams, and Web log events...</small>
- </div>
- </div>
  </div>
  </div>
  </div>
