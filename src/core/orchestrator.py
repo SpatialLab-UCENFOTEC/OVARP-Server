@@ -417,10 +417,10 @@ class DialogOrchestrator:
         try:
             std_log.info(f"🎤 Orchestrator: Direct TTS | text=\"{text[:80]}\" | target={target_device}")
 
-            # Broadcast the text as a normal llm_reply so all clients display it like agent speech
+            # Route the caption to the selected device (not every headset at once)
             text_cmd = BaseCommand(
                 sender="server_orchestrator",
-                target_device="all",
+                target_device=target_device or "all",
                 target_agent=target_agent,
                 command_type="message",
                 command="llm_reply",

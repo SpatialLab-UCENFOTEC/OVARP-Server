@@ -149,3 +149,39 @@ def test_apply_profile_selects_llm_and_tts(orchestrator, mock_tts):
     selection = orchestrator.get_runtime_selection()
     assert selection["llm"] == "openai"
     assert selection["tts"] == "openai"
+
+
+@pytest.mark.asyncio
+async def test_process_direct_tts_routes_to_selected_device(orchestrator):
+    """Direct TTS captions must follow the WoZ target, not every headset."""
+    from unittest.mock import patch
+    from src.core.config import OVARPConfig, config_manager
+
+    prev = config_manager._config
+    config_manager._config = OVARPConfig(
+        experiment={"name": "t", "description": "d", "version": "1"},
+        devices=[{"id": "headset_01", "name": "Headset", "type": "xr"}],
+        agents=[{"id": "agent_alpha", "name": "Alpha"}],
+        custom_commands={},
+    )
+    orchestrator.tts_enabled = False
+    mock_router = MagicMock()
+    mock_router.route_command = AsyncMock()
+
+    try:
+        with patch("src.core.orchestrator.router", mock_router):
+            await orchestrator.process_direct_tts(
+                text="Hello headset",
+                target_device="headset_01",
+                target_agent="agent_alpha",
+            )
+    finally:
+        config_manager._config = prev
+
+    mock_router.route_command.assert_awaited_once()
+    cmd = mock_router.route_command.await_args[0][0]
+    assert cmd.command == "llm_reply"
+    assert cmd.target_device == "headset_01"
+    assert cmd.target_agent == "agent_alpha"
+    assert cmd.subcommand["text"] == "Hello headset"
+    assert cmd.subcommand["provider"] == "woz_direct"
