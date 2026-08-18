@@ -123,6 +123,7 @@ if not _is_testing():
 else:
     # Minimal app for testing — routes still get registered below
     app = FastAPI(title="OVARP Server (Test Mode)")
+    ws_transport = WebSocketTransport()
 
 from src.core.evaluations import evaluations_router
 
@@ -344,6 +345,13 @@ async def get_server_info():
         "zmq_sub_port": 5556,
         "ws_url_template": f"ws://{lan_ip}:{ws_port}/ws/client/<device_id>",
     }
+
+
+@app.get("/api/clients")
+async def list_connected_clients():
+    """Live WebSocket client_ids currently connected to /ws/client/{id}."""
+    ids = ws_transport.connected_client_ids()
+    return {"clients": ids, "count": len(ids)}
 
 class LLMConfigUpdate(BaseModel):
     provider_id: str | None = None
