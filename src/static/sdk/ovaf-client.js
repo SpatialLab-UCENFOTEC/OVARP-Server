@@ -1,4 +1,4 @@
-import AvatarController from '../avatar.js';
+import AvatarController from '../avatar.js?v=12';
 
 /**
  * OVARPClient: The official Web SDK for the Open Virtual Agent Research Platform.

@@ -22,7 +22,7 @@ from dotenv import load_dotenv
 # Load .env BEFORE anything tries to read API keys
 load_dotenv()
 from fastapi import FastAPI, WebSocket
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from structlog import get_logger
@@ -700,6 +700,62 @@ async def get_marker_presets():
     if config.event_markers:
         return {"presets": [m.model_dump() for m in config.event_markers]}
     return {"presets": []}
+
+@app.post("/api/session/markers/presets")
+async def add_or_update_marker_preset(data: dict):
+    """Add or update an event marker preset in config memory."""
+    from src.core.config import EventMarkerPreset
+    try:
+        preset_id = data.get("id") or f"marker_{int(time.time())}"
+        label = data.get("label") or "Custom Marker"
+        description = data.get("description") or ""
+        color = data.get("color") or "#4f46e5"
+
+        new_preset = EventMarkerPreset(
+            id=preset_id,
+            label=label,
+            description=description,
+            color=color
+        )
+
+        config = config_manager.config
+        if config.event_markers is None:
+            config.event_markers = []
+
+        existing_idx = next((i for i, m in enumerate(config.event_markers) if m.id == preset_id), None)
+        if existing_idx is not None:
+            config.event_markers[existing_idx] = new_preset
+        else:
+            config.event_markers.append(new_preset)
+
+        return {"status": "ok", "presets": [m.model_dump() for m in config.event_markers]}
+    except Exception as e:
+        return JSONResponse(status_code=400, content={"error": str(e)})
+
+@app.get("/api/session/export/csv")
+async def export_session_csv():
+    """Export active or completed session markers and telemetry events as CSV."""
+    import csv
+    import io
+    from datetime import datetime
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Timestamp_ISO", "Unix_Timestamp", "Session_ID", "Participant_ID", "Event_Type", "Category_or_Label", "Notes"])
+
+    sess = session_manager.session
+    if sess:
+        writer.writerow([sess.started_at, sess.started_at_unix, sess.session_id, sess.participant_id, "SESSION_START", "ACTIVE", f"Status: {sess.status}"])
+        for m in sess.markers:
+            writer.writerow([m.iso_time, m.timestamp, sess.session_id, sess.participant_id, "MARKER", m.category or m.label, m.notes or ""])
+    else:
+        writer.writerow([datetime.now().isoformat(), time.time(), "N/A", "N/A", "INFO", "NO_ACTIVE_SESSION", "No session markers recorded yet"])
+
+    return Response(
+        content=output.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=ovarp_session_telemetry.csv"}
+    )
 
 # --- Agent Profiles ---
 from src.core.profile_manager import profile_manager

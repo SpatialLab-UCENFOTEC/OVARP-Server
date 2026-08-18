@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Isolated FBX Tester - Friet 256</title>
+    <style>
+        body { margin: 0; background: #111; color: #fff; font-family: monospace; overflow: hidden; }
+        #canvas-container { width: 100vw; height: 100vh; }
+        #debug-overlay { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.85); padding: 15px; border-radius: 8px; border: 1px solid #333; max-width: 400px; }
+        .log-line { margin: 3px 0; font-size: 12px; }
+        .success { color: #4eff91; }
+        .error { color: #ff5555; }
+        .info { color: #88ccff; }
+    </style>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/",
+            "fflate": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/fflate.module.js"
+        }
+    }
+    </script>
+</head>
+<body>
+    <div id="canvas-container"></div>
+    <div id="debug-overlay">
+        <h3>🍟 FBX Standalone Test</h3>
+        <div id="log-box">Initializing Three.js...</div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        function log(msg, cls = 'info') {
+            const box = document.getElementById('log-box');
+            box.innerHTML += `<div class="log-line ${cls}">[${new Date().toLocaleTimeString()}] ${msg}</div>`;
+            console.log(msg);
+        }
+
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x1a1a2e);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 1.5, 3);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        container.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+
+        // Lights
+        const ambientLight = new THREE.AmbientLight(0xffffff, 2.0);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 2.5);
+        dirLight.position.set(2, 4, 3);
+        scene.add(dirLight);
+
+        const dirLight2 = new THREE.DirectionalLight(0x7b68ee, 1.5);
+        dirLight2.position.set(-2, 2, -3);
+        scene.add(dirLight2);
+
+        // Load Texture
+        const texLoader = new THREE.TextureLoader();
+        const texture = texLoader.load('/models/friet256/FRIET256/model/tex.png', () => {
+            log('Texture tex.png loaded OK', 'success');
+            texture.colorSpace = THREE.SRGBColorSpace;
+            texture.flipY = true;
+        });
+
+        // Load FBX
+        log('Loading /models/friet256/FRIET256/model/friet256.fbx ...', 'info');
+        const loader = new FBXLoader();
+        loader.load(
+            '/models/friet256/FRIET256/model/friet256.fbx',
+            (fbx) => {
+                log('FBX file loaded cleanly!', 'success');
+                
+                let meshCount = 0;
+                fbx.traverse((child) => {
+                    if (child.isMesh) {
+                        meshCount++;
+                        if (child.material) {
+                            const mats = Array.isArray(child.material) ? child.material : [child.material];
+                            mats.forEach(m => {
+                                m.map = texture;
+                                m.side = THREE.DoubleSide;
+                                m.needsUpdate = true;
+                            });
+                        }
+                    }
+                });
+                log(`Found ${meshCount} mesh(es) in FBX`, 'info');
+
+                // Bounding Box
+                fbx.updateMatrixWorld(true);
+                const box = new THREE.Box3().setFromObject(fbx);
+                const size = box.getSize(new THREE.Vector3());
+                const center = box.getCenter(new THREE.Vector3());
+
+                log(`FBX Original Bounds: size=(${size.x.toFixed(2)}, ${size.y.toFixed(2)}, ${size.z.toFixed(2)})`, 'info');
+
+                const maxDim = Math.max(size.x, size.y, size.z);
+                if (maxDim > 0) {
+                    const scale = 1.8 / maxDim;
+                    fbx.scale.setScalar(scale);
+                    log(`Applied scale factor: ${scale.toFixed(4)}`, 'success');
+                }
+
+                fbx.updateMatrixWorld(true);
+                const box2 = new THREE.Box3().setFromObject(fbx);
+                const center2 = box2.getCenter(new THREE.Vector3());
+
+                fbx.position.set(-center2.x, -box2.min.y, -center2.z);
+                scene.add(fbx);
+
+                camera.position.set(0, 1.2, 2.5);
+                controls.target.set(0, 0.9, 0);
+                controls.update();
+
+                log('FBX Mounted and framed in scene!', 'success');
+            },
+            (progress) => {
+                if (progress.total > 0) {
+                    const pct = Math.round((progress.loaded / progress.total) * 100);
+                    log(`Downloading FBX: ${pct}%`, 'info');
+                }
+            },
+            (error) => {
+                log(`FBX Load Failed: ${error.message || error}`, 'error');
+            }
+        );
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
