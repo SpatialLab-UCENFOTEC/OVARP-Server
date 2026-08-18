@@ -1,3 +1,4 @@
+// CENFO DUPLICATE — not imported. Live SDK is src/static/sdk/ovaf-client.js (Alex).
 import AvatarController from '../avatar.js';
 
 /**
