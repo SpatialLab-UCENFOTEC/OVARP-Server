@@ -113,6 +113,8 @@ class TestProfileManager:
         assert len(profiles) == 1
         assert profiles[0]["id"] == "test_therapist"
         assert profiles[0]["gender"] == "masculine"
+        assert profiles[0]["voice_provider"] == "gemini"
+        assert profiles[0]["llm_provider"] is None
 
     def test_get_profile_not_found(self, fresh_manager):
         assert fresh_manager.get_profile("nonexistent") is None

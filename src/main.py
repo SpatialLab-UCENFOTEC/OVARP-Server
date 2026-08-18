@@ -347,18 +347,25 @@ async def get_server_info():
 
 class LLMConfigUpdate(BaseModel):
     provider_id: str | None = None
+    tts_provider_id: str | None = None
+    tts_voice: str | None = None
     system_prompt: str | None = None
 
 @app.get("/api/llm/config")
 async def get_llm_config():
-    """Returns the current active LLM state"""
+    """Returns the current active LLM / TTS selection."""
+    selection = orchestrator.get_runtime_selection()
     return {
-        "active_provider": orchestrator.active_llm_id,
+        "active_provider": selection["llm"],
         "available_providers": list(orchestrator.llm_providers.keys()),
-        "active_tts_provider": orchestrator.active_tts_id,
+        "active_tts_provider": selection["tts"],
+        "tts_provider": selection["tts"],
         "available_tts_providers": list(orchestrator.tts_providers.keys()),
+        "tts_voice": selection["voice"],
+        "model": selection["model"],
         "system_prompt": orchestrator.system_prompt,
-        "tts_enabled": orchestrator.tts_enabled
+        "tts_enabled": orchestrator.tts_enabled,
+        "selected": selection,
     }
 
 @app.post("/api/llm/config")
@@ -366,14 +373,23 @@ async def set_llm_config(update: LLMConfigUpdate):
     """Dynamically updates the Orchestrator without restarting"""
     if update.provider_id:
         orchestrator.set_active_llm(update.provider_id)
+    if update.tts_provider_id:
+        orchestrator.set_active_tts(update.tts_provider_id)
+    if update.tts_voice:
+        orchestrator.set_tts_voice(update.tts_voice)
     if update.system_prompt:
         orchestrator.set_system_prompt(update.system_prompt)
-        
+
+    selection = orchestrator.get_runtime_selection()
     return {
-        "active_provider": orchestrator.active_llm_id,
-        "active_tts_provider": orchestrator.active_tts_id,
+        "active_provider": selection["llm"],
+        "active_tts_provider": selection["tts"],
+        "tts_provider": selection["tts"],
+        "tts_voice": selection["voice"],
+        "model": selection["model"],
         "system_prompt": orchestrator.system_prompt,
-        "tts_enabled": orchestrator.tts_enabled
+        "tts_enabled": orchestrator.tts_enabled,
+        "selected": selection,
     }
 
 @app.post("/api/llm/tts")
@@ -418,6 +434,7 @@ async def check_provider_health():
     """Validates API key connectivity for each registered provider dynamically."""
     import asyncio
     results = {}
+    errors = {}
     for name in orchestrator.llm_providers:
         try:
             if name == "openai":
@@ -447,7 +464,9 @@ async def check_provider_health():
                     results[name] = "ok"  # No way to test, assume ok
         except Exception as e:
             results[name] = "error"
-            results[f"{name}_error"] = str(e)[:120]
+            errors[name] = str(e)[:120]
+    if errors:
+        results["errors"] = errors
     return results
 
 @app.get("/api/export")
@@ -793,7 +812,12 @@ async def apply_profile(req: ProfileApplyRequest):
 
     # Determine which agents to apply to
     if req.agent_id == "all":
-        agent_ids = [a.id for a in config_manager.config.agents]
+        try:
+            agent_ids = [a.id for a in config_manager.config.agents]
+        except Exception:
+            agent_ids = []
+        if not agent_ids:
+            agent_ids = ["all"]
     else:
         agent_ids = [req.agent_id]
 
@@ -802,18 +826,22 @@ async def apply_profile(req: ProfileApplyRequest):
         # Apply profile to the orchestrator's per-agent state
         orchestrator.apply_profile(agent_id, profile)
 
-        # Send avatar change to XR clients (if the profile specifies one)
         if profile.avatar:
-            from src.core.schemas import BaseCommand
-            avatar_cmd = BaseCommand(
-                sender="server_orchestrator",
-                target_device="all",
-                target_agent=agent_id,
-                command_type="action",
-                command="execute_state",
-                subcommand={"avatar": profile.avatar}
-            )
-            await router.route_command(avatar_cmd)
+            try:
+                from src.core.schemas import BaseCommand
+                avatar_cmd = BaseCommand(
+                    sender="server_orchestrator",
+                    target_device="all",
+                    target_agent=agent_id,
+                    command_type="action",
+                    command="execute_state",
+                    subcommand={"avatar": profile.avatar}
+                )
+                await router.route_command(avatar_cmd)
+            except Exception as e:
+                logging.getLogger("OVARP.profiles").warning(
+                    f"Could not route avatar change for {agent_id}: {e}"
+                )
 
         results.append(orchestrator.get_agent_info(agent_id))
 
@@ -828,6 +856,7 @@ async def apply_profile(req: ProfileApplyRequest):
         "status": "ok",
         "profile_id": req.profile_id,
         "profile_name": profile.name,
+        "selected": orchestrator.get_runtime_selection(),
         "agents": results,
     }
 
@@ -839,6 +868,7 @@ class ProfileCreateRequest(BaseModel):
     personality: dict = None
     guardrails: dict = None
     avatar: str = None
+    llm_provider: str = None
 
 @app.post("/api/profiles/create")
 async def create_profile(req: ProfileCreateRequest):
@@ -856,6 +886,7 @@ class ProfileUpdateRequest(BaseModel):
     personality: dict = None
     guardrails: dict = None
     avatar: str = None
+    llm_provider: str = None
 
 @app.put("/api/profiles/{profile_id}")
 async def update_profile(profile_id: str, req: ProfileUpdateRequest):

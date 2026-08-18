@@ -125,3 +125,27 @@ def test_provider_hotswap(orchestrator, mock_llm):
     success2 = orchestrator.set_active_llm("non_existent_llm")
     assert success2 is False
     assert orchestrator.active_llm_id == "other_llm" # Should remain unchanged
+
+
+def test_apply_profile_selects_llm_and_tts(orchestrator, mock_tts):
+    from src.core.profile_manager import AgentProfile, ProfileVoice, ProfilePersonality
+
+    orchestrator.llm_providers["openai"] = MagicMock(spec=BaseLLMProvider)
+    orchestrator.tts_providers["openai"] = mock_tts
+    profile = AgentProfile(
+        id="pinned",
+        name="Pinned",
+        llm_provider="openai",
+        voice=ProfileVoice(provider="openai", voice_id="nova"),
+        personality=ProfilePersonality(system_prompt="You are pinned."),
+    )
+    orchestrator.apply_profile("agent_alpha", profile)
+    info = orchestrator.get_agent_info("agent_alpha")
+    assert orchestrator.active_llm_id == "openai"
+    assert orchestrator.active_tts_id == "openai"
+    assert mock_tts.voice == "nova"
+    assert info["llm_provider"] == "openai"
+    assert info["profile_id"] == "pinned"
+    selection = orchestrator.get_runtime_selection()
+    assert selection["llm"] == "openai"
+    assert selection["tts"] == "openai"

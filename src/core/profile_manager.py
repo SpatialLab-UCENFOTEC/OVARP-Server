@@ -65,6 +65,7 @@ class AgentProfile(BaseModel):
     personality: Optional[ProfilePersonality] = None
     guardrails: Optional[ProfileGuardrails] = None
     avatar: Optional[str] = None
+    llm_provider: Optional[str] = None  # openai / gemini / custom; None = keep current LLM
 
 
 # ---------------------------------------------------------------------------
@@ -191,6 +192,8 @@ class ProfileManager:
                 "role": profile.identity.role if profile.identity else None,
                 "avatar": profile.avatar,
                 "voice_id": profile.voice.voice_id if profile.voice else None,
+                "voice_provider": profile.voice.provider if profile.voice else None,
+                "llm_provider": profile.llm_provider,
             })
         return results
 
