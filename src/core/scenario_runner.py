@@ -86,6 +86,18 @@ class ScenarioRunner:
 
         return self._scenarios
 
+    def add_scenario(self, scenario: Scenario, save_to_disk: bool = True, directory: str = "scenarios") -> Scenario:
+        """Register a scenario and optionally save it as YAML to disk."""
+        self._scenarios[scenario.id] = scenario
+        if save_to_disk:
+            scenario_dir = Path(directory)
+            scenario_dir.mkdir(parents=True, exist_ok=True)
+            yaml_path = scenario_dir / f"{scenario.id}.yaml"
+            with open(yaml_path, "w", encoding="utf-8") as f:
+                yaml.dump(scenario.model_dump(exclude_none=True), f, sort_keys=False, allow_unicode=True)
+            std_log.info(f"📋 Saved scenario {scenario.id} to {yaml_path}")
+        return scenario
+
     def list_scenarios(self) -> list[dict]:
         """Return a summary list of all loaded scenarios."""
         return [

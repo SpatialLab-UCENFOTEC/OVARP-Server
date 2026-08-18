@@ -13,6 +13,7 @@ License: MIT
 
 import asyncio
 import os
+import time
 import json
 import logging
 from logging.handlers import RotatingFileHandler
@@ -21,7 +22,7 @@ from dotenv import load_dotenv
 # Load .env BEFORE anything tries to read API keys
 load_dotenv()
 from fastapi import FastAPI, WebSocket
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from structlog import get_logger
@@ -605,6 +606,8 @@ class SessionStartRequest(BaseModel):
 class MarkerRequest(BaseModel):
     label: str
     metadata: dict | None = None
+    category: str | None = None
+    notes: str | None = None
 
 @app.get("/api/session/status")
 async def get_session_status():
@@ -658,11 +661,37 @@ async def end_session():
 async def add_marker(req: MarkerRequest):
     """Add an event marker to the active session"""
     try:
-        marker = session_manager.add_marker(req.label, req.metadata)
-        telemetry.log_marker(req.label, req.metadata)
+        marker = session_manager.add_marker(
+            req.label, req.metadata, category=req.category, notes=req.notes
+        )
+        telemetry.log_marker(
+            req.label, req.metadata, marker_id=marker.id, category=req.category, notes=req.notes
+        )
         return {"status": "ok", "marker": marker.model_dump()}
     except ValueError as e:
         return {"error": str(e)}
+
+class MarkerUpdateRequest(BaseModel):
+    label: str | None = None
+    category: str | None = None
+    notes: str | None = None
+    metadata: dict | None = None
+
+@app.put("/api/session/markers/{marker_id}")
+async def update_marker_endpoint(marker_id: str, req: MarkerUpdateRequest):
+    """Update an event marker's category, notes, label, or metadata."""
+    try:
+        updated = session_manager.update_marker(
+            marker_id,
+            category=req.category,
+            notes=req.notes,
+            label=req.label,
+            metadata=req.metadata,
+        )
+        telemetry.log_marker_update(marker_id, req.model_dump(exclude_none=True))
+        return {"status": "ok", "marker": updated.model_dump()}
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"error": str(e)})
 
 @app.get("/api/session/markers/presets")
 async def get_marker_presets():
@@ -855,6 +884,39 @@ async def list_scenarios():
     """List all available experiment scenarios."""
     return {"scenarios": scenario_runner.list_scenarios()}
 
+@app.post("/api/scenarios")
+async def create_scenario(data: dict):
+    """Create a new experiment scenario and persist it to scenarios/<scenario_id>.yaml"""
+    from src.core.scenario_runner import Scenario, ScenarioStep
+    try:
+        scenario_id = data.get("id") or f"scenario_{int(time.time())}"
+        name = data.get("name") or "New Custom Scenario"
+        description = data.get("description") or ""
+        raw_steps = data.get("steps") or []
+
+        steps = []
+        for i, s in enumerate(raw_steps):
+            step_id = s.get("id") or f"step_{i+1}"
+            instruction = s.get("instruction") or f"Step {i+1} instruction"
+            action = s.get("action")
+            condition = s.get("condition")
+            auto_marker = s.get("auto_marker")
+            duration_seconds = s.get("duration_seconds")
+            steps.append(ScenarioStep(
+                id=step_id,
+                instruction=instruction,
+                action=action,
+                condition=condition,
+                auto_marker=auto_marker,
+                duration_seconds=duration_seconds
+            ))
+
+        new_scenario = Scenario(id=scenario_id, name=name, description=description, steps=steps)
+        scenario_runner.add_scenario(new_scenario, save_to_disk=True)
+        return {"status": "ok", "scenario": new_scenario.model_dump(), "scenarios": scenario_runner.list_scenarios()}
+    except Exception as e:
+        return JSONResponse(status_code=400, content={"error": str(e)})
+
 @app.post("/api/scenarios/load")
 async def load_scenario(req: ScenarioLoadRequest):
     """Load and start a scenario from step 1."""
@@ -896,8 +958,8 @@ async def _execute_step_side_effects(step):
     # Auto-log marker
     if step.auto_marker:
         try:
-            session_manager.add_marker(step.auto_marker, {"source": "scenario"})
-            telemetry.log_marker(step.auto_marker, {"source": "scenario"})
+            marker = session_manager.add_marker(step.auto_marker, {"source": "scenario"})
+            telemetry.log_marker(step.auto_marker, {"source": "scenario"}, marker_id=marker.id)
         except ValueError:
             pass  # No active session — skip marker
 
