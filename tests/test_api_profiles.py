@@ -58,6 +58,12 @@ def setup_app(monkeypatch):
         "voice_id": "nova",
         "has_custom_prompt": True,
     })
+    mock_orchestrator.get_runtime_selection = MagicMock(return_value={
+        "llm": "openai",
+        "tts": "openai",
+        "voice": "nova",
+        "model": "gpt-4o-mini",
+    })
 
     mock_router = MagicMock()
     mock_router.route_command = AsyncMock()
@@ -86,6 +92,9 @@ class TestListProfiles:
         ids = [p["id"] for p in data["profiles"]]
         assert "researcher" in ids
         assert "companion" in ids
+        researcher = next(p for p in data["profiles"] if p["id"] == "researcher")
+        assert researcher["voice_provider"] == "openai"
+        assert researcher["llm_provider"] is None
 
     def test_list_profiles_count(self, client):
         resp = client.get("/api/profiles")
@@ -118,6 +127,7 @@ class TestApplyProfile:
         assert data["status"] == "ok"
         assert data["profile_id"] == "researcher"
         assert data["profile_name"] == "Research Assistant"
+        assert data["selected"]["llm"] == "openai"
         setup_app["orchestrator"].apply_profile.assert_called()
 
     def test_apply_profile_to_specific_agent(self, client, setup_app):

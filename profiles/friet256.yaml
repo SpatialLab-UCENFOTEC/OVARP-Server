@@ -30,4 +30,5 @@ guardrails:
     - "Be helpful, polite, and concise"
   max_response_words: 100
 
+llm_provider: openai
 avatar: /models/friet256/FRIET256/model/friet256.fbx

@@ -115,6 +115,22 @@
  border-radius: 999px;
  padding: 3px 10px;
  }
+ .provider-chip {
+ font-family: var(--font-mono);
+ font-size: 0.68rem;
+ font-weight: 600;
+ letter-spacing: 0.04em;
+ color: var(--text-label);
+ border: 1px solid var(--border);
+ border-radius: 999px;
+ padding: 4px 10px;
+ background: var(--bg-card-header);
+ white-space: nowrap;
+ }
+ .provider-chip strong { color: var(--text); font-weight: 700; }
+ @media (max-width: 1100px) {
+ .provider-chip { display: none; }
+ }
 
  /* --- Theme Toggle Button --- */
  #theme-toggle-btn {
@@ -977,6 +993,8 @@
  <div class="brand-header">
  <div class="d-flex align-items-center gap-3">
  <span class="brand-logo" style="font-size:1.15rem; font-weight:700;">Open Virtual Agent Research Platform (OVARP)</span>
+ <span id="nav-active-provider-badge" class="provider-chip">LLM: —</span>
+ <span id="nav-active-voice-badge" class="provider-chip">TTS: —</span>
  </div>
  <div class="d-flex align-items-center gap-2">
  <a class="btn btn-ghost btn-sm" href="/player" target="_blank" rel="noopener noreferrer">Open Player</a>
@@ -1091,6 +1109,12 @@
  <div class="metric-box">
  <div class="metric-label">Active LLM Provider</div>
  <div id="ov-llm-provider" class="metric-value">OPENAI</div>
+ </div>
+ </div>
+ <div class="col-sm-6">
+ <div class="metric-box">
+ <div class="metric-label">Active TTS Provider</div>
+ <div id="ov-tts-provider" class="metric-value">OPENAI / alloy</div>
  </div>
  </div>
  <div class="col-sm-6">
@@ -1235,6 +1259,7 @@
  <div class="d-flex flex-wrap gap-1 mb-2">
  <span id="llm-status-provider" class="tlm-val badge badge-indigo">OPENAI</span>
  <span id="llm-status-model" class="tlm-val badge badge-slate">gpt-4o-mini</span>
+ <span id="llm-selected-flag" class="badge badge-emerald">Selected</span>
  </div>
  <label class="form-label" for="llm-provider-select">LLM provider</label>
  <select id="llm-provider-select" class="form-select"></select>
@@ -1427,7 +1452,7 @@
  <select id="profile-agent-select" class="form-select form-select-sm" style="width: auto;">
  <option value="all">All Agents</option>
  </select>
- <button id="apply-profile-btn" class="btn btn-sm btn-success" disabled>Apply Profile</button>
+ <button id="apply-profile-btn" class="btn btn-sm btn-success" onclick="applySelectedProfile()" disabled>Apply Profile</button>
  </div>
  </div>
  <div class="card-body" id="profile-detail-body">
@@ -1740,6 +1765,14 @@
  <input type="text" id="inline-p-role" class="form-control form-control-sm" placeholder="e.g. Conversational Guide">
  </div>
  <div class="mb-2">
+ <label class="form-label small">LLM provider</label>
+ <select id="inline-p-llm-provider" class="form-select form-select-sm">
+ <option value="" selected>Keep current</option>
+ <option value="openai">OpenAI</option>
+ <option value="gemini">Gemini</option>
+ </select>
+ </div>
+ <div class="mb-2">
  <label class="form-label small">Voice Provider</label>
  <select id="inline-p-voice-provider" class="form-select form-select-sm">
  <option value="openai">OpenAI</option>
@@ -1802,6 +1835,14 @@
  <div class="col-12 mb-2">
  <label class="form-label small">Backstory</label>
  <textarea id="pm-backstory" class="form-control form-control-sm" rows="2"></textarea>
+ </div>
+ <div class="col-md-4 mb-2">
+ <label class="form-label small">LLM Provider</label>
+ <select id="pm-llm-provider" class="form-select form-select-sm">
+ <option value="">Keep current</option>
+ <option value="openai">OpenAI</option>
+ <option value="gemini">Gemini</option>
+ </select>
  </div>
  <div class="col-md-4 mb-2">
  <label class="form-label small">Voice Provider</label>
@@ -2172,16 +2213,20 @@
  if (cfg) {
  const provBadge = document.getElementById('nav-active-provider-badge');
  const voiceBadge = document.getElementById('nav-active-voice-badge');
- if (provBadge) provBadge.textContent = `LLM: ${(cfg.active_provider || 'OPENAI').toUpperCase()}`;
- if (voiceBadge) voiceBadge.textContent = `Voice: ${cfg.tts_voice || 'alloy'}`;
+ if (provBadge) provBadge.textContent = `LLM: ${(cfg.active_provider || cfg.selected?.llm || '—').toUpperCase()}`;
+ if (voiceBadge) {
+ const tts = cfg.active_tts_provider || cfg.tts_provider || cfg.selected?.tts || '—';
+ const voice = cfg.tts_voice || cfg.selected?.voice || 'alloy';
+ voiceBadge.textContent = `TTS: ${String(tts).toUpperCase()} / ${voice}`;
+ }
 
  const statusProv = document.getElementById('llm-status-provider');
  const statusModel = document.getElementById('llm-status-model');
  const statusTts = document.getElementById('llm-status-tts');
 
  if (statusProv) statusProv.textContent = (cfg.active_provider || 'OPENAI').toUpperCase();
- if (statusModel) statusModel.textContent = cfg.model || 'gpt-4o-mini';
- if (statusTts) statusTts.textContent = `${cfg.tts_provider || 'piper'} / ${cfg.tts_voice || 'alloy'}`;
+ if (statusModel) statusModel.textContent = cfg.model || cfg.selected?.model || 'gpt-4o-mini';
+ if (statusTts) statusTts.textContent = `${cfg.active_tts_provider || cfg.tts_provider || 'openai'} / ${cfg.tts_voice || 'alloy'}`;
  }
  } catch (e) {
  console.warn('Error updating header indicators:', e);
@@ -2213,6 +2258,12 @@
  const cfgData = await cfgResp.json();
  if (llmEl) {
  llmEl.textContent = (cfgData.active_provider || 'OPENAI').toUpperCase();
+ }
+ const ttsEl = document.getElementById('ov-tts-provider');
+ if (ttsEl) {
+ const tts = cfgData.active_tts_provider || cfgData.tts_provider || 'openai';
+ const voice = cfgData.tts_voice || 'alloy';
+ ttsEl.textContent = `${String(tts).toUpperCase()} / ${voice}`;
  }
 
  loadKeyStoreStatus();
@@ -2694,6 +2745,7 @@
  opt.textContent = v.label;
  voiceSel.appendChild(opt);
  });
+ voiceSel.onchange = () => selectActiveProvider('tts');
  }
  window.updateTTSVoices = updateTTSVoices;
 
@@ -2707,13 +2759,14 @@
  healthEl.innerHTML = '';
 
  for (const [provider, status] of Object.entries(data)) {
+ if (status !== 'ok' && status !== 'error') continue;
  const badge = document.createElement('span');
  if (status === 'ok') {
  badge.className = 'badge badge-emerald';
- badge.textContent = `● ${provider.toUpperCase()}: Ready`;
+ badge.textContent = `${provider.toUpperCase()}: Ready`;
  } else {
  badge.className = 'badge badge-rose';
- badge.textContent = `● ${provider.toUpperCase()}: Key Missing / Error`;
+ badge.textContent = `${provider.toUpperCase()}: Key missing`;
  }
  healthEl.appendChild(badge);
  }
@@ -2747,6 +2800,7 @@
  llmSel.appendChild(opt);
  });
  llmSel.value = providers.includes(currentVal) ? currentVal : (data.active_provider || providers[0]);
+ llmSel.onchange = () => selectActiveProvider('llm');
  }
 
  // 2. Populate TTS Provider Select dropdown
@@ -2764,7 +2818,10 @@
  });
  ttsSel.value = ttsProviders.includes(currentTts) ? currentTts : (data.active_tts_provider || ttsProviders[0]);
  
- ttsSel.onchange = (e) => updateTTSVoices(e.target.value);
+ ttsSel.onchange = (e) => {
+ updateTTSVoices(e.target.value);
+ selectActiveProvider('tts');
+ };
  updateTTSVoices(ttsSel.value);
  }
 
@@ -2788,6 +2845,29 @@
  }
  }
  window.loadLLMConfig = loadLLMConfig;
+
+ async function selectActiveProvider(kind) {
+ const payload = {};
+ if (kind === 'llm') {
+ payload.provider_id = document.getElementById('llm-provider-select')?.value;
+ } else if (kind === 'tts') {
+ payload.tts_provider_id = document.getElementById('tts-provider-select')?.value;
+ payload.tts_voice = document.getElementById('tts-voice-select')?.value;
+ }
+ try {
+ await fetch('/api/llm/config', {
+ method: 'POST',
+ headers: { 'Content-Type': 'application/json' },
+ body: JSON.stringify(payload)
+ });
+ await updateHeaderIndicators();
+ refreshOverviewTelemetry();
+ showToast(`${kind.toUpperCase()} set to ${(payload.provider_id || payload.tts_provider_id || '').toUpperCase()}`, 'info');
+ } catch (e) {
+ showToast('Could not switch provider', 'error');
+ }
+ }
+ window.selectActiveProvider = selectActiveProvider;
 
  async function saveLLMConfig() {
  const provider = document.getElementById('llm-provider-select')?.value || 'openai';
@@ -2971,6 +3051,36 @@
  }
  window.applyInlineProfile = applyInlineProfile;
 
+ async function applySelectedProfile() {
+ if (!_selectedProfileId) {
+ showToast('Select a profile first', 'warning');
+ return;
+ }
+ const agentId = document.getElementById('profile-agent-select')?.value || 'all';
+ try {
+ const resp = await fetch('/api/profiles/apply', {
+ method: 'POST',
+ headers: { 'Content-Type': 'application/json' },
+ body: JSON.stringify({ profile_id: _selectedProfileId, agent_id: agentId })
+ });
+ const data = await resp.json();
+ if (data.status !== 'ok') {
+ showToast(data.error || 'Could not apply profile', 'error');
+ return;
+ }
+ const selected = data.selected || {};
+ const llm = (selected.llm || '').toUpperCase();
+ const tts = (selected.tts || '').toUpperCase();
+ showToast(`Applied "${data.profile_name}" · LLM ${llm || '—'} · TTS ${tts || '—'}`, 'success');
+ await loadLLMConfig();
+ updateHeaderIndicators();
+ refreshOverviewTelemetry();
+ } catch (e) {
+ showToast('Could not apply profile', 'error');
+ }
+ }
+ window.applySelectedProfile = applySelectedProfile;
+
  async function saveInlineProfile() {
  const id = document.getElementById('inline-p-id').value.trim();
  const name = document.getElementById('inline-p-name').value.trim();
@@ -2978,6 +3088,7 @@
  const voiceProvider = document.getElementById('inline-p-voice-provider').value;
  const voiceId = document.getElementById('inline-p-voice-id').value.trim();
  const prompt = document.getElementById('inline-p-prompt').value.trim();
+ const llmProvider = document.getElementById('inline-p-llm-provider')?.value || '';
 
  if (!id || !name) {
  showToast('ID and Name are required', 'warning');
@@ -2989,7 +3100,8 @@
  name: name,
  identity: { role: role },
  voice: { provider: voiceProvider, voice_id: voiceId },
- personality: { system_prompt: prompt }
+ personality: { system_prompt: prompt },
+ llm_provider: llmProvider || null
  };
 
  try {
@@ -3057,7 +3169,8 @@
  <br><small class="text-muted">${p.role || 'No role defined'}</small>
  </div>
  <div class="text-end">
- <small class="text-muted">${p.voice_id || '-'}</small>
+ <small class="text-muted d-block">${(p.llm_provider || 'LLM auto').toUpperCase()}</small>
+ <small class="text-muted">${(p.voice_provider || 'auto')} / ${p.voice_id || '-'}</small>
  </div>
  </div>
  </div>
@@ -3084,6 +3197,9 @@
  document.getElementById('profile-detail-title').textContent = `${p.name} (${p.id})`;
 
  let html = '';
+ if (p.llm_provider) {
+ html += `<div class="mb-2"><span class="badge badge-indigo">LLM: ${p.llm_provider}</span></div>`;
+ }
  if (p.identity) {
  const i = p.identity;
  html += `<h6 class="text-info border-bottom border-secondary pb-1 mt-2">Identity</h6>`;
@@ -3145,6 +3261,7 @@
  document.getElementById('pm-role').value = '';
  document.getElementById('pm-backstory').value = '';
  document.getElementById('pm-voice-provider').value = 'auto';
+ document.getElementById('pm-llm-provider').value = '';
  document.getElementById('pm-voice-id').value = 'alloy';
  document.getElementById('pm-voice-speed').value = '1.0';
  document.getElementById('pm-empathy').value = 'medium';
@@ -3174,6 +3291,7 @@
  document.getElementById('pm-role').value = p.identity?.role || '';
  document.getElementById('pm-backstory').value = p.identity?.backstory || '';
  document.getElementById('pm-voice-provider').value = p.voice?.provider || 'auto';
+ document.getElementById('pm-llm-provider').value = p.llm_provider || '';
  document.getElementById('pm-voice-id').value = p.voice?.voice_id || 'alloy';
  document.getElementById('pm-voice-speed').value = p.voice?.speed || 1.0;
  document.getElementById('pm-empathy').value = p.personality?.empathy || 'medium';
@@ -3222,18 +3340,21 @@
  self_disclosure: document.getElementById('pm-disclosure').value
  },
  guardrails: { rules: rules },
- avatar: document.getElementById('pm-avatar').value.trim()
+ avatar: document.getElementById('pm-avatar').value.trim(),
+ llm_provider: document.getElementById('pm-llm-provider')?.value || null
  };
 
+ const isEdit = document.getElementById('pm-is-edit').value === '1';
  try {
- const resp = await fetch('/api/profiles/create', {
- method: 'POST',
+ const url = isEdit ? `/api/profiles/${encodeURIComponent(id)}` : '/api/profiles/create';
+ const resp = await fetch(url, {
+ method: isEdit ? 'PUT' : 'POST',
  headers: { 'Content-Type': 'application/json' },
  body: JSON.stringify(payload)
  });
  const data = await resp.json();
  if (data.status === 'ok') {
- showToast(`Profile "${name}" saved`, 'success');
+ showToast(`Profile "${name}" ${isEdit ? 'updated' : 'saved'}`, 'success');
  const modal = bootstrap.Modal.getInstance(document.getElementById('profileModal'));
  if (modal) modal.hide();
  await loadProfiles();
@@ -3284,7 +3405,7 @@
  try {
  const resp = await fetch('/api/profiles/' + encodeURIComponent(targetId), { method: 'DELETE' });
  const data = await resp.json();
- if (resp.ok && data.status === 'success') {
+ if (resp.ok && (data.status === 'ok' || data.status === 'success')) {
  _selectedProfileId = null;
  document.getElementById('profile-detail-title').textContent = 'Select a profile';
  document.getElementById('profile-detail-body').innerHTML = '<div class="text-center text-muted mt-5"><small>Profile deleted.</small></div>';

@@ -172,17 +172,23 @@ class DialogOrchestrator:
         state["profile_id"] = profile.id
         state["system_prompt"] = build_system_prompt(profile)
 
+        llm_id = getattr(profile, "llm_provider", None)
+        if llm_id and llm_id != "auto":
+            self.set_active_llm(llm_id)
+
         # Voice override from profile
         if profile.voice:
             state["voice_provider"] = profile.voice.provider
             state["voice_id"] = profile.voice.voice_id
 
-            # If profile specifies a concrete provider, switch TTS voice now
             if profile.voice.provider != "auto" and profile.voice.provider in self.tts_providers:
+                self.set_active_tts(profile.voice.provider)
                 self.tts_providers[profile.voice.provider].voice = profile.voice.voice_id
 
         std_log.info(
             f"📋 Orchestrator: Profile '{profile.id}' applied to {agent_id} "
+            f"| llm={self.active_llm_id} "
+            f"| tts={self.active_tts_id} "
             f"| voice={profile.voice.voice_id if profile.voice else 'default'}"
         )
         return state
@@ -194,13 +200,23 @@ class DialogOrchestrator:
             "agent_id": agent_id,
             "profile_id": state["profile_id"],
             "history_length": len(state["history"]),
-            "voice_provider": state["voice_provider"],
+            "llm_provider": self.active_llm_id,
+            "voice_provider": state["voice_provider"] or self.active_tts_id,
+            "tts_provider": self.active_tts_id,
             "voice_id": state["voice_id"],
             "has_custom_prompt": state["system_prompt"] is not None,
         }
 
-    def set_tts_voice(self, voice_id: str):
-        """Change the active TTS provider's voice at runtime."""
+    def get_runtime_selection(self) -> dict:
+        """Currently selected LLM / TTS / voice, for consoles and telemetry."""
+        llm = self.llm
+        tts = self.tts
+        return {
+            "llm": self.active_llm_id,
+            "tts": self.active_tts_id,
+            "voice": getattr(tts, "voice", None),
+            "model": getattr(llm, "model", None),
+        }
         tts_provider = self.tts
         tts_provider.voice = voice_id
         std_log.info(f"🔊 Orchestrator: TTS voice changed to '{voice_id}' on {self.active_llm_id}")

@@ -35,7 +35,13 @@ def setup_app(monkeypatch):
     mock_orchestrator.tts_providers = {"openai": mock_tts}
     mock_orchestrator.system_prompt = "Default system prompt."
     mock_orchestrator.tts_enabled = True
-    mock_orchestrator.set_active_llm = MagicMock()
+    mock_orchestrator.get_runtime_selection = MagicMock(return_value={
+        "llm": "openai",
+        "tts": "openai",
+        "voice": "alloy",
+        "model": "gpt-4o-mini",
+    })
+    mock_orchestrator.set_active_tts = MagicMock()
     mock_orchestrator.set_system_prompt = MagicMock()
     mock_orchestrator.clear_history = MagicMock()
     mock_orchestrator.set_tts_voice = MagicMock()
@@ -73,6 +79,9 @@ class TestGetLLMConfig:
         assert "openai" in data["available_providers"]
         assert data["system_prompt"] == "Default system prompt."
         assert data["tts_enabled"] is True
+        assert data["tts_provider"] == "openai"
+        assert data["tts_voice"] == "alloy"
+        assert data["selected"]["llm"] == "openai"
 
 
 class TestSetLLMConfig:
@@ -87,6 +96,17 @@ class TestSetLLMConfig:
         })
         assert resp.status_code == 200
         setup_app["orchestrator"].set_system_prompt.assert_called_with("You are a pirate.")
+
+    def test_set_tts_provider_and_voice(self, client, setup_app):
+        resp = client.post("/api/llm/config", json={
+            "provider_id": "gemini",
+            "tts_provider_id": "openai",
+            "tts_voice": "nova",
+        })
+        assert resp.status_code == 200
+        setup_app["orchestrator"].set_active_llm.assert_called_with("gemini")
+        setup_app["orchestrator"].set_active_tts.assert_called_with("openai")
+        setup_app["orchestrator"].set_tts_voice.assert_called_with("nova")
 
     def test_set_both(self, client, setup_app):
         resp = client.post("/api/llm/config", json={
