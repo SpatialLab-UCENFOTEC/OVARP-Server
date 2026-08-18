@@ -80,16 +80,63 @@ class TelemetryLogger:
             **ctx
         )
 
-    def log_marker(self, label: str, metadata: dict = None):
+    def log_marker(self, label: str, metadata: dict = None, marker_id: str = None, category: str = None, notes: str = None):
         """Log an event marker as a distinct telemetry entry."""
         ctx = self._get_session_context()
         self.file_logger.info(
             event="marker",
             host_timestamp=time.time(),
+            marker_id=marker_id,
             label=label,
+            category=category,
+            notes=notes,
             marker_metadata=metadata,
             **ctx
         )
+
+    def log_marker_update(self, marker_id: str, details: dict):
+        """Log a marker update event and rewrite the marker record in session JSONL."""
+        ctx = self._get_session_context()
+        self.file_logger.info(
+            event="marker_updated",
+            host_timestamp=time.time(),
+            marker_id=marker_id,
+            updated_details=details,
+            **ctx
+        )
+        if self.jsonl_path.exists():
+            try:
+                with open(self.jsonl_path, "r", encoding="utf-8") as f:
+                    lines = f.readlines()
+
+                new_lines = []
+                marker_count = 0
+                for line in lines:
+                    if not line.strip():
+                        continue
+                    try:
+                        record = json.loads(line)
+                        if record.get("event") == "marker":
+                            match = (
+                                record.get("marker_id") == marker_id or
+                                record.get("id") == marker_id or
+                                (marker_id.isdigit() and int(marker_id) == marker_count)
+                            )
+                            if match:
+                                for k, v in details.items():
+                                    if k == "metadata":
+                                        record["marker_metadata"] = v
+                                    else:
+                                        record[k] = v
+                            marker_count += 1
+                        new_lines.append(json.dumps(record) + "\n")
+                    except json.JSONDecodeError:
+                        new_lines.append(line)
+
+                with open(self.jsonl_path, "w", encoding="utf-8") as f:
+                    f.writelines(new_lines)
+            except Exception as e:
+                self.console_logger.error("Failed to update marker in JSONL log file", error=str(e))
 
     def log_latency(self, latency: dict):
         """Log pipeline latency metrics."""

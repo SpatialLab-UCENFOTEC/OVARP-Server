@@ -37,12 +37,22 @@ class CustomLLMProvider(BaseLLMProvider):
         self.name = name
         self.model = model
         self.base_url = base_url.rstrip("/")
-        # Many local services don't need a key, but the SDK validates it isn't empty
-        self.client = AsyncOpenAI(
-            base_url=self.base_url,
-            api_key=api_key or "not-needed"
-        )
+        self.api_key = api_key
+        self._client = None
         std_log.info(f"🔌 Custom LLM '{name}' registered | url={self.base_url} model={model}")
+
+    @property
+    def client(self) -> AsyncOpenAI:
+        if self._client is not None:
+            return self._client
+        return AsyncOpenAI(
+            base_url=self.base_url,
+            api_key=self.api_key or "not-needed"
+        )
+
+    @client.setter
+    def client(self, value: AsyncOpenAI):
+        self._client = value
 
     def _build_tools_schema(self) -> list[Dict[str, Any]]:
         """Build the same tools schema the OpenAI provider uses."""
@@ -174,11 +184,22 @@ class CustomTTSProvider(BaseTTSProvider):
         self.model = model
         self.voice = voice
         self.base_url = base_url.rstrip("/")
-        self.client = AsyncOpenAI(
-            base_url=self.base_url,
-            api_key=api_key or "not-needed"
-        )
+        self.api_key = api_key
+        self._client = None
         std_log.info(f"🔌 Custom TTS '{name}' registered | url={self.base_url} model={model}")
+
+    @property
+    def client(self) -> AsyncOpenAI:
+        if self._client is not None:
+            return self._client
+        return AsyncOpenAI(
+            base_url=self.base_url,
+            api_key=self.api_key or "not-needed"
+        )
+
+    @client.setter
+    def client(self, value: AsyncOpenAI):
+        self._client = value
 
     async def synthesize_stream(self, text: str) -> AsyncGenerator[bytes, None]:
         std_log.info(f"🔊 Custom TTS '{self.name}': Synthesis | model={self.model} voice={self.voice} text=\"{text[:60]}\"")
