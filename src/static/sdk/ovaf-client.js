@@ -20,6 +20,7 @@ export default class OVARPClient {
         this.protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         this.deviceId = config.deviceId || 'web_client_01';
         this.agentId = config.agentId || 'agent_alpha';
+        this.targetDevice = config.targetDevice || 'all';
 
         // Hooks
         this.callbacks = Object.assign({
@@ -30,6 +31,7 @@ export default class OVARPClient {
             onLog: (msg, type) => { }, // General SDK logs
             onTTSReady: (blobUrl) => { }, // When TTS audio blob is ready for playback
             onMarkerLogged: (label, metadata) => { }, // When an event marker is confirmed by server
+            onLatency: (latency) => { }, // Final STT/LLM/TTS ms after a pipeline turn
             onMicStart: () => { },
             onMicStop: () => { }
         }, config.callbacks);
@@ -126,24 +128,36 @@ export default class OVARPClient {
     // --- Outbound Routing ---
 
     /**
-     * Send a low-level standard payload to the framework.
+     * Remember which XR device / agent subsequent commands should address.
      */
-    sendCommand(type, command, subcommand = {}) {
+    setTargets(device, agent) {
+        this.targetDevice = device || 'all';
+        this.agentId = agent || 'all';
+    }
+
+    /**
+     * Send a low-level standard payload to the framework.
+     * @param {Object} [targets] Optional per-send override: { device, agent }.
+     * @returns {boolean} false when the WebSocket is not open.
+     */
+    sendCommand(type, command, subcommand = {}, targets = {}) {
         if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
             this.callbacks.onLog('Cannot send: WebSocket not connected', 'error');
-            return;
+            return false;
         }
+        const target_device = targets.device || this.targetDevice || 'all';
+        const target_agent = targets.agent || this.agentId || 'all';
         const payload = {
             sender: this.deviceId,
-            target_device: 'all',
-            target_agent: this.agentId,
+            target_device,
+            target_agent,
             command_type: type,
             command: command,
             subcommand: subcommand
         };
-        const jsonStr = JSON.stringify(payload);
-        this.ws.send(jsonStr);
-        this.callbacks.onLog(`[Outbound] ${command}`, 'sent');
+        this.ws.send(JSON.stringify(payload));
+        this.callbacks.onLog(`[Outbound] ${command} → ${target_device}/${target_agent}`, 'sent');
+        return true;
     }
 
     /**
@@ -252,6 +266,11 @@ export default class OVARPClient {
                 const sub = data.subcommand || {};
                 this.callbacks.onMarkerLogged(sub.label, sub.metadata);
                 this.callbacks.onLog(`[Marker] ${sub.label}`, 'info');
+            }
+            else if (data.command_type === "system" && data.command === "latency") {
+                const sub = data.subcommand || {};
+                this.callbacks.onLatency(sub);
+                this.callbacks.onLog(`[Latency] total=${sub.total_ms ?? '—'}ms`, 'info');
             }
 
         } catch (err) {

@@ -829,16 +829,29 @@
  }
  #xr-panel #server-ip { font-size: 0.95rem !important; }
  #xr-panel #send-msg-btn { white-space: nowrap; }
+ #xr-panel .woz-target-live {
+ font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+ font-size: 0.78rem;
+ color: var(--text-muted);
+ word-break: break-all;
+ }
+ #xr-panel .btn-action.is-last {
+ border-color: var(--indigo, #6366f1);
+ background: rgba(99, 102, 241, 0.18);
+ color: #fff;
+ }
+ #xr-panel .woz-clients { min-height: 1.5rem; }
 
  /* Evaluation survey */
  .eval-toolbar {
  display: flex;
  align-items: flex-end;
+ flex-wrap: wrap;
  gap: 16px;
  margin-bottom: 14px;
  }
- .eval-toolbar p { flex: 1; margin: 0; }
- .eval-toolbar .eval-pid { width: 200px; flex-shrink: 0; }
+ .eval-toolbar p { flex: 1 1 220px; margin: 0; }
+ .eval-toolbar .eval-pid { width: 200px; flex: 0 1 200px; }
  .eval-grid {
  display: grid;
  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
@@ -1079,7 +1092,18 @@
  <button class="btn btn-launcher text-start" onclick="switchTab('eval-tab')">
  <strong>Evaluation</strong> : SUS, UEQ-S, and qualitative feedback about OVARP
  </button>
+ <button class="btn btn-launcher text-start" onclick="window.open('/player','_blank')">
+ <strong>Web Player</strong> : VR stand-in to test the server without a headset
+ </button>
+ <button class="btn btn-launcher text-start" onclick="switchTab('session-tab')">
+ <strong>Validation protocols</strong> : Researcher usability + latency scenarios
+ </button>
  </div>
+ <p class="small text-muted mt-3 mb-0">
+ For investigators: Study Session → load <code>researcher_usability</code> or
+ <code>latency_validation</code>. Pair WoZ Device with the player id
+ (<code>web_panel_01</code> unless <code>/player?device=…</code>).
+ </p>
  </div>
  </div>
  </div>
@@ -1149,20 +1173,27 @@
  <!-- Settings Panel -->
  <div class="col-md-4 tab-col-stack">
  <div class="card">
- <div class="card-header"> Target Selection</div>
- <div class="card-body">
- <div class="mb-2">
- <label class="form-label">Device ID</label>
- <select id="target-device" class="form-select form-select-sm"></select>
- </div>
- <div class="mb-2">
- <label class="form-label">Agent ID</label>
- <select id="target-agent" class="form-select form-select-sm"></select>
- </div>
- <hr class="border-secondary">
- <div>
+ <div class="card-header d-flex justify-content-between align-items-center">
+ <span>Target</span>
  <span id="ws-status" class="badge bg-danger">Disconnected</span>
  </div>
+ <div class="card-body">
+ <div class="mb-2">
+ <label class="form-label" for="target-device">Device</label>
+ <select id="target-device" class="form-select form-select-sm" aria-label="Target XR device"></select>
+ </div>
+ <div class="mb-2">
+ <label class="form-label" for="target-agent">Agent</label>
+ <select id="target-agent" class="form-select form-select-sm" aria-label="Target agent"></select>
+ </div>
+ <div class="woz-target-live mb-2">
+ Sending to <span id="woz-target-summary">all / all</span>
+ </div>
+ <div class="small text-muted mb-1">WebSocket clients</div>
+ <div id="woz-connected-clients" class="woz-clients small text-muted">Checking…</div>
+ <hr class="border-secondary my-2">
+ <div class="small text-muted">Last command</div>
+ <div id="woz-last-command" class="woz-target-live">None yet</div>
  </div>
  </div>
 
@@ -1194,7 +1225,7 @@
  <textarea id="direct-msg" class="form-control mb-2" rows="2"
  placeholder="Type what the agent should say..." aria-label="Direct TTS message text"></textarea>
  <button id="send-msg-btn" class="btn btn-primary w-100" aria-label="Send text directly to TTS">Speak This Text</button>
- <small class="text-muted mt-1 d-block">Bypasses the LLM and sends directly to TTS.</small>
+ <small class="text-muted mt-1 d-block">Bypasses the LLM. Uses the Device / Agent above. Ctrl/⌘+Enter to send.</small>
  </div>
  </div>
 
@@ -1203,9 +1234,9 @@
  <!-- Dynamic Actions Panel -->
  <div class="col-md-8 tab-col-fill">
  <div class="card tab-card-main">
- <div class="card-header d-flex justify-content-between align-items-center">
- <span> Dynamic Actions & Remote Agent Control</span>
- <span class="badge badge-indigo">Interactive WoZ Controls</span>
+ <div class="card-header d-flex justify-content-between align-items-center gap-2">
+ <span>Remote Agent Control</span>
+ <span id="woz-sending-to" class="woz-target-live">Sending to all / all</span>
  </div>
  <div class="card-body" id="dynamic-actions-container">
  <div class="text-center text-muted col-12 my-3">
@@ -1652,11 +1683,39 @@
  <div class="card">
  <div class="card-header fw-bold">OVARP Usability Evaluation</div>
  <div class="card-body">
+ <div class="eval-protocol small mb-3 p-3 rounded border border-secondary">
+ <strong>Facilitator protocol (researchers)</strong>
+ <ol class="mb-2 mt-2">
+ <li>Start a Study Session with the investigator’s ID.</li>
+ <li>Load scenario <code>researcher_usability</code> (or <code>latency_validation</code> for timing).</li>
+ <li>Open <a href="/player" target="_blank" rel="noopener">/player</a> as the VR stand-in; in WoZ Control set Device to that id.</li>
+ <li>Complete the scenario steps, then fill SUS + UEQ-S below (rate OVARP, not the agent).</li>
+ </ol>
+ <div class="d-flex flex-wrap gap-2">
+ <a class="btn btn-sm btn-outline-info" href="/api/evaluations/ovarp/export">Export evaluations CSV</a>
+ <button class="btn btn-sm btn-outline-secondary" type="button" onclick="prefillEvalFromSession()">Fill from active session</button>
+ </div>
+ </div>
  <div class="eval-toolbar">
  <p class="text-muted small">Rate OVARP itself (not the virtual agent). SUS: 1 = strongly disagree, 5 = strongly agree. UEQ-S: −3 to +3.</p>
  <div class="eval-pid">
  <label class="form-label" for="eval-participant">Participant / researcher ID</label>
  <input id="eval-participant" class="form-control form-control-sm" placeholder="P01">
+ </div>
+ <div class="eval-pid">
+ <label class="form-label" for="eval-session">Session ID</label>
+ <input id="eval-session" class="form-control form-control-sm" placeholder="from Study Session">
+ </div>
+ <div class="eval-pid">
+ <label class="form-label" for="eval-scenario">Scenario</label>
+ <input id="eval-scenario" class="form-control form-control-sm" placeholder="researcher_usability">
+ </div>
+ <div class="eval-pid">
+ <label class="form-label" for="eval-role">Role</label>
+ <select id="eval-role" class="form-select form-select-sm">
+ <option value="researcher" selected>Researcher</option>
+ <option value="facilitator">Facilitator</option>
+ </select>
  </div>
  </div>
 
@@ -2034,7 +2093,7 @@
 
  <!-- App Scripts -->
  <script type="module">
- import OVARPClient from './sdk/ovaf-client.js?v=13';
+ import OVARPClient from './sdk/ovaf-client.js?v=14';
 
  // Connect OVARP client for WebSockets and 3D Avatar Rendering
  const ovarpClient = new OVARPClient({
@@ -2047,17 +2106,14 @@
  connEl.textContent = '● Connected (WS)';
  connEl.style.color = 'var(--emerald)';
  }
- const targetBadge = document.getElementById('target-status-badge');
- if (targetBadge) {
- targetBadge.textContent = 'Connected';
- targetBadge.className = 'badge badge-emerald';
- }
+ setWozWsStatus(true);
  const llmStatus = document.getElementById('llm-conn-status');
  if (llmStatus) {
  llmStatus.innerHTML = '<span class="conn-dot connected"></span><small class="text-success fw-semibold">Online (WS)</small>';
  }
  log('Connected to OVARP WebSocket router', 'sent');
  if (window.appendSysLog) window.appendSysLog('INFO', 'telemetry', 'WebSocket router connected (device: woz_web_console)');
+ refreshConnectedClients();
  },
  onDisconnect: () => {
  const connEl = document.getElementById('ov-server-status');
@@ -2065,11 +2121,7 @@
  connEl.textContent = 'Reconnecting...';
  connEl.style.color = 'var(--amber)';
  }
- const targetBadge = document.getElementById('target-status-badge');
- if (targetBadge) {
- targetBadge.textContent = 'Disconnected';
- targetBadge.className = 'badge badge-rose';
- }
+ setWozWsStatus(false);
  const llmStatus = document.getElementById('llm-conn-status');
  if (llmStatus) {
  llmStatus.innerHTML = '<span class="conn-dot disconnected"></span><small class="text-muted">Offline</small>';
@@ -2104,6 +2156,10 @@
  onTTSReady: (url) => {
  log(`TTS Audio Ready: ${url}`, 'info');
  if (window.appendSysLog) window.appendSysLog('INFO', 'tts', `TTS Audio Chunk Ready`, { url });
+ },
+ onLatency: (lat) => {
+ if (window.updatePlaygroundLatency) window.updatePlaygroundLatency(lat);
+ if (window.appendSysLog) window.appendSysLog('INFO', 'telemetry', `Latency stt=${lat?.stt_ms} llm=${lat?.llm_ms} tts=${lat?.tts_ms} total=${lat?.total_ms}`);
  }
  }
  });
@@ -2166,6 +2222,9 @@
   }
   const payload = {
     participant_id: (document.getElementById('eval-participant').value || '').trim(),
+    session_id: (document.getElementById('eval-session')?.value || '').trim(),
+    scenario_id: (document.getElementById('eval-scenario')?.value || '').trim(),
+    role: (document.getElementById('eval-role')?.value || 'researcher').trim(),
     sus,
     ueq,
     qualitative: {
@@ -2192,6 +2251,31 @@
     showToast('Evaluation saved', 'success');
   } catch (err) {
     showToast('Could not submit evaluation', 'error');
+  }
+ };
+
+ window.prefillEvalFromSession = async function() {
+  try {
+    const resp = await fetch('/api/session/status');
+    const data = await resp.json();
+    if (!data || !data.active) {
+      showToast('No active Study Session', 'warning');
+      return;
+    }
+    const pid = document.getElementById('eval-participant');
+    const sid = document.getElementById('eval-session');
+    if (pid && data.participant_id) pid.value = data.participant_id;
+    if (sid && data.session_id) sid.value = data.session_id;
+    const scenResp = await fetch('/api/scenarios/status');
+    if (scenResp.ok) {
+      const scen = await scenResp.json();
+      const sidEl = document.getElementById('eval-scenario');
+      const scenId = scen.scenario_id || scen.active_scenario_id || scen.scenario?.id;
+      if (sidEl && scenId) sidEl.value = scenId;
+    }
+    showToast('Filled from active session', 'success');
+  } catch (err) {
+    showToast('Could not read session status', 'error');
   }
  };
 
@@ -2486,15 +2570,22 @@
  btn.onclick = () => {
  const subcommand = {};
  subcommand[cat.type] = item.id;
- ovarpClient.sendCommand('action', 'execute_state', subcommand);
+ const sent = sendWozCommand('action', 'execute_state', subcommand, {
+ label: cat.type,
+ detail: item.id
+ });
+ if (!sent) return;
+
+ actContainer.querySelectorAll('.btn-action.is-last').forEach(el => el.classList.remove('is-last'));
+ btn.classList.add('is-last');
 
  if (cat.type === 'emotions' && ovarpClient.avatar) {
  ovarpClient.avatar.setEmotion(item.id);
  }
 
- avatarLog(`Triggered ${cat.type}: ${item.id}`, 'sent');
+ avatarLog(`Triggered ${cat.type}: ${item.id} → ${formatWozTarget(getWozTargets())}`, 'sent');
  appendSysLog('INFO', cat.type === 'emotions' ? 'llm' : 'telemetry', `WoZ Triggered ${cat.type}: ${item.id}`);
- showToast(`Triggered ${cat.type}: ${item.id}`, 'info');
+ showToast(`${item.id} → ${formatWozTarget(getWozTargets())}`, 'info');
  };
  btnGrid.appendChild(btn);
  });
@@ -2502,6 +2593,115 @@
  groupEl.appendChild(btnGrid);
  actContainer.appendChild(groupEl);
  });
+ }
+
+ // --- WoZ targeting (device + agent for remote XR control) ---
+ function getWozTargets() {
+ return {
+ device: document.getElementById('target-device')?.value || 'all',
+ agent: document.getElementById('target-agent')?.value || 'all'
+ };
+ }
+
+ function formatWozTarget(t) {
+ return `${t.device} / ${t.agent}`;
+ }
+
+ function setWozWsStatus(connected) {
+ const wsStatus = document.getElementById('ws-status');
+ if (wsStatus) {
+ wsStatus.textContent = connected ? 'Connected' : 'Disconnected';
+ wsStatus.className = connected ? 'badge bg-success' : 'badge bg-danger';
+ }
+ const targetBadge = document.getElementById('target-status-badge');
+ if (targetBadge) {
+ targetBadge.textContent = connected ? 'Connected' : 'Disconnected';
+ targetBadge.className = connected ? 'badge badge-emerald' : 'badge badge-rose';
+ }
+ }
+
+ function syncWozTargets() {
+ const t = getWozTargets();
+ if (typeof ovarpClient.setTargets === 'function') {
+ ovarpClient.setTargets(t.device, t.agent);
+ } else {
+ ovarpClient.targetDevice = t.device;
+ ovarpClient.agentId = t.agent;
+ }
+ const live = document.getElementById('woz-sending-to');
+ if (live) live.textContent = `Sending to ${formatWozTarget(t)}`;
+ const summary = document.getElementById('woz-target-summary');
+ if (summary) summary.textContent = formatWozTarget(t);
+ }
+
+ function recordWozCommand(label, extra) {
+ const el = document.getElementById('woz-last-command');
+ if (!el) return;
+ const detail = extra ? ` · ${extra}` : '';
+ el.textContent = `${label}${detail} → ${formatWozTarget(getWozTargets())}`;
+ }
+
+ function sendWozCommand(type, command, subcommand, opts = {}) {
+ syncWozTargets();
+ const t = getWozTargets();
+ const ok = ovarpClient.sendCommand(type, command, subcommand, t);
+ if (!ok) {
+ showToast('WebSocket not connected — command not sent', 'error');
+ return false;
+ }
+ recordWozCommand(opts.label || command, opts.detail);
+ return true;
+ }
+
+ function sendDirectTTS() {
+ const text = (document.getElementById('direct-msg')?.value || '').trim();
+ if (!text) {
+ showToast('Type what the agent should say', 'warning');
+ return;
+ }
+ if (sendWozCommand('message', 'direct_tts', { text }, { label: 'Speak', detail: text.slice(0, 48) })) {
+ showToast(`Speaking on ${formatWozTarget(getWozTargets())}`, 'success');
+ }
+ }
+
+ async function refreshConnectedClients() {
+ const wrap = document.getElementById('woz-connected-clients');
+ if (!wrap) return;
+ try {
+ const resp = await fetch('/api/clients');
+ const data = await resp.json();
+ const ids = data.clients || [];
+ if (!ids.length) {
+ wrap.innerHTML = '<span class="text-muted">No WebSocket clients connected</span>';
+ return;
+ }
+ const selected = getWozTargets().device;
+ wrap.innerHTML = ids.map((id) => {
+ const mark = (selected !== 'all' && id === selected) ? ' bg-success' : ' bg-secondary';
+ return `<span class="badge${mark} me-1 mb-1">${id}</span>`;
+ }).join('');
+ } catch (e) {
+ wrap.innerHTML = '<span class="text-muted">Could not list clients</span>';
+ }
+ }
+
+ function wireWozControls() {
+ const devSel = document.getElementById('target-device');
+ const agentSel = document.getElementById('target-agent');
+ if (devSel) devSel.addEventListener('change', () => { syncWozTargets(); refreshConnectedClients(); });
+ if (agentSel) agentSel.addEventListener('change', syncWozTargets);
+ const speakBtn = document.getElementById('send-msg-btn');
+ if (speakBtn) speakBtn.addEventListener('click', sendDirectTTS);
+ const msgBox = document.getElementById('direct-msg');
+ if (msgBox) {
+ msgBox.addEventListener('keydown', (e) => {
+ if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+ e.preventDefault();
+ sendDirectTTS();
+ }
+ });
+ }
+ setInterval(refreshConnectedClients, 3000);
  }
 
  // --- Scenario & Marker Helper Functions ---
@@ -2697,6 +2897,8 @@
  }
 
  renderDynamicActions(config);
+ syncWozTargets();
+ refreshConnectedClients();
  await loadLLMConfig();
  } catch (e) {
  log(`Config init error: ${e}`, 'error');
@@ -3775,6 +3977,7 @@
  window.onload = function () {
  initTheme();
  initConfig();
+ wireWozControls();
  loadServerInfo();
  connectSysLogsWS();
  loadMarkerPresets();

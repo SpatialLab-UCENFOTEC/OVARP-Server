@@ -17,3 +17,6 @@ def test_player_route_serves_html():
     assert "OVARP Player" in body
     assert "OVARPClient" in body
     assert "web_panel_01" in body
+    assert "Mark event" in body
+    assert "lat-total" in body
+    assert "Copy pair info" in body

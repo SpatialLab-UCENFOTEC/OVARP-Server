@@ -1,0 +1,45 @@
+# Technical validation — interaction turns + pipeline latency.
+# Thresholds are guidance for the facilitator, not hard server gates.
+# Pass (lab LAN, TTS on): LLM < 4000 ms, TTS < 4000 ms, total < 8000 ms.
+
+id: latency_validation
+name: "Latency and interaction validation"
+description: >
+  Scripted interaction protocol. Use /player or a VR headset as the
+  participant client. After each turn, check Playground meters (or player
+  latency). Telemetry event=latency is written to the session JSONL/CSV
+  (stt_ms, llm_ms, tts_ms, total_ms). Guidance: total < 8000 ms on LAN.
+
+steps:
+  - id: setup
+    instruction: >
+      Start a Study Session. Open /player (or connect the headset).
+      In WoZ Control, target that device. Confirm WebSocket clients lists it.
+      Press Next when both console and client are Connected.
+    auto_marker: latency_setup
+
+  - id: turn_text
+    instruction: >
+      Participant (or facilitator in /player) sends one short text message.
+      Wait for spoken reply. Record total_ms from the meters. Mark
+      latency_over_threshold if total exceeds 8000 ms.
+    auto_marker: latency_turn_text
+
+  - id: turn_mic
+    instruction: >
+      Hold-to-talk one utterance on /player or Playground mic.
+      Confirm STT fills, then LLM + TTS. Note stt_ms and total_ms.
+    auto_marker: latency_turn_mic
+
+  - id: woz_direct
+    instruction: >
+      From WoZ Control, Speak This Text a one-sentence prompt to the same
+      device. Confirm the client hears it. This path skips LLM (TTS only).
+    auto_marker: latency_woz_direct
+
+  - id: debrief
+    instruction: >
+      Stop the session. Export session CSV and confirm latency rows
+      (event_type=latency) include stt_ms, llm_ms, tts_ms, total_ms.
+      Repeat N=3 turns if this is a formal validation run.
+    auto_marker: latency_debrief

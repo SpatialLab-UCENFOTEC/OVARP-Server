@@ -186,7 +186,8 @@ class TelemetryLogger:
                     "participant_id", "experiment_session_id",
                     "sender", "target_device", "target_agent",
                     "command_type", "command", "subcommand_json",
-                    "marker_label", "marker_metadata"
+                    "marker_label", "marker_metadata",
+                    "stt_ms", "llm_ms", "tts_ms", "total_ms",
                 ])
 
                 for line in f_in:
@@ -208,6 +209,10 @@ class TelemetryLogger:
                         json.dumps(data.get("subcommand", {})),
                         data.get("label", ""),
                         json.dumps(data.get("marker_metadata", {})),
+                        data.get("stt_ms", ""),
+                        data.get("llm_ms", ""),
+                        data.get("tts_ms", ""),
+                        data.get("total_ms", ""),
                     ])
 
             self.console_logger.info("Telemetry Exported successfully", csv_file=str(csv_path))
