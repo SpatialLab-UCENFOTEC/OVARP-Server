@@ -20,6 +20,7 @@ from structlog import get_logger
 from src.providers.base import BaseSTTProvider, BaseLLMProvider, BaseTTSProvider
 from src.core.schemas import BaseCommand
 from src.core.router import router
+from src.core.telemetry import telemetry
 
 logger = get_logger()
 std_log = logging.getLogger("OVARP.orchestrator")
@@ -346,7 +347,26 @@ class DialogOrchestrator:
             total_ms = round((time.perf_counter() - interaction_start) * 1000)
             latency["tts_ms"] = tts_ms
             latency["total_ms"] = total_ms
-            self._last_latency = latency
+            latency["target_device"] = target_device
+            latency["target_agent"] = target_agent
+            self._last_latency = dict(latency)
+            telemetry.log_latency(latency)
+            try:
+                await router.route_command(BaseCommand(
+                    sender="server_orchestrator",
+                    target_device="all",
+                    target_agent=target_agent if target_agent else "all",
+                    command_type="system",
+                    command="latency",
+                    subcommand={
+                        "stt_ms": latency.get("stt_ms", 0),
+                        "llm_ms": latency.get("llm_ms", 0),
+                        "tts_ms": latency.get("tts_ms", 0),
+                        "total_ms": latency.get("total_ms", 0),
+                    },
+                ))
+            except Exception as lat_err:
+                std_log.warning(f"⚠️ Orchestrator: Could not broadcast latency | {lat_err}")
             std_log.info(f"⏱️ Orchestrator: Latency | stt={stt_ms}ms llm={llm_ms}ms tts={tts_ms}ms total={total_ms}ms")
 
         except Exception as e:

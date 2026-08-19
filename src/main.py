@@ -353,6 +353,14 @@ async def list_connected_clients():
     ids = ws_transport.connected_client_ids()
     return {"clients": ids, "count": len(ids)}
 
+
+@app.get("/api/latency/last")
+async def get_last_latency():
+    """Most recent STT/LLM/TTS pipeline timings from the orchestrator."""
+    orch = globals().get("orchestrator")
+    latency = getattr(orch, "_last_latency", None) if orch is not None else None
+    return {"status": "ok", "latency": latency or {}}
+
 class LLMConfigUpdate(BaseModel):
     provider_id: str | None = None
     tts_provider_id: str | None = None

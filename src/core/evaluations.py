@@ -11,6 +11,8 @@ License: MIT
 
 from __future__ import annotations
 
+import csv
+import io
 import json
 import uuid
 from datetime import datetime, timezone
@@ -18,6 +20,7 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter
+from fastapi.responses import Response
 from pydantic import BaseModel, Field, field_validator
 
 EVAL_DIR = Path("data/evaluations")
@@ -92,6 +95,9 @@ class QualitativeFeedback(BaseModel):
 
 class EvaluationRequest(BaseModel):
     participant_id: Optional[str] = None
+    session_id: Optional[str] = None
+    scenario_id: Optional[str] = None
+    role: Optional[str] = None
     sus: list[int] = Field(..., description="10 SUS Likert ratings (1-5)")
     ueq: list[int] = Field(..., description="8 UEQ-S ratings (-3 to 3)")
     qualitative: QualitativeFeedback = Field(default_factory=QualitativeFeedback)
@@ -118,6 +124,9 @@ async def submit_ovarp_evaluation(req: EvaluationRequest):
         "id": uuid.uuid4().hex[:12],
         "created_at": datetime.now(timezone.utc).isoformat(),
         "participant_id": req.participant_id or "",
+        "session_id": req.session_id or "",
+        "scenario_id": req.scenario_id or "",
+        "role": req.role or "researcher",
         "sus": req.sus,
         "ueq": req.ueq,
         "qualitative": req.qualitative.model_dump(),
@@ -135,3 +144,40 @@ async def list_ovarp_evaluations():
     """List stored OVARP usability evaluations (newest last)."""
     items = list_evaluations()
     return {"status": "ok", "count": len(items), "evaluations": items}
+
+
+@evaluations_router.get("/ovarp/export")
+async def export_ovarp_evaluations():
+    """CSV download of stored researcher usability evaluations."""
+    items = list_evaluations(limit=10000)
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow([
+        "id", "created_at", "participant_id", "session_id", "scenario_id", "role",
+        "sus_score", "ueq_pragmatic", "ueq_hedonic", "ueq_overall",
+        "would_use", "for_what", "improve", "likes", "dislikes",
+    ])
+    for row in items:
+        qualitative = row.get("qualitative") or {}
+        writer.writerow([
+            row.get("id", ""),
+            row.get("created_at", ""),
+            row.get("participant_id", ""),
+            row.get("session_id", ""),
+            row.get("scenario_id", ""),
+            row.get("role", ""),
+            row.get("sus_score", ""),
+            row.get("ueq_pragmatic", ""),
+            row.get("ueq_hedonic", ""),
+            row.get("ueq_overall", ""),
+            qualitative.get("would_use", ""),
+            qualitative.get("for_what", ""),
+            qualitative.get("improve", ""),
+            qualitative.get("likes", ""),
+            qualitative.get("dislikes", ""),
+        ])
+    return Response(
+        content=buf.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=ovarp_evaluations.csv"},
+    )
