@@ -1,16 +1,12 @@
 """
 QA test plan as pytest — the PR checklist, without a browser.
 
-Maps 1:1 to:
-  1. Player connects as web_panel_01
-  2. WoZ commands target that device (Speak + gesture)
-  3. researcher_usability scenario steps
-  4. Evaluation tied to session + CSV export
-  5. Latency is finalized after TTS and pushed to the UI
-  6. latency_validation protocol + session CSV latency columns
+This file IS the validation protocol for:
+  player as VR stand-in, WoZ targeting, researcher usability, evaluation
+  export, post-TTS latency, and the latency_validation scenario.
 
-These tests do not open Safari or call a live LLM. They lock the server
-contracts so the manual checklist is not the only safety net.
+It does not open a browser or call a live LLM. Run:
+  python -m pytest tests/test_qa_protocol.py --noconftest -q
 """
 
 import json
@@ -48,6 +44,7 @@ def _reset_scenarios():
 
 
 class TestPlanPlayerPairing:
+    """PR item 1: /player connects as web_panel_01 (VR stand-in)."""
     def test_player_page_is_the_vr_stand_in(self):
         html = PLAYER_HTML.read_text(encoding="utf-8")
         assert "web_panel_01" in html
@@ -73,6 +70,7 @@ class TestPlanPlayerPairing:
 
 
 class TestPlanWozTargeting:
+    """PR item 2: WoZ Speak This Text and gestures target the selected device."""
     def test_console_wires_speak_and_actions_to_selected_target(self):
         html = INDEX_HTML.read_text(encoding="utf-8")
         assert "sendDirectTTS" in html
@@ -89,6 +87,7 @@ class TestPlanWozTargeting:
 
 
 class TestPlanResearcherScenario:
+    """PR item 3: Study Session can load and walk researcher_usability."""
     def test_researcher_usability_yaml_walks_all_facilitator_steps(self):
         runner = _reset_scenarios()
         try:
@@ -111,6 +110,7 @@ class TestPlanResearcherScenario:
 
 
 class TestPlanEvaluation:
+    """PR item 4: Evaluation binds to the active session and exports CSV."""
     def test_console_has_facilitator_eval_controls(self):
         html = INDEX_HTML.read_text(encoding="utf-8")
         assert "prefillEvalFromSession" in html
@@ -158,6 +158,7 @@ class TestPlanEvaluation:
 
 
 class TestPlanLatencyAfterTts:
+    """PR item 5: TTS/total latency is published after audio, not only on llm_reply."""
     def test_console_and_player_listen_for_final_latency_event(self):
         index = INDEX_HTML.read_text(encoding="utf-8")
         player = PLAYER_HTML.read_text(encoding="utf-8")
@@ -215,6 +216,7 @@ class TestPlanLatencyAfterTts:
 
 
 class TestPlanLatencyValidation:
+    """PR item 6: latency_validation protocol + session CSV latency columns."""
     def test_latency_validation_yaml_covers_text_mic_and_woz(self):
         runner = _reset_scenarios()
         try:
