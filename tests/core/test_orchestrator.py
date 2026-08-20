@@ -61,8 +61,8 @@ async def test_process_audio_interaction_pipeline(orchestrator, mock_stt, mock_l
     assert llm_args["prompt"] == "Hello bot"
 
     # 3. Ensure the router received the resulting commands
-    # We expect 6 commands: user_transcript, llm_reply (text), execute_state (actions), 2x tts_chunk, 1x tts_complete
-    assert mock_router.route_command.call_count == 6
+    # user_transcript, llm_reply, execute_state, 2x tts_chunk, tts_complete, then final latency
+    assert mock_router.route_command.call_count == 7
 
     commands_sent = [call_args[0][0] for call_args in mock_router.route_command.call_args_list]
 
@@ -77,8 +77,10 @@ async def test_process_audio_interaction_pipeline(orchestrator, mock_stt, mock_l
 
     assert commands_sent[3].command == "tts_chunk"
     assert commands_sent[4].command == "tts_chunk"
-    
+
     assert commands_sent[5].command == "tts_complete"
+    assert commands_sent[6].command == "latency"
+    assert "total_ms" in commands_sent[6].subcommand
 
 
 @pytest.mark.asyncio
@@ -160,7 +162,7 @@ async def test_process_direct_tts_routes_to_selected_device(orchestrator):
     prev = config_manager._config
     config_manager._config = OVARPConfig(
         experiment={"name": "t", "description": "d", "version": "1"},
-        devices=[{"id": "headset_01", "name": "Headset", "type": "xr"}],
+        devices=[{"id": "vr_headset", "name": "Headset", "type": "xr"}],
         agents=[{"id": "agent_alpha", "name": "Alpha"}],
         custom_commands={},
     )
@@ -172,7 +174,7 @@ async def test_process_direct_tts_routes_to_selected_device(orchestrator):
         with patch("src.core.orchestrator.router", mock_router):
             await orchestrator.process_direct_tts(
                 text="Hello headset",
-                target_device="headset_01",
+                target_device="vr_headset",
                 target_agent="agent_alpha",
             )
     finally:
@@ -181,7 +183,7 @@ async def test_process_direct_tts_routes_to_selected_device(orchestrator):
     mock_router.route_command.assert_awaited_once()
     cmd = mock_router.route_command.await_args[0][0]
     assert cmd.command == "llm_reply"
-    assert cmd.target_device == "headset_01"
+    assert cmd.target_device == "vr_headset"
     assert cmd.target_agent == "agent_alpha"
     assert cmd.subcommand["text"] == "Hello headset"
     assert cmd.subcommand["provider"] == "woz_direct"

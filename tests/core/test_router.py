@@ -123,14 +123,14 @@ async def test_router_direct_tts_uses_woz_targets(router, mock_orchestrator, moc
     prev = config_manager._config
     config_manager._config = OVARPConfig(
         experiment={"name": "t", "description": "d", "version": "1"},
-        devices=[{"id": "headset_01", "name": "Headset", "type": "xr"}],
+        devices=[{"id": "vr_headset", "name": "Headset", "type": "xr"}],
         agents=[{"id": "agent_alpha", "name": "Alpha"}],
         custom_commands={},
     )
     mock_orchestrator.process_direct_tts = AsyncMock()
     payload = {
         "sender": "woz_web_console",
-        "target_device": "headset_01",
+        "target_device": "vr_headset",
         "target_agent": "agent_alpha",
         "command_type": "message",
         "command": "direct_tts",
@@ -146,6 +146,6 @@ async def test_router_direct_tts_uses_woz_targets(router, mock_orchestrator, moc
     mock_orchestrator.process_direct_tts.assert_called_once()
     kwargs = mock_orchestrator.process_direct_tts.call_args.kwargs
     assert kwargs["text"] == "Look this way"
-    assert kwargs["target_device"] == "headset_01"
+    assert kwargs["target_device"] == "vr_headset"
     assert kwargs["target_agent"] == "agent_alpha"
     assert mock_transport.send.call_count == 0
