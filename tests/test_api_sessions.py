@@ -19,6 +19,7 @@ from unittest.mock import MagicMock
 from fastapi.testclient import TestClient
 
 import src.main as main_module
+from src.core.runtime import runtime
 from src.core.session_manager import SessionManager
 
 
@@ -28,8 +29,8 @@ def setup_app(monkeypatch):
     fresh_mgr = SessionManager()
     fresh_mgr._session = None
 
-    monkeypatch.setattr(main_module, "session_manager", fresh_mgr, raising=False)
-    monkeypatch.setattr(main_module, "telemetry", MagicMock(), raising=False)
+    monkeypatch.setattr(runtime, "session_manager", fresh_mgr, raising=False)
+    monkeypatch.setattr(runtime, "telemetry", MagicMock(), raising=False)
 
     yield {"mgr": fresh_mgr}
 
@@ -125,3 +126,50 @@ class TestSessionMarkers:
         resp = client.post("/api/session/marker", json={"label": "should_fail"})
         assert resp.status_code == 200
         assert "error" in resp.json()
+
+
+class TestMarkerEditing:
+    """Correcting a marker must leave an auditable trail in the session log."""
+
+    @pytest.fixture
+    def marker_id(self, client):
+        client.post("/api/session/start", json={"participant_id": "P_EDIT"})
+        resp = client.post("/api/session/marker", json={"label": "task_startd"})
+        return resp.json()["marker"]["id"]
+
+    def test_amend_label_and_notes(self, client, marker_id, setup_app):
+        resp = client.patch(f"/api/session/marker/{marker_id}",
+                            json={"label": "task_started", "notes": "dudo al inicio"})
+
+        assert resp.status_code == 200
+        marker = resp.json()["marker"]
+        assert marker["label"] == "task_started"
+        assert marker["notes"] == "dudo al inicio"
+        assert marker["amended"] is True
+
+    def test_amendment_is_logged_with_the_previous_value(self, client, marker_id):
+        client.patch(f"/api/session/marker/{marker_id}", json={"label": "task_started"})
+
+        runtime.telemetry.log_marker_amendment.assert_called_once()
+        args = runtime.telemetry.log_marker_amendment.call_args[0]
+        assert args[0] == marker_id
+        assert args[1] == {"label": "task_startd"}
+        assert args[2] == {"label": "task_started"}
+
+    def test_no_op_amendment_is_not_logged(self, client, marker_id):
+        resp = client.patch(f"/api/session/marker/{marker_id}", json={"label": "task_startd"})
+
+        assert resp.json()["amended"] is False
+        runtime.telemetry.log_marker_amendment.assert_not_called()
+
+    def test_delete_marker(self, client, marker_id):
+        resp = client.delete(f"/api/session/marker/{marker_id}")
+
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "ok"
+        assert client.get("/api/session/status").json()["marker_count"] == 0
+        runtime.telemetry.log_marker_deleted.assert_called_once()
+
+    def test_unknown_marker_returns_error(self, client, marker_id):
+        assert "error" in client.patch("/api/session/marker/nope", json={"label": "x"}).json()
+        assert "error" in client.delete("/api/session/marker/nope").json()

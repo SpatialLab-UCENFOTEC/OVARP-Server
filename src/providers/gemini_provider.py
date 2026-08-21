@@ -22,7 +22,7 @@ from google import genai
 from google.genai import types as genai_types
 from structlog import get_logger
 
-from src.providers.base import BaseLLMProvider, BaseTTSProvider
+from src.providers.base import BaseSTTProvider, BaseLLMProvider, BaseTTSProvider
 from src.core.config import config_manager
 
 logger = get_logger()
@@ -52,19 +52,13 @@ class GeminiClientSingleton:
 
         return cls._client
 
-    @classmethod
-    def reset_client(cls):
-        """Drop the cached client so a new API key takes effect."""
-        cls._client = None
-
 class GeminiLLMProvider(BaseLLMProvider):
     """Google Gemini Language Model utilizing Native Tool Calling for configuration actions."""
-    def __init__(self, model_name: str = "gemini-2.5-flash"):
-        self.model = model_name
-
-    @property
-    def client(self):
-        return GeminiClientSingleton.get_client()
+    def __init__(self, model_name: str = None):
+        # A dated id goes stale: gemini-2.5-flash is already refused for new
+        # accounts. The rolling alias keeps working; the env var is the override.
+        self.model = model_name or os.getenv("OVARP_GEMINI_LLM_MODEL", "gemini-flash-latest")
+        self.client = GeminiClientSingleton.get_client()
 
     def _build_tools_schema(self) -> list:
         """Dynamically build Gemini Tool Schema from the config_manager."""
@@ -215,16 +209,52 @@ def _create_wav_header(sample_rate: int, num_channels: int, sample_width: int, d
     header += struct.pack('<I', data_size)
     return header
 
+class GeminiSTTProvider(BaseSTTProvider):
+    """Gemini transcription via generate_content with inline audio.
+
+    Gemini has no dedicated transcription endpoint; audio goes in as an inline
+    part alongside an instruction, and the reply is the transcript.
+    """
+
+    def __init__(self, model_name: str = None):
+        self.model = model_name or os.getenv("OVARP_GEMINI_STT_MODEL", "gemini-flash-latest")
+        self.client = GeminiClientSingleton.get_client()
+
+    async def transcribe(self, audio_data: bytes) -> str:
+        if not self.client:
+            std_log.error("❌ Gemini STT: Client not initialized (missing API key)")
+            return ""
+
+        std_log.info(f"🎤 Gemini STT: Starting transcription | audio_size={len(audio_data)} bytes")
+        try:
+            response = await asyncio.to_thread(
+                self.client.models.generate_content,
+                model=self.model,
+                contents=[
+                    genai_types.Part.from_bytes(data=audio_data, mime_type="audio/wav"),
+                    "Transcribe this audio verbatim. Reply with the transcript only, "
+                    "with no preamble and no quotation marks. If there is no speech, reply "
+                    "with nothing at all.",
+                ],
+            )
+            text = (response.text or "").strip()
+            std_log.info(f"✅ Gemini STT: Transcription complete | text=\"{text[:80]}\"")
+            return text
+        except Exception as e:
+            std_log.error(f"❌ Gemini STT: Transcription failed | {type(e).__name__}: {str(e)}")
+            logger.error("Gemini STT transcription failed", error=str(e))
+            return ""
+
+
 class GeminiTTSProvider(BaseTTSProvider):
     """Gemini TTS provider using the genai SDK with generate_content + AUDIO modality."""
     
-    def __init__(self, model_name: str = "gemini-2.5-flash-preview-tts", voice: str = "Kore"):
-        self.model = model_name
+    def __init__(self, model_name: str = None, voice: str = "Kore"):
+        self.model = model_name or os.getenv(
+            "OVARP_GEMINI_TTS_MODEL", "gemini-2.5-flash-preview-tts"
+        )
         self.voice = voice
-
-    @property
-    def client(self):
-        return GeminiClientSingleton.get_client()
+        self.client = GeminiClientSingleton.get_client()
     
     async def synthesize_stream(self, text: str) -> AsyncGenerator[bytes, None]:
         if not self.client:

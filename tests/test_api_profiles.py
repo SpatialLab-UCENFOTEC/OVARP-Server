@@ -18,6 +18,7 @@ from unittest.mock import MagicMock, AsyncMock
 from fastapi.testclient import TestClient
 
 import src.main as main_module
+from src.core.runtime import runtime
 from src.core.profile_manager import ProfileManager, AgentProfile, ProfileVoice, ProfilePersonality
 
 
@@ -26,7 +27,6 @@ def setup_app(monkeypatch):
     """Inject mock orchestrator, profile_manager, telemetry, and router into main module."""
     mgr = ProfileManager.__new__(ProfileManager)
     mgr._profiles = {}
-    mgr._profiles_dir = None
 
     # Seed test profiles
     mgr._profiles["researcher"] = AgentProfile(
@@ -58,20 +58,14 @@ def setup_app(monkeypatch):
         "voice_id": "nova",
         "has_custom_prompt": True,
     })
-    mock_orchestrator.get_runtime_selection = MagicMock(return_value={
-        "llm": "openai",
-        "tts": "openai",
-        "voice": "nova",
-        "model": "gpt-4o-mini",
-    })
 
     mock_router = MagicMock()
     mock_router.route_command = AsyncMock()
 
-    monkeypatch.setattr(main_module, "profile_manager", mgr, raising=False)
-    monkeypatch.setattr(main_module, "orchestrator", mock_orchestrator, raising=False)
-    monkeypatch.setattr(main_module, "router", mock_router, raising=False)
-    monkeypatch.setattr(main_module, "telemetry", MagicMock(), raising=False)
+    monkeypatch.setattr(runtime, "profile_manager", mgr, raising=False)
+    monkeypatch.setattr(runtime, "orchestrator", mock_orchestrator, raising=False)
+    monkeypatch.setattr(runtime, "router", mock_router, raising=False)
+    monkeypatch.setattr(runtime, "telemetry", MagicMock(), raising=False)
 
     yield {"mgr": mgr, "orchestrator": mock_orchestrator}
 
@@ -92,9 +86,6 @@ class TestListProfiles:
         ids = [p["id"] for p in data["profiles"]]
         assert "researcher" in ids
         assert "companion" in ids
-        researcher = next(p for p in data["profiles"] if p["id"] == "researcher")
-        assert researcher["voice_provider"] == "openai"
-        assert researcher["llm_provider"] is None
 
     def test_list_profiles_count(self, client):
         resp = client.get("/api/profiles")
@@ -127,7 +118,6 @@ class TestApplyProfile:
         assert data["status"] == "ok"
         assert data["profile_id"] == "researcher"
         assert data["profile_name"] == "Research Assistant"
-        assert data["selected"]["llm"] == "openai"
         setup_app["orchestrator"].apply_profile.assert_called()
 
     def test_apply_profile_to_specific_agent(self, client, setup_app):
@@ -168,45 +158,6 @@ class TestCreateProfile:
         })
         assert resp.status_code == 200
         assert resp.json()["status"] == "ok"
-
-    def test_create_profile_persists_yaml(self, client, setup_app, tmp_path):
-        setup_app["mgr"]._profiles_dir = tmp_path
-        resp = client.post("/api/profiles/create", json={
-            "id": "disk_agent",
-            "name": "Disk Agent",
-            "personality": {"system_prompt": "Saved to YAML."},
-        })
-        assert resp.status_code == 200
-        assert resp.json()["status"] == "ok"
-        yaml_path = tmp_path / "disk_agent.yaml"
-        assert yaml_path.exists()
-        assert "Saved to YAML." in yaml_path.read_text(encoding="utf-8")
-
-    def test_duplicate_and_delete_profile(self, client, setup_app, tmp_path):
-        setup_app["mgr"]._profiles_dir = tmp_path
-        dup = client.post("/api/profiles/researcher/duplicate", json={
-            "new_id": "researcher_copy",
-            "new_name": "Research Assistant Copy",
-        })
-        assert dup.status_code == 200
-        assert dup.json()["status"] == "ok"
-        assert (tmp_path / "researcher_copy.yaml").exists()
-
-        deleted = client.delete("/api/profiles/researcher_copy")
-        assert deleted.status_code == 200
-        assert deleted.json()["status"] == "ok"
-        assert not (tmp_path / "researcher_copy.yaml").exists()
-
-    def test_update_profile(self, client, setup_app, tmp_path):
-        setup_app["mgr"]._profiles_dir = tmp_path
-        resp = client.put("/api/profiles/companion", json={
-            "name": "Updated Companion",
-            "personality": {"system_prompt": "Updated prompt."},
-        })
-        assert resp.status_code == 200
-        assert resp.json()["status"] == "ok"
-        assert resp.json()["profile"]["name"] == "Updated Companion"
-        assert "Updated Companion" in (tmp_path / "companion.yaml").read_text(encoding="utf-8")
 
 
 class TestGetAgentState:

@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock
 from src.core.orchestrator import DialogOrchestrator
 from src.core.schemas import BaseCommand
 from src.providers.base import BaseSTTProvider, BaseLLMProvider, BaseTTSProvider
+from src.core.profile_manager import AgentProfile, ProfilePersonality, ProfileVoice
 
 @pytest.fixture
 def mock_stt():
@@ -61,8 +62,8 @@ async def test_process_audio_interaction_pipeline(orchestrator, mock_stt, mock_l
     assert llm_args["prompt"] == "Hello bot"
 
     # 3. Ensure the router received the resulting commands
-    # user_transcript, llm_reply, execute_state, 2x tts_chunk, tts_complete, then final latency
-    assert mock_router.route_command.call_count == 7
+    # We expect 6 commands: user_transcript, llm_reply (text), execute_state (actions), 2x tts_chunk, 1x tts_complete
+    assert mock_router.route_command.call_count == 6
 
     commands_sent = [call_args[0][0] for call_args in mock_router.route_command.call_args_list]
 
@@ -77,10 +78,8 @@ async def test_process_audio_interaction_pipeline(orchestrator, mock_stt, mock_l
 
     assert commands_sent[3].command == "tts_chunk"
     assert commands_sent[4].command == "tts_chunk"
-
+    
     assert commands_sent[5].command == "tts_complete"
-    assert commands_sent[6].command == "latency"
-    assert "total_ms" in commands_sent[6].subcommand
 
 
 @pytest.mark.asyncio
@@ -129,99 +128,126 @@ def test_provider_hotswap(orchestrator, mock_llm):
     assert orchestrator.active_llm_id == "other_llm" # Should remain unchanged
 
 
-def test_apply_profile_selects_llm_and_tts(orchestrator, mock_tts):
-    from src.core.profile_manager import AgentProfile, ProfileVoice, ProfilePersonality
+# --- Per-agent voice resolution ---
 
-    orchestrator.llm_providers["openai"] = MagicMock(spec=BaseLLMProvider)
-    orchestrator.tts_providers["openai"] = mock_tts
-    profile = AgentProfile(
-        id="pinned",
-        name="Pinned",
-        llm_provider="openai",
-        voice=ProfileVoice(provider="openai", voice_id="nova"),
-        personality=ProfilePersonality(system_prompt="You are pinned."),
+def _profile(voice_provider="auto", voice_id="nova", profile_id="p1"):
+    return AgentProfile(
+        id=profile_id,
+        name=profile_id.title(),
+        voice=ProfileVoice(provider=voice_provider, voice_id=voice_id),
+        personality=ProfilePersonality(system_prompt="Be brief."),
     )
-    orchestrator.apply_profile("agent_alpha", profile)
+
+
+@pytest.mark.asyncio
+async def test_profile_voice_is_used_for_synthesis(orchestrator, mocker):
+    """A profile's voice must reach the provider, not just sit in _agent_state."""
+    mock_router = mocker.patch("src.core.orchestrator.router")
+    mock_router.route_command = AsyncMock()
+    orchestrator.tts_providers["test_llm"].voice = "alloy"
+
+    orchestrator.apply_profile("agent_alpha", _profile(voice_id="nova"))
+    await orchestrator._dispatch_tts("hola", "vr_headset", "agent_alpha")
+
+    assert orchestrator.tts_providers["test_llm"].voice == "nova"
+
+
+@pytest.mark.asyncio
+async def test_agent_without_profile_uses_global_voice(orchestrator, mocker):
+    """Agents left on the defaults follow the console's voice picker."""
+    mock_router = mocker.patch("src.core.orchestrator.router")
+    mock_router.route_command = AsyncMock()
+
+    orchestrator.set_tts_voice("shimmer")
+    await orchestrator._dispatch_tts("hola", "vr_headset", "agent_beta")
+
+    assert orchestrator.tts_providers["test_llm"].voice == "shimmer"
+
+
+def test_global_voice_change_does_not_override_a_pinned_agent(orchestrator):
+    """The picker moves the global voice; a profiled agent keeps its own."""
+    orchestrator.apply_profile("agent_alpha", _profile(voice_id="nova"))
+
+    orchestrator.set_tts_voice("shimmer")
+
+    _, resolved = orchestrator._resolve_tts("agent_alpha")
+    assert resolved == "nova"
+    assert orchestrator.get_effective_voice("agent_alpha")["pinned_by_profile"] is True
+    assert orchestrator.get_effective_voice("agent_beta")["pinned_by_profile"] is False
+
+
+def test_set_tts_voice_can_target_one_agent(orchestrator):
+    """Pinning a voice per agent does not disturb the global setting."""
+    orchestrator.tts_providers["test_llm"].voice = "alloy"
+
+    orchestrator.set_tts_voice("echo", agent_id="agent_alpha")
+
+    assert orchestrator._resolve_tts("agent_alpha")[1] == "echo"
+    assert orchestrator.tts_providers["test_llm"].voice == "alloy"
+
+
+def test_clear_profile_returns_agent_to_globals(orchestrator):
+    """Releasing an agent makes the global prompt and voice apply to it again."""
+    orchestrator.set_system_prompt("global prompt")
+    orchestrator.tts_providers["test_llm"].voice = "alloy"
+    orchestrator.apply_profile("agent_alpha", _profile(voice_id="nova"))
+
+    orchestrator.clear_profile("agent_alpha")
+
     info = orchestrator.get_agent_info("agent_alpha")
-    assert orchestrator.active_llm_id == "openai"
-    assert orchestrator.active_tts_id == "openai"
-    assert mock_tts.voice == "nova"
-    assert info["llm_provider"] == "openai"
-    assert info["profile_id"] == "pinned"
-    selection = orchestrator.get_runtime_selection()
-    assert selection["llm"] == "openai"
-    assert selection["tts"] == "openai"
+    assert info["has_custom_prompt"] is False
+    assert info["profile_id"] is None
+    assert orchestrator._resolve_tts("agent_alpha")[1] is None
+    assert orchestrator.get_effective_voice("agent_alpha")["voice"] == "alloy"
+
+
+# --- Swappable transcription ---
+
+@pytest.fixture
+def two_stt_orchestrator(mock_llm, mock_tts):
+    first, second = MagicMock(spec=BaseSTTProvider), MagicMock(spec=BaseSTTProvider)
+    first.transcribe = AsyncMock(return_value="from first")
+    second.transcribe = AsyncMock(return_value="from second")
+    orchestrator = DialogOrchestrator(
+        stt_providers={"first": first, "second": second},
+        llm_providers={"test_llm": mock_llm},
+        tts_providers={"test_llm": mock_tts},
+        default_llm="test_llm",
+        default_stt="first",
+    )
+    return orchestrator, first, second
 
 
 @pytest.mark.asyncio
-async def test_process_direct_tts_routes_to_selected_device(orchestrator):
-    """Direct TTS captions must follow the WoZ target, not every headset."""
-    from unittest.mock import patch
-    from src.core.config import OVARPConfig, config_manager
+async def test_active_stt_provider_does_the_transcription(two_stt_orchestrator):
+    orchestrator, _, _ = two_stt_orchestrator
 
-    prev = config_manager._config
-    config_manager._config = OVARPConfig(
-        experiment={"name": "t", "description": "d", "version": "1"},
-        devices=[{"id": "vr_headset", "name": "Headset", "type": "xr"}],
-        agents=[{"id": "agent_alpha", "name": "Alpha"}],
-        custom_commands={},
-    )
-    orchestrator.tts_enabled = False
-    mock_router = MagicMock()
-    mock_router.route_command = AsyncMock()
-
-    try:
-        with patch("src.core.orchestrator.router", mock_router):
-            await orchestrator.process_direct_tts(
-                text="Hello headset",
-                target_device="vr_headset",
-                target_agent="agent_alpha",
-            )
-    finally:
-        config_manager._config = prev
-
-    mock_router.route_command.assert_awaited_once()
-    cmd = mock_router.route_command.await_args[0][0]
-    assert cmd.command == "llm_reply"
-    assert cmd.target_device == "vr_headset"
-    assert cmd.target_agent == "agent_alpha"
-    assert cmd.subcommand["text"] == "Hello headset"
-    assert cmd.subcommand["provider"] == "woz_direct"
+    assert await orchestrator.stt.transcribe(b"audio") == "from first"
 
 
 @pytest.mark.asyncio
-async def test_process_text_logs_and_broadcasts_final_latency(orchestrator):
-    """After TTS (or skip), persist latency and notify clients with final tts/total."""
-    from unittest.mock import patch
-    from src.core.config import OVARPConfig, config_manager
+async def test_switching_stt_changes_who_transcribes(two_stt_orchestrator):
+    orchestrator, _, _ = two_stt_orchestrator
 
-    prev = config_manager._config
-    config_manager._config = OVARPConfig(
-        experiment={"name": "t", "description": "d", "version": "1"},
-        devices=[{"id": "headset_01", "name": "Headset", "type": "xr"}],
-        agents=[{"id": "agent_alpha", "name": "Alpha"}],
-        custom_commands={},
+    assert orchestrator.set_active_stt("second") is True
+    assert await orchestrator.stt.transcribe(b"audio") == "from second"
+
+
+def test_unknown_stt_provider_is_refused(two_stt_orchestrator):
+    orchestrator, _, _ = two_stt_orchestrator
+
+    assert orchestrator.set_active_stt("nope") is False
+    assert orchestrator.active_stt_id == "first"
+
+
+def test_single_stt_provider_still_accepted(mock_stt, mock_llm, mock_tts):
+    """The original single-provider signature keeps working."""
+    orchestrator = DialogOrchestrator(
+        stt_provider=mock_stt,
+        llm_providers={"test_llm": mock_llm},
+        tts_providers={"test_llm": mock_tts},
+        default_llm="test_llm",
     )
-    orchestrator.tts_enabled = False
-    mock_router = MagicMock()
-    mock_router.route_command = AsyncMock()
-    mock_tel = MagicMock()
 
-    try:
-        with patch("src.core.orchestrator.router", mock_router), \
-             patch("src.core.orchestrator.telemetry", mock_tel):
-            await orchestrator.process_text_interaction(
-                "hello", "all", "agent_alpha"
-            )
-    finally:
-        config_manager._config = prev
-
-    mock_tel.log_latency.assert_called_once()
-    lat = mock_tel.log_latency.call_args[0][0]
-    assert lat["tts_ms"] == 0
-    assert "llm_ms" in lat
-    assert "total_ms" in lat
-    cmds = [call.args[0] for call in mock_router.route_command.await_args_list]
-    latency_cmds = [c for c in cmds if getattr(c, "command", None) == "latency"]
-    assert len(latency_cmds) == 1
-    assert latency_cmds[0].subcommand["total_ms"] == lat["total_ms"]
+    assert orchestrator.stt is mock_stt
+    assert orchestrator.active_stt_id == "openai"

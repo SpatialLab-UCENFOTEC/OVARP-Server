@@ -48,6 +48,11 @@ class BaseTTSProvider(ABC):
     Abstract Base Class for Text-To-Speech Providers.
     Takes text and returns a stream of audio chunks to be piped into the XR client via ZMQ.
     """
+
+    # Voice the provider synthesizes with. Concrete providers assign it in
+    # __init__; the orchestrator swaps it per agent before each synthesis.
+    voice: str = ""
+
     @abstractmethod
     async def synthesize_stream(self, text: str) -> AsyncGenerator[bytes, None]:
         """Convert text into an asynchronous stream of binary audio chunks."""

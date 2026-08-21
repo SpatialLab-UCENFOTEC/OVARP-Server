@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>OVARP — Questionnaire</title>
+<style>
+    :root {
+        --bg: #f5f6f8; --card: #ffffff; --ink: #1c1e21; --muted: #6b7280;
+        --line: #d8dbe0; --accent: #0d6efd; --accent-ink: #ffffff; --ok: #198754;
+    }
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --bg: #16181c; --card: #1f2226; --ink: #e8eaed; --muted: #9aa0a6;
+            --line: #34383e; --accent: #4d94ff; --accent-ink: #08111f; --ok: #34c77b;
+        }
+    }
+    * { box-sizing: border-box; }
+    body {
+        margin: 0; padding: 1rem; background: var(--bg); color: var(--ink);
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        line-height: 1.5;
+    }
+    main { max-width: 46rem; margin: 0 auto; }
+    header { margin-bottom: 1.25rem; }
+    h1 { font-size: 1.35rem; margin: 0 0 .35rem; }
+    .desc { color: var(--muted); font-size: .92rem; margin: 0; }
+    .card {
+        background: var(--card); border: 1px solid var(--line); border-radius: .75rem;
+        padding: 1rem; margin-bottom: .85rem;
+    }
+    .qtext { font-weight: 600; margin-bottom: .75rem; }
+    .qnum { color: var(--muted); font-weight: 400; margin-right: .4rem; }
+
+    .scale { display: flex; gap: .35rem; align-items: stretch; }
+    .scale label {
+        flex: 1; min-height: 3rem; display: flex; align-items: center; justify-content: center;
+        border: 1px solid var(--line); border-radius: .5rem; cursor: pointer;
+        font-variant-numeric: tabular-nums; user-select: none; background: var(--bg);
+    }
+    .scale input { position: absolute; opacity: 0; width: 0; height: 0; }
+    .scale input:checked + span {
+        position: absolute; inset: 0; border-radius: .45rem; background: var(--accent);
+    }
+    .scale label:has(input:checked) { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
+    .scale label:focus-within { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+    .ends { display: flex; justify-content: space-between; color: var(--muted); font-size: .8rem; margin-top: .4rem; gap: .5rem; }
+    .ends span:last-child { text-align: right; }
+
+    textarea {
+        width: 100%; min-height: 5.5rem; padding: .6rem; border-radius: .5rem;
+        border: 1px solid var(--line); background: var(--bg); color: var(--ink);
+        font: inherit; resize: vertical;
+    }
+    button {
+        width: 100%; padding: .95rem; font-size: 1.02rem; font-weight: 600;
+        border: 0; border-radius: .6rem; background: var(--accent); color: var(--accent-ink);
+        cursor: pointer;
+    }
+    button:disabled { opacity: .55; cursor: not-allowed; }
+    .note { color: var(--muted); font-size: .8rem; margin-top: .75rem; text-align: center; }
+    .missing { border-color: #dc3545; }
+    .banner { padding: .7rem .9rem; border-radius: .5rem; margin-bottom: 1rem; font-size: .9rem; }
+    .banner.err { background: #dc354522; border: 1px solid #dc354566; }
+    .done { text-align: center; padding: 3rem 1rem; }
+    .done .tick { font-size: 3rem; color: var(--ok); }
+    .progress { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; margin-bottom: 1rem; }
+    .progress > div { height: 100%; background: var(--accent); width: 0; transition: width .2s; }
+    ul.picker { list-style: none; padding: 0; }
+    ul.picker a { display: block; padding: .9rem; text-decoration: none; color: var(--ink); }
+</style>
+</head>
+<body>
+<main id="app"><p class="desc">Loading…</p></main>
+
+<script type="module">
+const params   = new URLSearchParams(location.search);
+const surveyId = params.get('id');
+const lang     = params.get('lang') === 'es' ? 'es' : 'en';
+const participant = params.get('participant') || '';
+const app = document.getElementById('app');
+
+const T = {
+    en: { submit: 'Submit', missing: 'Please answer every question.', thanks: 'Thank you!',
+          closed: 'You can close this page.', pick: 'Choose a questionnaire',
+          failed: 'Could not send your answers. Check the connection and try again.' },
+    es: { submit: 'Enviar', missing: 'Por favor responde todas las preguntas.', thanks: '¡Gracias!',
+          closed: 'Ya puedes cerrar esta página.', pick: 'Elige un cuestionario',
+          failed: 'No se pudieron enviar tus respuestas. Revisa la conexión e intenta de nuevo.' }
+}[lang];
+
+const esc = (s) => { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; };
+
+async function showPicker() {
+    const { surveys } = await (await fetch('/api/surveys')).json();
+    app.innerHTML = `<header><h1>${esc(T.pick)}</h1></header>
+        <div class="card"><ul class="picker">${surveys.map(s => `
+            <li><a href="?id=${encodeURIComponent(s.id)}&lang=${lang}${participant ? `&participant=${encodeURIComponent(participant)}` : ''}">
+                <strong>${esc(s.name)}</strong><br>
+                <small class="desc">${s.item_count} items</small></a></li>`).join('')}
+        </ul></div>`;
+}
+
+function scaleRow(item, scale) {
+    const values = [];
+    for (let v = scale.min; v <= scale.max; v++) values.push(v);
+    return `<div class="scale" role="radiogroup" aria-labelledby="lbl_${item.id}">
+        ${values.map(v => `<label><input type="radio" name="${item.id}" value="${v}"
+            aria-label="${v}"><span aria-hidden="true"></span>${v}</label>`).join('')}
+    </div>`;
+}
+
+function renderItem(item, index, survey) {
+    const isOpen = survey.kind === 'open';
+    const isBipolar = survey.kind === 'bipolar';
+
+    const heading = isBipolar
+        ? `${esc(item.left)} → ${esc(item.right)}`
+        : esc(item.text);
+
+    const body = isOpen
+        ? `<textarea name="${item.id}" aria-labelledby="lbl_${item.id}"></textarea>`
+        : scaleRow(item, survey.scale) + `<div class="ends">
+              <span>${esc(isBipolar ? item.left : (survey.scale.min_label || ''))}</span>
+              <span>${esc(isBipolar ? item.right : (survey.scale.max_label || ''))}</span>
+           </div>`;
+
+    return `<div class="card" data-item="${item.id}">
+        <div class="qtext" id="lbl_${item.id}"><span class="qnum">${index + 1}.</span>${heading}</div>
+        ${body}</div>`;
+}
+
+function collect(survey) {
+    const answers = {};
+    for (const item of survey.items) {
+        const checked = app.querySelector(`input[name="${item.id}"]:checked`);
+        const textarea = app.querySelector(`textarea[name="${item.id}"]`);
+        if (checked) answers[item.id] = Number(checked.value);
+        else if (textarea && textarea.value.trim()) answers[item.id] = textarea.value.trim();
+    }
+    return answers;
+}
+
+function updateProgress(survey) {
+    const done = Object.keys(collect(survey)).length;
+    app.querySelector('.progress > div').style.width =
+        `${Math.round((done / survey.items.length) * 100)}%`;
+}
+
+async function showSurvey() {
+    const survey = await (await fetch(`/api/surveys/${encodeURIComponent(surveyId)}?lang=${lang}`)).json();
+    if (survey.error) { app.innerHTML = `<div class="banner err">${esc(survey.error)}</div>`; return; }
+
+    app.innerHTML = `
+        <header>
+            <h1>${esc(survey.name)}</h1>
+            ${survey.description ? `<p class="desc">${esc(survey.description)}</p>` : ''}
+        </header>
+        <div class="progress"><div></div></div>
+        <div id="banner"></div>
+        <form id="form" novalidate>
+            ${survey.items.map((it, i) => renderItem(it, i, survey)).join('')}
+            <button type="submit">${esc(T.submit)}</button>
+            ${survey.attribution ? `<p class="note">${esc(survey.attribution)}</p>` : ''}
+        </form>`;
+
+    app.addEventListener('change', () => updateProgress(survey));
+    app.addEventListener('input', () => updateProgress(survey));
+
+    app.querySelector('#form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const answers = collect(survey);
+        const banner = app.querySelector('#banner');
+
+        // Open-ended debriefs may be left partly blank; scored instruments may not
+        if (survey.kind !== 'open' && Object.keys(answers).length < survey.items.length) {
+            banner.innerHTML = `<div class="banner err">${esc(T.missing)}</div>`;
+            const firstMissing = survey.items.find(it => !(it.id in answers));
+            const card = app.querySelector(`[data-item="${firstMissing.id}"]`);
+            card.classList.add('missing');
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+        }
+
+        const button = app.querySelector('button[type=submit]');
+        button.disabled = true;
+        try {
+            const resp = await fetch('/api/surveys/response', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ survey_id: survey.id, participant_id: participant, answers }),
+            });
+            if (!resp.ok) throw new Error(resp.status);
+            app.innerHTML = `<div class="done"><div class="tick">✓</div>
+                <h1>${esc(T.thanks)}</h1><p class="desc">${esc(T.closed)}</p></div>`;
+        } catch {
+            banner.innerHTML = `<div class="banner err">${esc(T.failed)}</div>`;
+            button.disabled = false;
+        }
+    });
+}
+
+(surveyId ? showSurvey() : showPicker()).catch((e) => {
+    app.innerHTML = `<div class="banner err">${esc(String(e))}</div>`;
+});
+</script>
+</body>
+</html>

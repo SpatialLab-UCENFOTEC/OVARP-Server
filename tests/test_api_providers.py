@@ -18,6 +18,8 @@ from unittest.mock import MagicMock, AsyncMock
 from fastapi.testclient import TestClient
 
 import src.main as main_module
+from src.core.runtime import runtime
+from src.api.routers import providers as providers_router
 
 
 @pytest.fixture(autouse=True)
@@ -32,10 +34,10 @@ def setup_app(monkeypatch, tmp_path):
 
     custom_file = tmp_path / "custom_providers.yaml"
 
-    monkeypatch.setattr(main_module, "orchestrator", mock_orchestrator, raising=False)
-    monkeypatch.setattr(main_module, "CUSTOM_PROVIDERS_FILE", custom_file, raising=False)
-    monkeypatch.setattr(main_module, "_read_custom_registry", lambda: {}, raising=False)
-    monkeypatch.setattr(main_module, "_save_custom_providers", lambda r: None, raising=False)
+    monkeypatch.setattr(runtime, "orchestrator", mock_orchestrator, raising=False)
+    monkeypatch.setattr(providers_router, "CUSTOM_PROVIDERS_FILE", custom_file, raising=False)
+    monkeypatch.setattr(providers_router, "_read_custom_registry", lambda: {}, raising=False)
+    monkeypatch.setattr(providers_router, "_save_custom_providers", lambda r: None, raising=False)
 
     yield {"orchestrator": mock_orchestrator}
 
@@ -140,7 +142,7 @@ class TestProviderConnectivity:
 
     def test_test_arbitrary_endpoint(self, client, monkeypatch):
         """Test the generic endpoint tester (mocked to avoid real HTTP calls)."""
-        monkeypatch.setattr(main_module, "test_custom_endpoint", AsyncMock(return_value={
+        monkeypatch.setattr(providers_router, "test_custom_endpoint", AsyncMock(return_value={
             "ok": True,
             "detail": "Connected. Available models: llama3",
         }), raising=False)

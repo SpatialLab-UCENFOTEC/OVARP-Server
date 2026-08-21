@@ -42,19 +42,11 @@ class OpenAIClientSingleton:
                 cls._client = AsyncOpenAI(api_key=api_key)
         return cls._client
 
-    @classmethod
-    def reset_client(cls):
-        """Drop the cached client so a new API key takes effect."""
-        cls._client = None
-
 class OpenAISTTProvider(BaseSTTProvider):
     """Whisper transcription provider."""
     def __init__(self, model_name: str = "whisper-1"):
         self.model = model_name
-
-    @property
-    def client(self):
-        return OpenAIClientSingleton.get_client()
+        self.client = OpenAIClientSingleton.get_client()
 
     async def transcribe(self, audio_data: bytes) -> str:
         # Note: OpenAI expects a named file or a tuple (filename, file_content)
@@ -78,10 +70,7 @@ class OpenAILLMProvider(BaseLLMProvider):
     """GPT-based Language Model using Tool Calling for dynamic configuration actions."""
     def __init__(self, model_name: str = "gpt-4o"):
         self.model = model_name
-
-    @property
-    def client(self):
-        return OpenAIClientSingleton.get_client()
+        self.client = OpenAIClientSingleton.get_client()
 
     def _build_tools_schema(self) -> list[Dict[str, Any]]:
         """Dynamically build OpenAI Tool Schema from the config_manager."""
@@ -179,10 +168,7 @@ class OpenAITTSProvider(BaseTTSProvider):
     def __init__(self, model_name: str = "tts-1", voice: str = "alloy"):
         self.model = model_name
         self.voice = voice
-
-    @property
-    def client(self):
-        return OpenAIClientSingleton.get_client()
+        self.client = OpenAIClientSingleton.get_client()
 
     async def synthesize_stream(self, text: str) -> AsyncGenerator[bytes, None]:
         std_log.info(f"🔊 TTS: Starting synthesis | model={self.model} voice={self.voice} text=\"{text[:60]}\"")

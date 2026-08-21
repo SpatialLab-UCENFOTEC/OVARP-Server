@@ -1,5 +1,4 @@
-// CENFO DUPLICATE — not imported. Live SDK is src/static/sdk/ovaf-client.js (Alex).
-import AvatarController from '../avatar.js';
+﻿import AvatarController from '../avatar.js';
 
 /**
  * OVARPClient: The official Web SDK for the Open Virtual Agent Research Platform.
@@ -31,6 +30,7 @@ export default class OVARPClient {
             onLog: (msg, type) => { }, // General SDK logs
             onTTSReady: (blobUrl) => { }, // When TTS audio blob is ready for playback
             onMarkerLogged: (label, metadata) => { }, // When an event marker is confirmed by server
+            onPipelineError: (info) => { },          // When STT, LLM or TTS fails server-side
             onMicStart: () => { },
             onMicStop: () => { }
         }, config.callbacks);
@@ -43,16 +43,10 @@ export default class OVARPClient {
         this._audioChunks = [];
         this.isRecording = false;
 
-        // TTS buffer & Queue
+        // TTS buffer
         this._ttsAudioChunks = [];
-        this._audioQueue = [];
-        this.isPlayingAudio = false;
         this._ttsAudioPlayer = document.createElement('audio');
         this._ttsAudioPlayer.id = 'OVARP-tts-audio-player';
-        this._ttsAudioPlayer.onended = () => {
-            this.isPlayingAudio = false;
-            this._processAudioQueue();
-        };
         document.body.appendChild(this._ttsAudioPlayer);
 
         if (config.canvas) {
@@ -99,12 +93,7 @@ export default class OVARPClient {
 
         this.ws.onclose = () => {
             this.callbacks.onDisconnect();
-            this.callbacks.onLog('Disconnected from OVARP Router. Auto-reconnecting...', 'error');
-            setTimeout(() => {
-                if (!this.ws || this.ws.readyState === WebSocket.CLOSED) {
-                    this.connect();
-                }
-            }, 2000);
+            this.callbacks.onLog('Disconnected from OVARP Router', 'error');
         };
 
         this.ws.onerror = (e) => {
@@ -254,39 +243,16 @@ export default class OVARPClient {
                 this.callbacks.onMarkerLogged(sub.label, sub.metadata);
                 this.callbacks.onLog(`[Marker] ${sub.label}`, 'info');
             }
+            else if (data.command_type === "system" && data.command === "pipeline_error") {
+                // A stage failed. Without this the console shows silence and the
+                // reason stays in the server log, which reads as "it just stopped".
+                const sub = data.subcommand || {};
+                this.callbacks.onPipelineError(sub);
+                this.callbacks.onLog(`[${(sub.stage || '?').toUpperCase()} failed] ${sub.detail || ''}`, 'error');
+            }
 
         } catch (err) {
             this.callbacks.onLog(`Failed to parse WS message: ${err}`, 'error');
-        }
-    }
-
-    /**
-     * Immediately stop all playing TTS audio and clear the queue.
-     */
-    stopAudio() {
-        if (this._ttsAudioPlayer) {
-            this._ttsAudioPlayer.pause();
-            this._ttsAudioPlayer.currentTime = 0;
-        }
-        this._ttsAudioChunks = [];
-        this._audioQueue = [];
-        this.isPlayingAudio = false;
-        this.callbacks.onLog('Audio playback stopped and queue cleared', 'info');
-    }
-
-    _processAudioQueue() {
-        if (this.isPlayingAudio || this._audioQueue.length === 0) return;
-        const item = this._audioQueue.shift();
-        this.isPlayingAudio = true;
-        this._ttsAudioPlayer.src = item.url;
-        this._ttsAudioPlayer.play().catch(e => {
-            this.callbacks.onLog(`TTS Autoplay blocked: ${e}`, 'warn');
-            this.isPlayingAudio = false;
-            this._processAudioQueue();
-        });
-
-        if (this.avatar) {
-            this.avatar.connectAudio(this._ttsAudioPlayer);
         }
     }
 
@@ -304,12 +270,20 @@ export default class OVARPClient {
                 const url = URL.createObjectURL(blob);
                 this._ttsAudioChunks = []; // reset
 
-                // Notify UI (e.g. to attach replay buttons to chat bubbles)
+                // Stop any currently playing audio before setting new source
+                this._ttsAudioPlayer.pause();
+                this._ttsAudioPlayer.currentTime = 0;
+                // Note: we do NOT revokeObjectURL here because replay buttons retain references to past blob URLs
+                this._ttsAudioPlayer.src = url;
+                this._ttsAudioPlayer.play().catch(e => this.callbacks.onLog(`TTS Autoplay blocked: ${e}`, 'warn'));
+
+                // Notify the UI so it can attach a replay button
                 this.callbacks.onTTSReady(url);
 
-                // Queue audio for sequential non-overlapping playback
-                this._audioQueue.push({ url });
-                this._processAudioQueue();
+                // Synergize LipSync magically
+                if (this.avatar) {
+                    this.avatar.connectAudio(this._ttsAudioPlayer);
+                }
             }
         }
     }

@@ -22,13 +22,14 @@ std_log = logging.getLogger("OVARP.session")
 
 class EventMarker(BaseModel):
     """A timestamped annotation created by the researcher during an experiment."""
-    id: str = Field(default_factory=lambda: uuid.uuid4().hex[:8], description="Unique marker identifier")
+    id: str = Field(default_factory=lambda: uuid.uuid4().hex[:8],
+                    description="Stable handle for amending this marker later")
     timestamp: float = Field(description="High-precision Unix timestamp")
     iso_time: str = Field(description="Human-readable ISO timestamp")
     label: str = Field(description="Short label, e.g. 'task_started', 'participant_discomfort'")
-    category: Optional[str] = Field(default=None, description="Marker category, e.g. 'Technical Issue'")
-    notes: Optional[str] = Field(default=None, description="Researcher notes")
     metadata: Optional[dict] = Field(default=None, description="Optional extra data")
+    notes: Optional[str] = Field(default=None, description="Free-text detail added after the fact")
+    amended: bool = Field(default=False, description="True once the label or notes were edited")
 
 
 class ExperimentSession(BaseModel):
@@ -127,7 +128,7 @@ class SessionManager:
         self._session = None
         return completed
 
-    def add_marker(self, label: str, metadata: dict = None, category: str = None, notes: str = None) -> EventMarker:
+    def add_marker(self, label: str, metadata: dict = None) -> EventMarker:
         """Add an event marker to the active session and log it to telemetry."""
         if not self._session or self._session.status == "completed":
             raise ValueError("No active session for markers")
@@ -137,51 +138,50 @@ class SessionManager:
             timestamp=time.time(),
             iso_time=now.isoformat(),
             label=label,
-            category=category,
-            notes=notes,
             metadata=metadata,
         )
         self._session.markers.append(marker)
-        std_log.info(f"📌 MARKER | label=\"{label}\" | category=\"{category}\" | session={self._session.session_id}")
+        std_log.info(f"📌 MARKER | label=\"{label}\" | session={self._session.session_id}")
         return marker
 
-    def update_marker(
-        self,
-        marker_id: str,
-        category: Optional[str] = None,
-        notes: Optional[str] = None,
-        label: Optional[str] = None,
-        metadata: Optional[dict] = None
-    ) -> EventMarker:
-        """Update an existing event marker in the active session."""
-        if not self._session or self._session.status == "completed":
-            raise ValueError("No active session for marker update")
+    def find_marker(self, marker_id: str) -> Optional[EventMarker]:
+        """Locate a marker in the active session by its stable id."""
+        if not self._session:
+            return None
+        return next((m for m in self._session.markers if m.id == marker_id), None)
 
-        target_marker = None
-        for m in self._session.markers:
-            if m.id == marker_id:
-                target_marker = m
-                break
+    def amend_marker(self, marker_id: str, label: str = None, notes: str = None) -> tuple:
+        """Correct a marker's label or attach notes, leaving its timestamp alone.
 
-        if not target_marker and marker_id.isdigit():
-            idx = int(marker_id)
-            if 0 <= idx < len(self._session.markers):
-                target_marker = self._session.markers[idx]
+        Returns ``(marker, before)`` where ``before`` holds the replaced values,
+        so the caller can write the amendment to the append-only session log and
+        keep the record of what was originally captured.
+        """
+        marker = self.find_marker(marker_id)
+        if marker is None:
+            raise ValueError(f"No marker '{marker_id}' in the active session")
 
-        if not target_marker:
-            raise ValueError(f"Marker '{marker_id}' not found in active session")
+        before = {}
+        if label is not None and label != marker.label:
+            before["label"] = marker.label
+            marker.label = label
+        if notes is not None and notes != marker.notes:
+            before["notes"] = marker.notes
+            marker.notes = notes
 
-        if label is not None:
-            target_marker.label = label
-        if category is not None:
-            target_marker.category = category
-        if notes is not None:
-            target_marker.notes = notes
-        if metadata is not None:
-            target_marker.metadata = metadata
+        if before:
+            marker.amended = True
+            std_log.info(f"✏️ MARKER AMENDED | id={marker_id} | changed={list(before)}")
+        return marker, before
 
-        std_log.info(f"📌 MARKER UPDATED | id={target_marker.id} | category=\"{target_marker.category}\"")
-        return target_marker
+    def delete_marker(self, marker_id: str) -> EventMarker:
+        """Remove a marker that should not have been fired."""
+        marker = self.find_marker(marker_id)
+        if marker is None:
+            raise ValueError(f"No marker '{marker_id}' in the active session")
+        self._session.markers.remove(marker)
+        std_log.info(f"🗑️ MARKER DELETED | id={marker_id} | label=\"{marker.label}\"")
+        return marker
 
     def get_elapsed_seconds(self) -> float:
         """Returns the active (non-paused) elapsed time in seconds."""

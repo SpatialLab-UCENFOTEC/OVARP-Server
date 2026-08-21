@@ -114,3 +114,59 @@ def test_start_ends_existing_session(fresh_manager):
     session = fresh_manager.start_session("P008")
     assert session.participant_id == "P008"
     assert len(session.markers) == 0  # fresh session has no markers
+
+
+class TestMarkerAmendment:
+    """Markers can be corrected after the fact without losing what was captured live."""
+
+    def _session_with_marker(self):
+        mgr = SessionManager()
+        mgr._session = None
+        mgr.start_session("P_AMEND")
+        return mgr, mgr.add_marker("task_startd")  # deliberate typo
+
+    def test_label_can_be_corrected(self):
+        mgr, marker = self._session_with_marker()
+
+        amended, before = mgr.amend_marker(marker.id, label="task_started")
+
+        assert amended.label == "task_started"
+        assert before == {"label": "task_startd"}
+        assert amended.amended is True
+
+    def test_timestamp_survives_an_amendment(self):
+        mgr, marker = self._session_with_marker()
+        original_ts = marker.timestamp
+
+        amended, _ = mgr.amend_marker(marker.id, label="task_started", notes="dudo al inicio")
+
+        assert amended.timestamp == original_ts
+        assert amended.notes == "dudo al inicio"
+
+    def test_amending_with_the_same_value_reports_no_change(self):
+        mgr, marker = self._session_with_marker()
+
+        _, before = mgr.amend_marker(marker.id, label="task_startd")
+
+        assert before == {}
+
+    def test_delete_removes_the_marker(self):
+        mgr, marker = self._session_with_marker()
+
+        mgr.delete_marker(marker.id)
+
+        assert mgr.session.markers == []
+
+    def test_unknown_marker_id_raises(self):
+        mgr, _ = self._session_with_marker()
+
+        with pytest.raises(ValueError):
+            mgr.amend_marker("deadbeef", label="x")
+        with pytest.raises(ValueError):
+            mgr.delete_marker("deadbeef")
+
+    def test_markers_get_distinct_ids(self):
+        mgr, first = self._session_with_marker()
+        second = mgr.add_marker("task_completed")
+
+        assert first.id != second.id

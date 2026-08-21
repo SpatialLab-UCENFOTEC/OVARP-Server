@@ -80,63 +80,62 @@ class TelemetryLogger:
             **ctx
         )
 
-    def log_marker(self, label: str, metadata: dict = None, marker_id: str = None, category: str = None, notes: str = None):
+    def log_marker(self, label: str, metadata: dict = None):
         """Log an event marker as a distinct telemetry entry."""
         ctx = self._get_session_context()
         self.file_logger.info(
             event="marker",
             host_timestamp=time.time(),
-            marker_id=marker_id,
             label=label,
-            category=category,
-            notes=notes,
             marker_metadata=metadata,
             **ctx
         )
 
-    def log_marker_update(self, marker_id: str, details: dict):
-        """Log a marker update event and rewrite the marker record in session JSONL."""
+    def log_marker_amendment(self, marker_id: str, before: dict, after: dict):
+        """Record a marker correction without rewriting what was originally logged.
+
+        The session JSONL is append-only, so the first ``marker`` entry stays as
+        captured and this adds the diff on top. The pair is what makes an edited
+        marker auditable rather than just changed.
+        """
         ctx = self._get_session_context()
         self.file_logger.info(
-            event="marker_updated",
+            event="marker_amended",
             host_timestamp=time.time(),
             marker_id=marker_id,
-            updated_details=details,
+            amended_from=before,
+            amended_to=after,
             **ctx
         )
-        if self.jsonl_path.exists():
-            try:
-                with open(self.jsonl_path, "r", encoding="utf-8") as f:
-                    lines = f.readlines()
 
-                new_lines = []
-                marker_count = 0
-                for line in lines:
-                    if not line.strip():
-                        continue
-                    try:
-                        record = json.loads(line)
-                        if record.get("event") == "marker":
-                            match = (
-                                record.get("marker_id") == marker_id or
-                                record.get("id") == marker_id or
-                                (marker_id.isdigit() and int(marker_id) == marker_count)
-                            )
-                            if match:
-                                for k, v in details.items():
-                                    if k == "metadata":
-                                        record["marker_metadata"] = v
-                                    else:
-                                        record[k] = v
-                            marker_count += 1
-                        new_lines.append(json.dumps(record) + "\n")
-                    except json.JSONDecodeError:
-                        new_lines.append(line)
+    def log_marker_deleted(self, marker_id: str, label: str):
+        """Record that a marker was retracted, keeping the original entry intact."""
+        ctx = self._get_session_context()
+        self.file_logger.info(
+            event="marker_deleted",
+            host_timestamp=time.time(),
+            marker_id=marker_id,
+            label=label,
+            **ctx
+        )
 
-                with open(self.jsonl_path, "w", encoding="utf-8") as f:
-                    f.writelines(new_lines)
-            except Exception as e:
-                self.console_logger.error("Failed to update marker in JSONL log file", error=str(e))
+    def log_survey_response(self, survey_id: str, participant_id: str,
+                            answers: dict, score: dict):
+        """Record a completed questionnaire alongside the interaction log.
+
+        Keeping responses in the same JSONL as the session means the scores line
+        up with the markers and latencies for that participant without a join.
+        """
+        ctx = self._get_session_context()
+        ctx["participant_id"] = participant_id or ctx.get("participant_id", "")
+        self.file_logger.info(
+            event="survey_response",
+            host_timestamp=time.time(),
+            survey_id=survey_id,
+            survey_answers=answers,
+            survey_score=score,
+            **ctx
+        )
 
     def log_latency(self, latency: dict):
         """Log pipeline latency metrics."""
@@ -187,7 +186,8 @@ class TelemetryLogger:
                     "sender", "target_device", "target_agent",
                     "command_type", "command", "subcommand_json",
                     "marker_label", "marker_metadata",
-                    "stt_ms", "llm_ms", "tts_ms", "total_ms",
+                    "marker_id", "marker_amended_from", "marker_amended_to",
+                    "survey_id", "survey_score", "survey_answers"
                 ])
 
                 for line in f_in:
@@ -209,10 +209,12 @@ class TelemetryLogger:
                         json.dumps(data.get("subcommand", {})),
                         data.get("label", ""),
                         json.dumps(data.get("marker_metadata", {})),
-                        data.get("stt_ms", ""),
-                        data.get("llm_ms", ""),
-                        data.get("tts_ms", ""),
-                        data.get("total_ms", ""),
+                        data.get("marker_id", ""),
+                        json.dumps(data.get("amended_from", {})) if data.get("amended_from") else "",
+                        json.dumps(data.get("amended_to", {})) if data.get("amended_to") else "",
+                        data.get("survey_id", ""),
+                        json.dumps(data.get("survey_score", {})) if data.get("survey_score") else "",
+                        json.dumps(data.get("survey_answers", {})) if data.get("survey_answers") else "",
                     ])
 
             self.console_logger.info("Telemetry Exported successfully", csv_file=str(csv_path))

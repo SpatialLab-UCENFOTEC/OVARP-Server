@@ -1,0 +1,51 @@
+id: sus
+name: "System Usability Scale (SUS)"
+description: >
+  Ten-item usability questionnaire. Produces a single 0-100 score.
+  Administer right after the participant finishes the task, before any debrief.
+attribution: >
+  Brooke, J. (1996). SUS: A "quick and dirty" usability scale.
+  In Usability Evaluation in Industry. Taylor & Francis. Free to use.
+kind: likert
+scoring: sus
+
+scale:
+  min: 1
+  max: 5
+  min_label: "Strongly disagree"
+  max_label: "Strongly agree"
+  min_label_es: "Totalmente en desacuerdo"
+  max_label_es: "Totalmente de acuerdo"
+
+# Order matters: SUS scoring treats odd items as positive and even as negative.
+items:
+  - id: sus_1
+    text: "I think that I would like to use this system frequently"
+    text_es: "Creo que me gustaría utilizar este sistema con frecuencia"
+  - id: sus_2
+    text: "I found the system unnecessarily complex"
+    text_es: "Encontré el sistema innecesariamente complejo"
+  - id: sus_3
+    text: "I thought the system was easy to use"
+    text_es: "Pensé que el sistema era fácil de usar"
+  - id: sus_4
+    text: "I think that I would need the support of a technical person to be able to use this system"
+    text_es: "Creo que necesitaría el apoyo de una persona técnica para poder usar este sistema"
+  - id: sus_5
+    text: "I found the various functions in this system were well integrated"
+    text_es: "Encontré que las diversas funciones de este sistema estaban bien integradas"
+  - id: sus_6
+    text: "I thought there was too much inconsistency in this system"
+    text_es: "Pensé que había demasiada inconsistencia en este sistema"
+  - id: sus_7
+    text: "I would imagine that most people would learn to use this system very quickly"
+    text_es: "Imagino que la mayoría de la gente aprendería a usar este sistema muy rápidamente"
+  - id: sus_8
+    text: "I found the system very cumbersome to use"
+    text_es: "Encontré el sistema muy engorroso de usar"
+  - id: sus_9
+    text: "I felt very confident using the system"
+    text_es: "Me sentí muy seguro usando el sistema"
+  - id: sus_10
+    text: "I needed to learn a lot of things before I could get going with this system"
+    text_es: "Necesité aprender muchas cosas antes de poder empezar a usar este sistema"

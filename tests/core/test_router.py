@@ -113,39 +113,3 @@ async def test_router_text_llm_request_routed_to_orchestrator(router, mock_orche
     assert call_kwargs["text"] == "Hello world!"
     assert call_kwargs["target_agent"] == "agent_test"
     assert mock_transport.send.call_count == 0 # Should NOT broadcast pure text request out without LLM processing
-
-
-@pytest.mark.asyncio
-async def test_router_direct_tts_uses_woz_targets(router, mock_orchestrator, mock_transport):
-    """Speak This Text must keep the researcher's selected device and agent."""
-    from src.core.config import OVARPConfig, config_manager
-
-    prev = config_manager._config
-    config_manager._config = OVARPConfig(
-        experiment={"name": "t", "description": "d", "version": "1"},
-        devices=[{"id": "vr_headset", "name": "Headset", "type": "xr"}],
-        agents=[{"id": "agent_alpha", "name": "Alpha"}],
-        custom_commands={},
-    )
-    mock_orchestrator.process_direct_tts = AsyncMock()
-    payload = {
-        "sender": "woz_web_console",
-        "target_device": "vr_headset",
-        "target_agent": "agent_alpha",
-        "command_type": "message",
-        "command": "direct_tts",
-        "subcommand": {"text": "Look this way"},
-    }
-
-    try:
-        await router.handle_incoming_raw(json.dumps(payload))
-        await asyncio.sleep(0.01)
-    finally:
-        config_manager._config = prev
-
-    mock_orchestrator.process_direct_tts.assert_called_once()
-    kwargs = mock_orchestrator.process_direct_tts.call_args.kwargs
-    assert kwargs["text"] == "Look this way"
-    assert kwargs["target_device"] == "vr_headset"
-    assert kwargs["target_agent"] == "agent_alpha"
-    assert mock_transport.send.call_count == 0

@@ -59,6 +59,10 @@ class ExperimentConfig(BaseModel):
 class OVARPConfig(BaseModel):
     """Root configuration model, parsed from config.yaml."""
     experiment: ExperimentConfig
+    client_url: Optional[str] = Field(
+        default=None,
+        description="Where the participant-facing client is hosted, so the console can open it",
+    )
     devices: List[DeviceConfig]
     agents: List[AgentConfig]
     custom_commands: Dict[str, CustomCommandCategory]

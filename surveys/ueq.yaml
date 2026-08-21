@@ -1,0 +1,46 @@
+id: ueq
+name: "User Experience Questionnaire (UEQ)"
+description: >
+  26 bipolar items across six scales: Attractiveness, Perspicuity, Efficiency,
+  Dependability, Stimulation and Novelty. Scores are reported on -3..+3;
+  values above +0.8 are conventionally read as a positive evaluation.
+attribution: >
+  Laugwitz, B., Held, T., & Schrepp, M. (2008). Construction and evaluation of a
+  user experience questionnaire. Free for research use with attribution — see
+  www.ueq-online.org.
+kind: bipolar
+scoring: ueq
+
+scale:
+  min: 1
+  max: 7
+
+# `reverse: true` marks items whose positive pole sits on the left, which the
+# scoring flips before averaging so every scale reads in the same direction.
+items:
+  - {id: ueq_1,  scale: attractiveness, reverse: false, left: "annoying",           right: "enjoyable",              left_es: "molesto",          right_es: "agradable"}
+  - {id: ueq_2,  scale: perspicuity,    reverse: false, left: "not understandable", right: "understandable",         left_es: "incomprensible",   right_es: "comprensible"}
+  - {id: ueq_3,  scale: novelty,        reverse: true,  left: "creative",           right: "dull",                   left_es: "creativo",         right_es: "sin imaginación"}
+  - {id: ueq_4,  scale: perspicuity,    reverse: true,  left: "easy to learn",      right: "difficult to learn",     left_es: "fácil de aprender", right_es: "difícil de aprender"}
+  - {id: ueq_5,  scale: stimulation,    reverse: true,  left: "valuable",           right: "inferior",               left_es: "valioso",          right_es: "de poco valor"}
+  - {id: ueq_6,  scale: stimulation,    reverse: false, left: "boring",             right: "exciting",               left_es: "aburrido",         right_es: "emocionante"}
+  - {id: ueq_7,  scale: stimulation,    reverse: false, left: "not interesting",    right: "interesting",            left_es: "no interesante",   right_es: "interesante"}
+  - {id: ueq_8,  scale: dependability,  reverse: false, left: "unpredictable",      right: "predictable",            left_es: "impredecible",     right_es: "predecible"}
+  - {id: ueq_9,  scale: efficiency,     reverse: true,  left: "fast",               right: "slow",                   left_es: "rápido",           right_es: "lento"}
+  - {id: ueq_10, scale: novelty,        reverse: true,  left: "inventive",          right: "conventional",           left_es: "original",         right_es: "convencional"}
+  - {id: ueq_11, scale: dependability,  reverse: false, left: "obstructive",        right: "supportive",             left_es: "obstructivo",      right_es: "de apoyo"}
+  - {id: ueq_12, scale: attractiveness, reverse: true,  left: "good",               right: "bad",                    left_es: "bueno",            right_es: "malo"}
+  - {id: ueq_13, scale: perspicuity,    reverse: false, left: "complicated",        right: "easy",                   left_es: "complicado",       right_es: "fácil"}
+  - {id: ueq_14, scale: attractiveness, reverse: false, left: "unlikable",          right: "pleasing",               left_es: "desagradable",     right_es: "atractivo"}
+  - {id: ueq_15, scale: novelty,        reverse: false, left: "usual",              right: "leading edge",           left_es: "corriente",        right_es: "novedoso"}
+  - {id: ueq_16, scale: attractiveness, reverse: false, left: "unpleasant",         right: "pleasant",               left_es: "desagradable",     right_es: "agradable"}
+  - {id: ueq_17, scale: dependability,  reverse: true,  left: "secure",             right: "not secure",             left_es: "seguro",           right_es: "no seguro"}
+  - {id: ueq_18, scale: stimulation,    reverse: true,  left: "motivating",         right: "demotivating",           left_es: "motivador",        right_es: "desmotivador"}
+  - {id: ueq_19, scale: dependability,  reverse: true,  left: "meets expectations", right: "does not meet expectations", left_es: "cumple las expectativas", right_es: "no cumple las expectativas"}
+  - {id: ueq_20, scale: efficiency,     reverse: false, left: "inefficient",        right: "efficient",              left_es: "ineficiente",      right_es: "eficiente"}
+  - {id: ueq_21, scale: perspicuity,    reverse: true,  left: "clear",              right: "confusing",              left_es: "claro",            right_es: "confuso"}
+  - {id: ueq_22, scale: efficiency,     reverse: false, left: "impractical",        right: "practical",              left_es: "poco práctico",    right_es: "práctico"}
+  - {id: ueq_23, scale: efficiency,     reverse: true,  left: "organized",          right: "cluttered",              left_es: "organizado",       right_es: "desordenado"}
+  - {id: ueq_24, scale: attractiveness, reverse: true,  left: "attractive",         right: "unattractive",           left_es: "atractivo",        right_es: "poco atractivo"}
+  - {id: ueq_25, scale: attractiveness, reverse: true,  left: "friendly",           right: "unfriendly",             left_es: "amigable",         right_es: "poco amigable"}
+  - {id: ueq_26, scale: novelty,        reverse: false, left: "conservative",       right: "innovative",             left_es: "conservador",      right_es: "innovador"}

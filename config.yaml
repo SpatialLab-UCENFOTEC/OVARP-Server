@@ -6,6 +6,10 @@ experiment:
   description: "A pilot study to test agent reactions to basic commands."
   version: "1.0.0"
 
+# Where the participant-facing client is hosted. The console links to it from
+# the XR Connection card so you can open it without hunting for the URL.
+# client_url: "https://your-client.vercel.app"
+
 # Devices connected to the framework via ZMQ or WebSockets
 devices:
   - id: "quest_vr_01"
@@ -14,6 +18,9 @@ devices:
   - id: "xreal_01"
     name: "XREAL Glasses"
     type: "xr"
+  - id: "web_01"
+    name: "Unity Web Client"
+    type: "web"
   - id: "web_panel_01"
     name: "Researcher Web Dashboard"
     type: "web"

@@ -1,0 +1,24 @@
+id: qualitative
+name: "Open feedback"
+description: >
+  Short open-ended debrief. Ask after the scored instruments so the ratings are
+  not anchored by the participant having just explained their reasoning.
+kind: open
+scoring: none
+
+items:
+  - id: q_would_use
+    text: "Would you use this system? Why or why not?"
+    text_es: "¿Usarías este sistema? ¿Por qué sí o por qué no?"
+  - id: q_what_for
+    text: "What would you use it for?"
+    text_es: "¿Para qué lo usarías?"
+  - id: q_improve
+    text: "How would you improve it?"
+    text_es: "¿Cómo lo mejorarías?"
+  - id: q_like
+    text: "What did you like most?"
+    text_es: "¿Qué fue lo que más te gustó?"
+  - id: q_dislike
+    text: "What did you like least?"
+    text_es: "¿Qué fue lo que menos te gustó?"

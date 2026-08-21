@@ -18,6 +18,7 @@ from unittest.mock import MagicMock
 from fastapi.testclient import TestClient
 
 import src.main as main_module
+from src.core.runtime import runtime
 from src.core.profile_manager import ProfileManager, AgentProfile, ProfilePersonality
 
 
@@ -46,9 +47,9 @@ def setup_app(monkeypatch):
     mock_orchestrator = MagicMock()
     mock_orchestrator.apply_profile = MagicMock()
 
-    monkeypatch.setattr(main_module, "profile_manager", mgr, raising=False)
-    monkeypatch.setattr(main_module, "orchestrator", mock_orchestrator, raising=False)
-    monkeypatch.setattr(main_module, "telemetry", MagicMock(), raising=False)
+    monkeypatch.setattr(runtime, "profile_manager", mgr, raising=False)
+    monkeypatch.setattr(runtime, "orchestrator", mock_orchestrator, raising=False)
+    monkeypatch.setattr(runtime, "telemetry", MagicMock(), raising=False)
 
     yield {"mgr": mgr, "orchestrator": mock_orchestrator}
 

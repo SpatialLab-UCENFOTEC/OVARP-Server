@@ -60,10 +60,6 @@ class WebSocketTransport(BaseTransport):
                 self.active_connections.pop(client_id, None)
             logger.info("WebSocket client disconnected", client_id=client_id, total_clients=len(self.active_connections))
 
-    def connected_client_ids(self) -> list:
-        """Sorted client_ids that currently have at least one open WebSocket."""
-        return sorted(cid for cid, socks in self.active_connections.items() if socks)
-
     async def handle_incoming(self, websocket: WebSocket, client_id: str):
         """Loop to read incoming messages from a specific active connecton"""
         try:

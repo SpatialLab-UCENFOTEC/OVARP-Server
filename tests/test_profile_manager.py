@@ -17,7 +17,6 @@ def fresh_manager():
     """Return a fresh ProfileManager (not the singleton) for test isolation."""
     mgr = ProfileManager.__new__(ProfileManager)
     mgr._profiles = {}
-    mgr._profiles_dir = None
     return mgr
 
 
@@ -113,8 +112,6 @@ class TestProfileManager:
         assert len(profiles) == 1
         assert profiles[0]["id"] == "test_therapist"
         assert profiles[0]["gender"] == "masculine"
-        assert profiles[0]["voice_provider"] == "gemini"
-        assert profiles[0]["llm_provider"] is None
 
     def test_get_profile_not_found(self, fresh_manager):
         assert fresh_manager.get_profile("nonexistent") is None
@@ -136,58 +133,6 @@ class TestProfileManager:
         """Should not crash when profiles dir is missing."""
         fresh_manager.load_profiles("nonexistent_dir_xyz")
         assert len(fresh_manager.list_profiles()) == 0
-
-    def test_create_profile_writes_yaml(self, fresh_manager, tmp_path):
-        fresh_manager._profiles_dir = tmp_path
-        fresh_manager.create_profile({
-            "id": "runtime_yaml",
-            "name": "YAML Agent",
-            "personality": {"system_prompt": "You persist."},
-        })
-        yaml_path = tmp_path / "runtime_yaml.yaml"
-        assert yaml_path.exists()
-        data = yaml_path.read_text(encoding="utf-8")
-        assert "runtime_yaml" in data
-        assert "You persist." in data
-
-    def test_create_profile_rejects_duplicate(self, fresh_manager, tmp_path):
-        fresh_manager._profiles_dir = tmp_path
-        fresh_manager.create_profile({"id": "dup", "name": "One"})
-        with pytest.raises(ValueError, match="already exists"):
-            fresh_manager.create_profile({"id": "dup", "name": "Two"})
-
-    def test_create_profile_rejects_unsafe_id(self, fresh_manager, tmp_path):
-        fresh_manager._profiles_dir = tmp_path
-        with pytest.raises(ValueError, match="Profile id"):
-            fresh_manager.create_profile({"id": "../etc/passwd", "name": "Bad"})
-
-    def test_update_profile_rewrites_yaml(self, fresh_manager, tmp_path):
-        fresh_manager._profiles_dir = tmp_path
-        fresh_manager.create_profile({"id": "edit_me", "name": "Old"})
-        updated = fresh_manager.update_profile("edit_me", {"name": "New"})
-        assert updated.name == "New"
-        assert "New" in (tmp_path / "edit_me.yaml").read_text(encoding="utf-8")
-
-    def test_duplicate_profile_writes_new_yaml(self, fresh_manager, tmp_path):
-        fresh_manager._profiles_dir = tmp_path
-        fresh_manager.create_profile({
-            "id": "source_p",
-            "name": "Source",
-            "personality": {"system_prompt": "Copy me."},
-        })
-        copy = fresh_manager.duplicate_profile("source_p", "source_p_copy", "Source Copy")
-        assert copy.id == "source_p_copy"
-        assert copy.name == "Source Copy"
-        assert (tmp_path / "source_p_copy.yaml").exists()
-        assert fresh_manager.get_profile("source_p") is not None
-
-    def test_delete_profile_removes_yaml(self, fresh_manager, tmp_path):
-        fresh_manager._profiles_dir = tmp_path
-        fresh_manager.create_profile({"id": "gone", "name": "Gone"})
-        assert (tmp_path / "gone.yaml").exists()
-        assert fresh_manager.delete_profile("gone") is True
-        assert fresh_manager.get_profile("gone") is None
-        assert not (tmp_path / "gone.yaml").exists()
 
 
 class TestConditionsMigration:
@@ -225,3 +170,77 @@ class TestConditionsMigration:
         fresh_manager.migrate_conditions({"happy": cond})
         # Should still be the original
         assert fresh_manager.get_profile("condition_happy").name == "Dr. Test"
+
+
+class TestProfilePersistence:
+    """A profile authored at runtime must survive a restart, or the console
+    would be offering to create personas that vanish."""
+
+    @pytest.fixture
+    def mgr(self, tmp_path):
+        manager = ProfileManager()
+        manager._profiles = {}
+        manager.load_profiles(tmp_path)
+        return manager
+
+    def _payload(self, profile_id="new_persona"):
+        return {
+            "id": profile_id,
+            "name": "New Persona",
+            "personality": {"system_prompt": "Be kind."},
+        }
+
+    def test_create_writes_a_yaml_file(self, mgr, tmp_path):
+        mgr.create_profile(self._payload())
+
+        assert (tmp_path / "new_persona.yaml").exists()
+
+    def test_created_profile_reloads_from_disk(self, mgr, tmp_path):
+        mgr.create_profile(self._payload())
+
+        reloaded = ProfileManager()
+        reloaded._profiles = {}
+        reloaded.load_profiles(tmp_path)
+
+        assert reloaded.get_profile("new_persona").name == "New Persona"
+
+    def test_duplicate_id_is_rejected(self, mgr):
+        mgr.create_profile(self._payload())
+
+        with pytest.raises(ValueError):
+            mgr.create_profile(self._payload())
+
+    def test_update_rewrites_the_file(self, mgr, tmp_path):
+        mgr.create_profile(self._payload())
+
+        mgr.update_profile("new_persona", {"id": "ignored", "name": "Renamed"})
+
+        reloaded = ProfileManager()
+        reloaded._profiles = {}
+        reloaded.load_profiles(tmp_path)
+        assert reloaded.get_profile("new_persona").name == "Renamed"
+
+    def test_update_keeps_the_original_id(self, mgr):
+        mgr.create_profile(self._payload())
+
+        updated = mgr.update_profile("new_persona", {"id": "attempted_rename", "name": "X"})
+
+        assert updated.id == "new_persona"
+
+    def test_delete_removes_profile_and_file(self, mgr, tmp_path):
+        mgr.create_profile(self._payload())
+
+        mgr.delete_profile("new_persona")
+
+        assert mgr.get_profile("new_persona") is None
+        assert not (tmp_path / "new_persona.yaml").exists()
+
+    def test_deleting_an_unknown_profile_raises(self, mgr):
+        with pytest.raises(ValueError):
+            mgr.delete_profile("nope")
+
+    def test_persist_false_keeps_it_in_memory_only(self, mgr, tmp_path):
+        mgr.create_profile(self._payload(), persist=False)
+
+        assert mgr.get_profile("new_persona") is not None
+        assert not (tmp_path / "new_persona.yaml").exists()

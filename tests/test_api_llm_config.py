@@ -21,6 +21,7 @@ from unittest.mock import MagicMock
 from fastapi.testclient import TestClient
 
 import src.main as main_module
+from src.core.runtime import runtime
 
 
 @pytest.fixture(autouse=True)
@@ -35,13 +36,7 @@ def setup_app(monkeypatch):
     mock_orchestrator.tts_providers = {"openai": mock_tts}
     mock_orchestrator.system_prompt = "Default system prompt."
     mock_orchestrator.tts_enabled = True
-    mock_orchestrator.get_runtime_selection = MagicMock(return_value={
-        "llm": "openai",
-        "tts": "openai",
-        "voice": "alloy",
-        "model": "gpt-4o-mini",
-    })
-    mock_orchestrator.set_active_tts = MagicMock()
+    mock_orchestrator.set_active_llm = MagicMock()
     mock_orchestrator.set_system_prompt = MagicMock()
     mock_orchestrator.clear_history = MagicMock()
     mock_orchestrator.set_tts_voice = MagicMock()
@@ -57,8 +52,8 @@ def setup_app(monkeypatch):
     mock_telemetry = MagicMock()
     mock_telemetry.export_to_csv = MagicMock(return_value=None)
 
-    monkeypatch.setattr(main_module, "orchestrator", mock_orchestrator, raising=False)
-    monkeypatch.setattr(main_module, "telemetry", mock_telemetry, raising=False)
+    monkeypatch.setattr(runtime, "orchestrator", mock_orchestrator, raising=False)
+    monkeypatch.setattr(runtime, "telemetry", mock_telemetry, raising=False)
 
     yield {"orchestrator": mock_orchestrator, "telemetry": mock_telemetry}
 
@@ -79,9 +74,6 @@ class TestGetLLMConfig:
         assert "openai" in data["available_providers"]
         assert data["system_prompt"] == "Default system prompt."
         assert data["tts_enabled"] is True
-        assert data["tts_provider"] == "openai"
-        assert data["tts_voice"] == "alloy"
-        assert data["selected"]["llm"] == "openai"
 
 
 class TestSetLLMConfig:
@@ -95,18 +87,7 @@ class TestSetLLMConfig:
             "system_prompt": "You are a pirate."
         })
         assert resp.status_code == 200
-        setup_app["orchestrator"].set_system_prompt.assert_called_with("You are a pirate.")
-
-    def test_set_tts_provider_and_voice(self, client, setup_app):
-        resp = client.post("/api/llm/config", json={
-            "provider_id": "gemini",
-            "tts_provider_id": "openai",
-            "tts_voice": "nova",
-        })
-        assert resp.status_code == 200
-        setup_app["orchestrator"].set_active_llm.assert_called_with("gemini")
-        setup_app["orchestrator"].set_active_tts.assert_called_with("openai")
-        setup_app["orchestrator"].set_tts_voice.assert_called_with("nova")
+        setup_app["orchestrator"].set_system_prompt.assert_called_with("You are a pirate.", agent_id=None)
 
     def test_set_both(self, client, setup_app):
         resp = client.post("/api/llm/config", json={
@@ -115,7 +96,7 @@ class TestSetLLMConfig:
         })
         assert resp.status_code == 200
         setup_app["orchestrator"].set_active_llm.assert_called_with("gemini")
-        setup_app["orchestrator"].set_system_prompt.assert_called_with("Be concise.")
+        setup_app["orchestrator"].set_system_prompt.assert_called_with("Be concise.", agent_id=None)
 
 
 class TestTTSToggle:
@@ -155,3 +136,88 @@ class TestExport:
         resp = client.get("/api/export")
         assert resp.status_code == 200
         assert "error" in resp.json()
+
+
+class TestPromptTargeting:
+    """The console's prompt box and an applied profile write to the same slot.
+
+    Without a target the global default is edited; with one the agent's own
+    prompt is, which is what a profile also sets. The response reports which
+    agents a global edit will not reach so the console can say so.
+    """
+
+    def test_prompt_can_target_one_agent(self, client, setup_app):
+        resp = client.post("/api/llm/config", json={
+            "system_prompt": "Only for alpha.",
+            "agent_id": "agent_alpha",
+        })
+        assert resp.status_code == 200
+        setup_app["orchestrator"].set_system_prompt.assert_called_with(
+            "Only for alpha.", agent_id="agent_alpha"
+        )
+        assert resp.json()["agent_id"] == "agent_alpha"
+
+    def test_config_reports_agents_that_ignore_the_global_prompt(self, client, setup_app):
+        setup_app["orchestrator"].get_agent_info = lambda aid: {
+            "has_custom_prompt": aid == "agent_alpha",
+            "profile_id": "therapist_male" if aid == "agent_alpha" else None,
+        }
+
+        overriding = client.get("/api/llm/config").json()["agents_overriding_global"]
+
+        assert [a["agent_id"] for a in overriding] == ["agent_alpha"]
+        assert overriding[0]["profile_id"] == "therapist_male"
+
+    def test_no_profiles_means_nothing_overrides(self, client, setup_app):
+        setup_app["orchestrator"].get_agent_info = lambda aid: {
+            "has_custom_prompt": False, "profile_id": None
+        }
+
+        assert client.get("/api/llm/config").json()["agents_overriding_global"] == []
+
+
+class TestSttProvider:
+    """Transcription is swappable like the other two stages.
+
+    It used to be fixed at construction, which tied the microphone to whichever
+    vendor was wired in at boot even when LLM and TTS had been moved elsewhere.
+    """
+
+    @pytest.fixture(autouse=True)
+    def stt_registry(self, setup_app):
+        orchestrator = setup_app["orchestrator"]
+        orchestrator.stt_providers = {"openai": MagicMock(), "gemini": MagicMock()}
+        orchestrator.active_stt_id = "openai"
+
+        def swap(provider_id):
+            if provider_id not in orchestrator.stt_providers:
+                return False
+            orchestrator.active_stt_id = provider_id
+            return True
+
+        orchestrator.set_active_stt = MagicMock(side_effect=swap)
+        return orchestrator
+
+    def test_reports_the_active_provider(self, client):
+        body = client.get("/api/stt/provider").json()
+
+        assert body["provider"] == "openai"
+        assert set(body["available"]) == {"openai", "gemini"}
+
+    def test_can_switch_provider(self, client):
+        resp = client.post("/api/stt/provider", json={"provider_id": "gemini"})
+
+        assert resp.status_code == 200
+        assert resp.json()["provider"] == "gemini"
+
+    def test_unknown_provider_is_rejected(self, client, stt_registry):
+        resp = client.post("/api/stt/provider", json={"provider_id": "nope"})
+
+        assert "error" in resp.json()
+        assert stt_registry.active_stt_id == "openai"
+
+    def test_llm_config_exposes_stt_state(self, client):
+        body = client.get("/api/llm/config").json()
+
+        assert body["active_stt_provider"] == "openai"
+        assert set(body["available_stt_providers"]) == {"openai", "gemini"}

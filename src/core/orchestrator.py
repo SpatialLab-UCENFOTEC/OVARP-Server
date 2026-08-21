@@ -20,7 +20,6 @@ from structlog import get_logger
 from src.providers.base import BaseSTTProvider, BaseLLMProvider, BaseTTSProvider
 from src.core.schemas import BaseCommand
 from src.core.router import router
-from src.core.telemetry import telemetry
 
 logger = get_logger()
 std_log = logging.getLogger("OVARP.orchestrator")
@@ -35,17 +34,26 @@ class DialogOrchestrator:
     """
     MAX_HISTORY_TURNS = 20  # Keep last N messages to prevent token overflow
 
-    def __init__(self, 
-                 stt_provider: BaseSTTProvider,
-                 llm_providers: dict[str, BaseLLMProvider], 
-                 tts_providers: dict[str, BaseTTSProvider],
+    def __init__(self,
+                 stt_provider: BaseSTTProvider = None,
+                 llm_providers: dict[str, BaseLLMProvider] = None,
+                 tts_providers: dict[str, BaseTTSProvider] = None,
+                 stt_providers: dict[str, BaseSTTProvider] = None,
                  default_llm: str = "gemini",
-                 default_tts: str = "gemini"):
-                     
-        self.stt = stt_provider
-        self.llm_providers = llm_providers
+                 default_tts: str = "gemini",
+                 default_stt: str = None):
+
+        # STT accepts either a registry or a single provider. All three stages are
+        # swappable at runtime; STT used to be the one fixed at construction, which
+        # left the microphone tied to whichever vendor was wired in at boot.
+        self.stt_providers = dict(stt_providers) if stt_providers else {}
+        if stt_provider is not None and not self.stt_providers:
+            self.stt_providers = {"openai": stt_provider}
+        self.active_stt_id = default_stt or next(iter(self.stt_providers), None)
+
+        self.llm_providers = llm_providers or {}
         self.active_llm_id = default_llm
-        self.tts_providers = tts_providers
+        self.tts_providers = tts_providers or {}
         self.active_tts_id = default_tts
         self.tts_enabled = True  # Toggle from UI
         self.conversation_history: list[dict[str, str]] = []
@@ -86,6 +94,23 @@ class DialogOrchestrator:
             for state in self._agent_state.values():
                 state["history"].clear()
             std_log.info("🗑️ Orchestrator: All conversation history cleared")
+
+    @property
+    def stt(self) -> BaseSTTProvider:
+        """The active transcription provider, or the first available as a fallback."""
+        provider = self.stt_providers.get(self.active_stt_id)
+        if not provider:
+            return next(iter(self.stt_providers.values()), None)
+        return provider
+
+    def set_active_stt(self, provider_id: str) -> bool:
+        """Switch the transcription provider, independently of LLM and TTS."""
+        if provider_id in self.stt_providers:
+            self.active_stt_id = provider_id
+            std_log.info(f"🎤 Orchestrator: STT Provider Swapped to '{provider_id}'")
+            return True
+        std_log.warning(f"⚠️ Orchestrator: Unknown STT provider '{provider_id}'")
+        return False
 
     @property
     def llm(self) -> BaseLLMProvider:
@@ -129,6 +154,9 @@ class DialogOrchestrator:
         elif provider_type == "tts":
             self.tts_providers[name] = provider
             std_log.info(f"🔌 Orchestrator: Registered custom TTS provider '{name}'")
+        elif provider_type == "stt":
+            self.stt_providers[name] = provider
+            std_log.info(f"🔌 Orchestrator: Registered custom STT provider '{name}'")
 
     def unregister_provider(self, name: str):
         """Remove a custom provider. Won't remove built-in openai/gemini."""
@@ -140,6 +168,9 @@ class DialogOrchestrator:
             removed = True
         if name in self.tts_providers:
             del self.tts_providers[name]
+            removed = True
+        if name in self.stt_providers:
+            del self.stt_providers[name]
             removed = True
         # If we just removed the active provider, fall back to openai
         if self.active_llm_id == name:
@@ -173,26 +204,35 @@ class DialogOrchestrator:
         state["profile_id"] = profile.id
         state["system_prompt"] = build_system_prompt(profile)
 
-        llm_id = getattr(profile, "llm_provider", None)
-        if llm_id and llm_id != "auto":
-            self.set_active_llm(llm_id)
-
         # Voice override from profile
         if profile.voice:
             state["voice_provider"] = profile.voice.provider
             state["voice_id"] = profile.voice.voice_id
 
+            # If profile specifies a concrete provider, switch TTS voice now
             if profile.voice.provider != "auto" and profile.voice.provider in self.tts_providers:
-                self.set_active_tts(profile.voice.provider)
                 self.tts_providers[profile.voice.provider].voice = profile.voice.voice_id
 
         std_log.info(
             f"📋 Orchestrator: Profile '{profile.id}' applied to {agent_id} "
-            f"| llm={self.active_llm_id} "
-            f"| tts={self.active_tts_id} "
             f"| voice={profile.voice.voice_id if profile.voice else 'default'}"
         )
         return state
+
+    def clear_profile(self, agent_id: str) -> dict:
+        """Release an agent back to the global prompt and voice.
+
+        Applying a profile parks a prompt and voice on the agent that win over
+        the globals for good. This is the way back, so the console's settings
+        become the single source of truth again.
+        """
+        state = self._get_agent_state(agent_id)
+        state["profile_id"] = None
+        state["system_prompt"] = None
+        state["voice_provider"] = None
+        state["voice_id"] = None
+        std_log.info(f"↩️ Orchestrator: {agent_id} released back to global prompt and voice")
+        return self.get_agent_info(agent_id)
 
     def get_agent_info(self, agent_id: str) -> dict:
         """Returns the current state for an agent."""
@@ -201,26 +241,57 @@ class DialogOrchestrator:
             "agent_id": agent_id,
             "profile_id": state["profile_id"],
             "history_length": len(state["history"]),
-            "llm_provider": self.active_llm_id,
-            "voice_provider": state["voice_provider"] or self.active_tts_id,
-            "tts_provider": self.active_tts_id,
+            "voice_provider": state["voice_provider"],
             "voice_id": state["voice_id"],
             "has_custom_prompt": state["system_prompt"] is not None,
         }
 
-    def get_runtime_selection(self) -> dict:
-        """Currently selected LLM / TTS / voice, for consoles and telemetry."""
-        llm = self.llm
-        tts = self.tts
+    def set_tts_voice(self, voice_id: str, agent_id: str = None):
+        """Change the TTS voice, globally or for one agent.
+
+        Without ``agent_id`` this moves the active provider's voice, which is
+        what agents running on the global defaults will speak with. With an
+        ``agent_id`` it pins an override that survives a global voice change.
+        """
+        if agent_id:
+            self._get_agent_state(agent_id)["voice_id"] = voice_id
+            std_log.info(f"🔊 Orchestrator: TTS voice for {agent_id} pinned to '{voice_id}'")
+            return
+
+        self.tts.voice = voice_id
+        std_log.info(f"🔊 Orchestrator: TTS voice changed to '{voice_id}' on {self.active_tts_id}")
+
+    def _resolve_tts(self, agent_id: str):
+        """Return the (provider, voice_id) pair this agent should speak with.
+
+        An applied profile pins the agent's provider and voice; anything the
+        profile leaves open falls back to the globally selected provider and its
+        current voice. Returning the pair here is what keeps the per-agent state
+        and the console's voice picker from being two disconnected settings.
+        """
+        state = self._agent_state.get(agent_id, {})
+
+        provider_id = state.get("voice_provider")
+        if provider_id in (None, "auto") or provider_id not in self.tts_providers:
+            provider_id = self.active_tts_id
+
+        provider = self.tts_providers.get(provider_id) or self.tts
+        return provider, state.get("voice_id")
+
+    def get_effective_voice(self, agent_id: str) -> dict:
+        """What this agent will actually speak with, and whether a profile pinned it."""
+        provider, voice_id = self._resolve_tts(agent_id)
+        pinned = voice_id is not None
         return {
-            "llm": self.active_llm_id,
-            "tts": self.active_tts_id,
-            "voice": getattr(tts, "voice", None),
-            "model": getattr(llm, "model", None),
+            "agent_id": agent_id,
+            "provider": next(
+                (name for name, p in self.tts_providers.items() if p is provider),
+                self.active_tts_id,
+            ),
+            "voice": voice_id or provider.voice,
+            "pinned_by_profile": pinned,
+            "profile_id": self._agent_state.get(agent_id, {}).get("profile_id"),
         }
-        tts_provider = self.tts
-        tts_provider.voice = voice_id
-        std_log.info(f"🔊 Orchestrator: TTS voice changed to '{voice_id}' on {self.active_llm_id}")
 
     def get_tts_config(self) -> dict:
         """Returns the current TTS state and available voices from config."""
@@ -251,6 +322,10 @@ class DialogOrchestrator:
         
         if not user_text.strip():
             logger.info("Orchestrator: STT returned empty transcription. Aborting.")
+            await self._report_pipeline_error(
+                "stt", self.active_stt_id,
+                RuntimeError("No speech was transcribed from the audio"), target_agent,
+            )
             return
 
         logger.info("Orchestrator: STT Result", text=user_text, stt_ms=stt_ms)
@@ -347,31 +422,42 @@ class DialogOrchestrator:
             total_ms = round((time.perf_counter() - interaction_start) * 1000)
             latency["tts_ms"] = tts_ms
             latency["total_ms"] = total_ms
-            latency["target_device"] = target_device
-            latency["target_agent"] = target_agent
-            self._last_latency = dict(latency)
-            telemetry.log_latency(latency)
-            try:
-                await router.route_command(BaseCommand(
-                    sender="server_orchestrator",
-                    target_device="all",
-                    target_agent=target_agent if target_agent else "all",
-                    command_type="system",
-                    command="latency",
-                    subcommand={
-                        "stt_ms": latency.get("stt_ms", 0),
-                        "llm_ms": latency.get("llm_ms", 0),
-                        "tts_ms": latency.get("tts_ms", 0),
-                        "total_ms": latency.get("total_ms", 0),
-                    },
-                ))
-            except Exception as lat_err:
-                std_log.warning(f"⚠️ Orchestrator: Could not broadcast latency | {lat_err}")
+            self._last_latency = latency
             std_log.info(f"⏱️ Orchestrator: Latency | stt={stt_ms}ms llm={llm_ms}ms tts={tts_ms}ms total={total_ms}ms")
 
         except Exception as e:
             std_log.error(f"💥 Orchestrator: CRITICAL ERROR in process_text_interaction | {type(e).__name__}: {str(e)}")
             logger.error("Orchestrator pipeline crashed", error=str(e))
+            await self._report_pipeline_error("llm", self.active_llm_id, e, target_agent)
+
+    async def _report_pipeline_error(self, stage: str, provider: str, error: Exception,
+                                     target_agent: str = "all"):
+        """Tell the connected consoles that a stage failed.
+
+        A provider outage or a rate limit used to surface only as silence, with
+        the reason buried in the server log — indistinguishable from an agent
+        that simply had nothing to say.
+        """
+        detail = str(error)
+        # Provider SDKs wrap the useful sentence in a long payload; the tail is noise
+        summary = detail[:300]
+        try:
+            cmd = BaseCommand(
+                sender="server_orchestrator",
+                target_device="all",
+                target_agent=target_agent,
+                command_type="system",
+                command="pipeline_error",
+                subcommand={
+                    "stage": stage,
+                    "provider": provider,
+                    "error": type(error).__name__,
+                    "detail": summary,
+                },
+            )
+            await router.dispatch_outbound(cmd)
+        except Exception as report_failure:
+            std_log.error(f"❌ Orchestrator: could not report {stage} failure | {report_failure}")
 
     async def _dispatch_actions(self, actions_dict: dict, target_device: str, target_agent: str):
         """Packages LLM JSON actions into a valid BaseCommand and pushes it to Router."""
@@ -395,8 +481,14 @@ class DialogOrchestrator:
     async def _dispatch_tts(self, text: str, target_device: str, target_agent: str):
         """Starts TTS generation and streams audio chunks through the router as they arrive."""
         try:
-            std_log.info(f"🔊 Orchestrator: Starting TTS synthesis | target={target_device} text=\"{text[:60]}\"")
-            audio_generator = self.tts.synthesize_stream(text)
+            provider, voice_id = self._resolve_tts(target_agent)
+            if voice_id and provider.voice != voice_id:
+                provider.voice = voice_id
+            std_log.info(
+                f"🔊 Orchestrator: Starting TTS synthesis | target={target_device} "
+                f"agent={target_agent} voice={provider.voice} text=\"{text[:60]}\""
+            )
+            audio_generator = provider.synthesize_stream(text)
             
             chunk_count = 0
             async for audio_chunk in audio_generator:
@@ -430,6 +522,7 @@ class DialogOrchestrator:
         except Exception as e:
             std_log.error(f"❌ Orchestrator: TTS Streaming failed | {type(e).__name__}: {str(e)}")
             logger.error("TTS Streaming failed", error=str(e))
+            await self._report_pipeline_error("tts", self.active_tts_id, e, target_agent)
 
     async def process_direct_tts(self, text: str, target_device: str, target_agent: str):
         """Bypasses the LLM — sends researcher-typed text directly to TTS and broadcasts it.
@@ -437,10 +530,10 @@ class DialogOrchestrator:
         try:
             std_log.info(f"🎤 Orchestrator: Direct TTS | text=\"{text[:80]}\" | target={target_device}")
 
-            # Route the caption to the selected device (not every headset at once)
+            # Broadcast the text as a normal llm_reply so all clients display it like agent speech
             text_cmd = BaseCommand(
                 sender="server_orchestrator",
-                target_device=target_device or "all",
+                target_device="all",
                 target_agent=target_agent,
                 command_type="message",
                 command="llm_reply",

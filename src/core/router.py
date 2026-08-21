@@ -128,8 +128,8 @@ class CommandRouter:
                 meta["source"] = command.sender
                 try:
                     from src.core.session_manager import session_manager
-                    marker = session_manager.add_marker(label, meta)
-                    telemetry.log_marker(label, meta, marker_id=marker.id)
+                    session_manager.add_marker(label, meta)
+                    telemetry.log_marker(label, meta)
                     std_log.info(f"📌 Router: Programmatic marker logged | label=\"{label}\" | sender={command.sender}")
                     # Broadcast confirmation to all clients so WoZ console updates live
                     confirm = BaseCommand(
