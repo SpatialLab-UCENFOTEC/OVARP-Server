@@ -108,12 +108,22 @@ source venv/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
-pip install google-genai   # For Gemini provider
+pip install -r requirements_dev.txt   # Only needed to run the test suite
+pip install google-genai              # For Gemini provider
 
 # Configure API keys
 cp .env.example .env
 # Edit .env and fill in your API keys
 ```
+
+> **Python 3.10+ is required**, not merely recommended: `str | Path` annotations
+> are evaluated at import time and 3.9 fails to start the server.
+
+> If you move or rename the project directory after creating the venv, the
+> scripts in `venv/bin/` keep pointing at the old absolute path and fail with
+> `bad interpreter`. Either recreate the venv, or call the tools through the
+> interpreter — `./venv/bin/python -m pip`, `./venv/bin/python -m pytest` —
+> which does not rely on the shebang.
 
 ### Run the Server
 
@@ -207,6 +217,13 @@ A 3D avatar rendered with **Three.js + three-vrm** that:
 - 🫁 **Breathes** with subtle spine movement
 - 🔄 **Sways** gently for lifelike idle behavior
 - 📂 **Upload custom VRM models** — Drag-and-drop avatar replacement
+
+**No avatar model ships with this repository** — none is licensed for
+redistribution. Drop `.vrm` or `.glb` files into `src/static/models/` and they
+appear in the console picker, served from `/models/<filename>`; `GET /api/avatars`
+is what the picker reads. With the directory empty the console offers the Upload
+button instead of loading a default, which is what it used to do against a file
+that was never committed.
 
 ### 📋 System Logs & Errors
 Real-time streaming logs from all server components with color-coded severity.
@@ -406,8 +423,7 @@ OpenVirtualAgentResearchPlatform-Server/
 │       ├── index.html           # WoZ Console (5-tab single-page app)
 │       ├── OVARP-client.js        # Web client SDK
 │       ├── avatar.js            # 3D avatar engine (Three.js + VRM)
-│       └── models/              # VRM avatar models
-│           └── default_avatar.vrm
+│       └── models/              # VRM/GLB avatar models — ships empty, see above
 │
 ├── scripts/
 │   └── mock_xr_client.py       # ZMQ test client for development
@@ -426,10 +442,18 @@ OpenVirtualAgentResearchPlatform-Server/
 │
 ├── scenarios/                   # YAML experiment protocol scripts
 │   ├── pilot_emotion.yaml       # 5-step empathy study protocol
-│   └── usability_test.yaml      # 3-step usability testing protocol
+│   ├── usability_test.yaml      # 3-step usability testing protocol
+│   ├── researcher_usability.yaml # Facilitator walkthrough protocol
+│   └── latency_validation.yaml  # Text / mic / WoZ latency protocol
 │
 └── data/                        # Experiment data (JSONL + CSV)
 ```
+
+`venv/`, `logs/`, `data/sessions/`, `__pycache__/` and `.DS_Store` are generated
+locally and are **not** versioned. They live in `.gitignore`; if you ever see one
+staged, it was added before the rule existed — untrack it rather than committing
+it. Session telemetry under `data/` is research output: back it up outside the
+repository, because git is not keeping a copy.
 
 ---
 
@@ -493,10 +517,19 @@ llm_providers = {
 
 ## 🧪 Running Tests
 
+Install `requirements_dev.txt` first, then:
+
 ```bash
-pytest tests/ -v
-# 129 tests across profiles, schemas, sessions, scenarios, XR telemetry, orchestrator, router, providers, and HTTP endpoints
+OVARP_TESTING=1 OPENAI_API_KEY=sk-dummy GEMINI_API_KEY=dummy pytest -q
+# 224 tests across profiles, schemas, sessions, scenarios, surveys, XR telemetry,
+# orchestrator, router, providers, security, and HTTP endpoints
 ```
+
+`OVARP_TESTING=1` skips the transport and provider bootstrap and serves a bare
+app, so no network call or real API key is involved. The dummy keys only satisfy
+the provider constructors.
+
+Lint with `ruff check src/ tests/`.
 
 ---
 
@@ -534,8 +567,27 @@ pytest tests/ -v
 | `POST` | `/api/providers/test` | Test any endpoint URL before registering |
 | `POST` | `/api/xr/telemetry` | Ingest batch XR tracking frames |
 | `GET` | `/api/telemetry/export` | Export session telemetry as CSV |
+| `GET` | `/api/avatars` | List avatar models present in `src/static/models/` |
 
+---
 
+## ⏱️ Latency Measurement
+
+Every turn records four timings: `stt_ms`, `llm_ms`, `tts_ms` and `total_ms`.
+
+They cannot all be published at once. `llm_reply` is broadcast as soon as the
+model answers, so it carries only `stt_ms` and `llm_ms` — `tts_ms` does not
+exist until the audio stage finishes. The complete figures are therefore
+published afterwards as a separate `system` / `latency` command, which the
+console uses to finish the timing line on the reply it already drew.
+
+The same complete record is written to the session JSONL as an `event: latency`
+entry and flattened into the four rightmost columns of the CSV export, so the
+`latency_validation` protocol is analysable in SPSS/R without post-processing.
+
+SDK clients receive it through the `onLatency` callback.
+
+---
 
 ## 👥 Authors
 
