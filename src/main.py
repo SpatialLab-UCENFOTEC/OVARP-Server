@@ -155,6 +155,16 @@ configure_logging()
 # The static mount must come last: it claims "/" and would shadow the API routes.
 static_path = os.path.join(os.path.dirname(__file__), "static")
 if os.path.exists(static_path):
+
+    @app.get("/player")
+    async def serve_player():
+        """Standalone participant page: a browser stand-in for the XR headset.
+
+        Registered before the static mount, which claims "/" and would otherwise
+        answer this path itself.
+        """
+        return FileResponse(os.path.join(static_path, "player.html"))
+
     if is_headless():
         logger.info("Starting in HEADLESS mode. Full WoZ console & 3D Avatar are disabled.")
 
