@@ -1,0 +1,50 @@
+# Researcher usability protocol — rate OVARP (the platform), not the agent.
+# Designed for investigators who will run studies from the WoZ console.
+
+id: researcher_usability
+name: "Researcher usability (OVARP console)"
+description: >
+  Facilitator protocol for investigators. Complete the tasks, then submit
+  SUS + UEQ-S on the Evaluation tab. Optional: open /player as a VR stand-in
+  so you can test without a headset.
+
+steps:
+  - id: briefing
+    instruction: >
+      Brief the researcher: they will operate OVARP as a study facilitator,
+      not as a VR participant. Confirm they can see the console and optionally
+      open /player in a second window. Start a Study Session with their ID.
+    auto_marker: researcher_briefing
+
+  - id: overview_and_player
+    instruction: >
+      Ask them to open Overview, then Open Player. Confirm the player shows
+      Connected and a device id (default web_panel_01). In WoZ Control, set
+      Device to that id so console and player share the same command bus.
+    auto_marker: researcher_player_pairing
+
+  - id: woz_remote
+    instruction: >
+      On WoZ Control, send one Direct TTS line and one gesture (e.g. wave).
+      Confirm the player (or headset) receives speech and the action.
+      Mark anything that was unclear.
+    auto_marker: researcher_woz_control
+
+  - id: playground_turn
+    instruction: >
+      In LLM Playground, send one text prompt. Note STT/LLM/TTS meters after
+      the reply. They should update when TTS finishes (total includes audio).
+    auto_marker: researcher_playground_turn
+
+  - id: session_marker
+    instruction: >
+      In Study Session, add a marker (e.g. task_note) and edit its notes.
+      Confirm it appears in the session list.
+    auto_marker: researcher_session_marker
+
+  - id: evaluation
+    instruction: >
+      Open Evaluation. Fill researcher ID, session id, and scenario
+      researcher_usability. Complete SUS + UEQ-S about OVARP itself, then
+      Submit. Export CSV if you are coordinating several investigators.
+    auto_marker: researcher_evaluation
