@@ -30,3 +30,6 @@ custom_providers.yaml
 # Editor
 .cursorignore
 .cursorindexingignore
+
+# macOS
+.DS_Store
