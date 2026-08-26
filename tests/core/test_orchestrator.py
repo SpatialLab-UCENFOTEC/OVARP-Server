@@ -62,8 +62,8 @@ async def test_process_audio_interaction_pipeline(orchestrator, mock_stt, mock_l
     assert llm_args["prompt"] == "Hello bot"
 
     # 3. Ensure the router received the resulting commands
-    # We expect 6 commands: user_transcript, llm_reply (text), execute_state (actions), 2x tts_chunk, 1x tts_complete
-    assert mock_router.route_command.call_count == 6
+    # user_transcript, llm_reply, execute_state, 2x tts_chunk, tts_complete, then final latency
+    assert mock_router.route_command.call_count == 7
 
     commands_sent = [call_args[0][0] for call_args in mock_router.route_command.call_args_list]
 
@@ -80,6 +80,8 @@ async def test_process_audio_interaction_pipeline(orchestrator, mock_stt, mock_l
     assert commands_sent[4].command == "tts_chunk"
     
     assert commands_sent[5].command == "tts_complete"
+    assert commands_sent[6].command == "latency"
+    assert "total_ms" in commands_sent[6].subcommand
 
 
 @pytest.mark.asyncio

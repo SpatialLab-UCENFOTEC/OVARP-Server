@@ -187,7 +187,8 @@ class TelemetryLogger:
                     "command_type", "command", "subcommand_json",
                     "marker_label", "marker_metadata",
                     "marker_id", "marker_amended_from", "marker_amended_to",
-                    "survey_id", "survey_score", "survey_answers"
+                    "survey_id", "survey_score", "survey_answers",
+                    "stt_ms", "llm_ms", "tts_ms", "total_ms"
                 ])
 
                 for line in f_in:
@@ -215,6 +216,10 @@ class TelemetryLogger:
                         data.get("survey_id", ""),
                         json.dumps(data.get("survey_score", {})) if data.get("survey_score") else "",
                         json.dumps(data.get("survey_answers", {})) if data.get("survey_answers") else "",
+                        data.get("stt_ms", ""),
+                        data.get("llm_ms", ""),
+                        data.get("tts_ms", ""),
+                        data.get("total_ms", ""),
                     ])
 
             self.console_logger.info("Telemetry Exported successfully", csv_file=str(csv_path))

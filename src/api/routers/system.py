@@ -94,3 +94,26 @@ async def ingest_xr_telemetry(batch: XRTelemetryBatch):
     """Receive batched XR telemetry frames (head/hand/gaze) from clients."""
     runtime.telemetry.log_xr_telemetry(batch.device_id, batch.frames)
     return {"status": "ok", "frames_received": len(batch.frames)}
+
+
+_SRC_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+AVATAR_DIR = os.path.join(_SRC_DIR, "static", "models")
+AVATAR_SUFFIXES = (".vrm", ".glb")
+
+
+@router.get("/avatars")
+async def list_avatars():
+    """Lists the avatar models actually present in src/static/models.
+
+    The console used to hardcode a default VRM that was never shipped, so a
+    fresh clone always opened on a 404 and a grey T-pose. Reporting what is on
+    disk lets it offer an upload instead of failing.
+    """
+    try:
+        names = sorted(
+            f for f in os.listdir(AVATAR_DIR)
+            if f.lower().endswith(AVATAR_SUFFIXES)
+        )
+    except FileNotFoundError:
+        names = []
+    return {"avatars": [{"name": n, "url": f"/models/{n}"} for n in names]}

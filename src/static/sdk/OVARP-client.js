@@ -31,11 +31,13 @@ export default class OVARPClient {
             onTTSReady: (blobUrl) => { }, // When TTS audio blob is ready for playback
             onMarkerLogged: (label, metadata) => { }, // When an event marker is confirmed by server
             onPipelineError: (info) => { },          // When STT, LLM or TTS fails server-side
+            onLatency: (timings) => { },             // Final stt/llm/tts/total, published after TTS
             onMicStart: () => { },
             onMicStop: () => { }
         }, config.callbacks);
 
         this.ws = null;
+        this._outageLogged = false;
         this.avatar = null;
 
         // Audio and STT
@@ -87,17 +89,27 @@ export default class OVARPClient {
         this.ws = new WebSocket(wsUri);
 
         this.ws.onopen = () => {
+            this._outageLogged = false;
             this.callbacks.onConnect();
             this.callbacks.onLog('Connected to OVARP Router via SDK', 'success');
         };
 
+        // A server that stays down produces one onerror + one onclose per retry.
+        // Logging both on every attempt buries the session log in hundreds of
+        // identical lines, so an outage is reported once until the link is back.
         this.ws.onclose = () => {
             this.callbacks.onDisconnect();
-            this.callbacks.onLog('Disconnected from OVARP Router', 'error');
+            if (!this._outageLogged) {
+                this._outageLogged = true;
+                this.callbacks.onLog('Disconnected from OVARP Router — retrying', 'error');
+            }
         };
 
         this.ws.onerror = (e) => {
-            this.callbacks.onLog('WebSocket Error', 'error');
+            if (!this._outageLogged) {
+                this._outageLogged = true;
+                this.callbacks.onLog('WebSocket Error — retrying', 'error');
+            }
         };
 
         this.ws.onmessage = this._handleTransportMessage.bind(this);
@@ -242,6 +254,11 @@ export default class OVARPClient {
                 const sub = data.subcommand || {};
                 this.callbacks.onMarkerLogged(sub.label, sub.metadata);
                 this.callbacks.onLog(`[Marker] ${sub.label}`, 'info');
+            }
+            else if (data.command_type === "system" && data.command === "latency") {
+                // llm_reply carries stt/llm only; tts_ms and total_ms do not exist
+                // until the audio stage has finished, so they arrive here.
+                this.callbacks.onLatency(data.subcommand || {});
             }
             else if (data.command_type === "system" && data.command === "pipeline_error") {
                 // A stage failed. Without this the console shows silence and the

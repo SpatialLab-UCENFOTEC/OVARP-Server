@@ -616,7 +616,7 @@
                             <div class="p-2 border-bottom border-secondary" style="background: #1e1e30;">
                                 <div class="d-flex gap-2 align-items-center">
                                     <select id="avatar-select" class="form-select form-select-sm" style="flex:1">
-                                        <option value="/models/default_avatar.vrm">👩 Female (Default)</option>
+                                        <option value="">Loading models…</option>
                                     </select>
                                     <label class="btn btn-sm btn-outline-info" style="white-space:nowrap;">
                                         📂 Upload
@@ -990,6 +990,28 @@
             logsWs.onerror = () => { /* onclose will handle reconnection */ };
         }
 
+        const RECONNECT_DELAY_MIN_MS = 2000;
+        const RECONNECT_DELAY_MAX_MS = 30000;
+        let reconnectDelayMs = RECONNECT_DELAY_MIN_MS;
+
+        // The reply bubble is drawn before TTS has run, so its timing line starts
+        // incomplete and is finished by the `latency` event that follows.
+        let pendingLatencyEl = null;
+
+        function renderLatencyLine(el, lat) {
+            if (!el) return;
+            const parts = [];
+            if (lat.stt_ms) parts.push(`STT: ${lat.stt_ms}ms`);
+            if (lat.llm_ms) parts.push(`LLM: ${lat.llm_ms}ms`);
+            if (lat.tts_ms) parts.push(`TTS: ${lat.tts_ms}ms`);
+            if (lat.total_ms) parts.push(`Total: ${lat.total_ms}ms`);
+            el.innerHTML = parts.length > 0 ? `⏱️ ${parts.join(' | ')}` : '';
+        }
+
+        function updatePlaygroundLatency(timings) {
+            renderLatencyLine(pendingLatencyEl, timings || {});
+        }
+
         // --- OVARP Web SDK Initialization ---
         const OVARPClient = new OVARPClientSDK({
             deviceId: 'woz_console',
@@ -1001,6 +1023,7 @@
                     // Update LLM connection indicator
                     const connEl = document.getElementById('llm-conn-status');
                     if (connEl) connEl.innerHTML = '<span class="conn-dot connected"></span><small class="text-success">Online</small>';
+                    reconnectDelayMs = RECONNECT_DELAY_MIN_MS;
                 },
                 onDisconnect: () => {
                     document.getElementById('ws-status').className = 'badge bg-danger';
@@ -1008,9 +1031,11 @@
                     // Update LLM connection indicator
                     const connEl = document.getElementById('llm-conn-status');
                     if (connEl) connEl.innerHTML = '<span class="conn-dot disconnected"></span><small class="text-muted">Offline</small>';
-                    setTimeout(() => OVARPClient.connect(), 2000); // auto-reconnect
+                    setTimeout(() => OVARPClient.connect(), reconnectDelayMs);
+                    reconnectDelayMs = Math.min(reconnectDelayMs * 2, RECONNECT_DELAY_MAX_MS);
                 },
                 onLog: (msg, type) => log(msg, type),
+                onLatency: (timings) => updatePlaygroundLatency(timings),
                 onPipelineError: (info) => {
                     // Say which stage broke and on which provider; a rate-limited
                     // free tier otherwise looks identical to an agent with nothing to say.
@@ -1036,17 +1061,8 @@
                     const bubble = document.createElement('div');
                     bubble.className = "chat-bubble msg-agent";
 
-                    // Build latency line if available
-                    let latencyHtml = '';
-                    if (sub.latency) {
-                        const lat = sub.latency;
-                        const parts = [];
-                        if (lat.stt_ms) parts.push(`STT: ${lat.stt_ms}ms`);
-                        if (lat.llm_ms) parts.push(`LLM: ${lat.llm_ms}ms`);
-                        latencyHtml = parts.length > 0
-                            ? `<br><small class="text-info" style="font-size:0.65em; opacity:0.8;">⏱️ ${parts.join(' | ')}</small>`
-                            : '';
-                    }
+                    const latencyHtml =
+                        '<br><small class="latency-line text-info" style="font-size:0.65em; opacity:0.8;"></small>';
 
                     // Build the agent reply bubble with provider info and latency
                     const replyText = escapeHtml(sub.text);
@@ -1059,6 +1075,9 @@
                         <small class="text-muted" style="font-size:0.7em;">🧠 ${providerLabel} · ${modelLabel}</small>
                         ${latencyHtml}
                     `;
+
+                    pendingLatencyEl = bubble.querySelector('.latency-line');
+                    renderLatencyLine(pendingLatencyEl, sub.latency || {});
 
                     const tagsContainer = document.createElement('div');
                     tagsContainer.className = "action-tags-container mt-1";
@@ -1855,20 +1874,54 @@
         // Initialize scene
         const canvas = document.getElementById('avatar-canvas');
         if (canvas) {
-            // AvatarController.init(canvas); // Removed, assuming OVARPClient handles this or it's not needed here
+            initAvatarPicker();
+        }
 
-            // Load saved avatar or default
-            const savedAvatar = localStorage.getItem('OVARP_avatar');
-            const avatarUrl = savedAvatar || '/models/default_avatar.vrm';
-            loadAvatar(avatarUrl);
+        // The picker is filled from what is actually on disk. Loading a bundled
+        // default that was never shipped is what produced the 404 and the grey
+        // T-pose on every fresh clone.
+        async function initAvatarPicker() {
+            const select = document.getElementById('avatar-select');
+            const statusBadge = document.getElementById('avatar-status');
+            let available = [];
+            try {
+                const resp = await fetch('/api/avatars');
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                available = (await resp.json()).avatars || [];
+            } catch (err) {
+                log(`Could not list avatar models: ${err.message}`, 'error');
+            }
 
-            // If saved URL matches a select option, set it
-            const avatarSelect = document.getElementById('avatar-select');
-            if (avatarSelect) {
-                for (const opt of avatarSelect.options) {
-                    if (opt.value === avatarUrl) { avatarSelect.value = avatarUrl; break; }
+            if (select) {
+                select.innerHTML = '';
+                for (const a of available) {
+                    const opt = document.createElement('option');
+                    opt.value = a.url;
+                    opt.textContent = a.name;
+                    select.appendChild(opt);
                 }
             }
+
+            if (available.length === 0) {
+                if (select) {
+                    const opt = document.createElement('option');
+                    opt.value = '';
+                    opt.textContent = 'No model installed — use Upload';
+                    select.appendChild(opt);
+                }
+                if (statusBadge) {
+                    statusBadge.style.display = '';
+                    statusBadge.textContent = 'No model';
+                    statusBadge.className = 'badge bg-secondary avatar-status';
+                }
+                return;
+            }
+
+            const savedAvatar = localStorage.getItem('OVARP_avatar');
+            const urls = available.map(a => a.url);
+            const avatarUrl = urls.includes(savedAvatar) ? savedAvatar : urls[0];
+            if (select) select.value = avatarUrl;
+            loadAvatar(avatarUrl);
         }
 
         // Avatar selector dropdown
