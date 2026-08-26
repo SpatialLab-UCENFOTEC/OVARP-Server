@@ -221,6 +221,27 @@ class ProfileManager:
         std_log.info(f"📋 Profile updated: {profile_id}")
         return profile
 
+    def duplicate_profile(
+        self,
+        source_id: str,
+        new_id: str,
+        new_name: Optional[str] = None,
+        persist: bool = True,
+    ) -> AgentProfile:
+        """Copy an existing profile to a new id and persist it as YAML.
+
+        Conditions in a study are usually one persona with a single trait
+        changed, so authoring the variant from scratch invites the copies to
+        drift apart in ways the researcher did not intend.
+        """
+        source = self.get_profile(source_id)
+        if not source:
+            raise ValueError(f"Profile '{source_id}' not found")
+        payload = source.model_dump(mode="json")
+        payload["id"] = new_id
+        payload["name"] = new_name or f"{source.name} (copy)"
+        return self.create_profile(payload, persist=persist)
+
     def delete_profile(self, profile_id: str) -> bool:
         """Remove a profile and its YAML file."""
         if profile_id not in self._profiles:

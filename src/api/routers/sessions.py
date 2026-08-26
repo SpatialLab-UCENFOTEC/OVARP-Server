@@ -133,3 +133,35 @@ async def get_marker_presets():
     if config.event_markers:
         return {"presets": [m.model_dump() for m in config.event_markers]}
     return {"presets": []}
+
+
+class MarkerPresetRequest(BaseModel):
+    id: str
+    label: str
+    description: str | None = None
+    color: str = "#4f46e5"
+
+
+@router.post("/markers/presets")
+async def add_or_update_marker_preset(req: MarkerPresetRequest):
+    """Add or update an event marker preset.
+
+    Held in config memory only: a preset invented mid-study is a convenience for
+    that session, not an edit to the experiment definition on disk.
+    """
+    from src.core.config import EventMarkerPreset
+
+    preset = EventMarkerPreset(
+        id=req.id, label=req.label, description=req.description, color=req.color
+    )
+    config = runtime.config_manager.config
+    if config.event_markers is None:
+        config.event_markers = []
+
+    existing = next((i for i, m in enumerate(config.event_markers) if m.id == req.id), None)
+    if existing is not None:
+        config.event_markers[existing] = preset
+    else:
+        config.event_markers.append(preset)
+
+    return {"status": "ok", "presets": [m.model_dump() for m in config.event_markers]}

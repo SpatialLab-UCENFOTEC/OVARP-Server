@@ -115,6 +115,23 @@ async def update_profile(profile_id: str, req: ProfileCreateRequest):
         return {"error": str(e)}
 
 
+class ProfileDuplicateRequest(BaseModel):
+    new_id: str
+    new_name: str | None = None
+
+
+@router.post("/profiles/{profile_id}/duplicate")
+async def duplicate_profile(profile_id: str, req: ProfileDuplicateRequest):
+    """Copy a profile to a new id and persist it as YAML."""
+    try:
+        profile = runtime.profile_manager.duplicate_profile(
+            profile_id, req.new_id, req.new_name
+        )
+        return {"status": "ok", "profile": profile.model_dump()}
+    except Exception as e:
+        return {"error": str(e)}
+
+
 @router.delete("/profiles/{profile_id}")
 async def delete_profile(profile_id: str):
     """Delete a profile and its YAML file."""

@@ -75,6 +75,26 @@ async def get_server_info(request: Request):
     }
 
 
+@router.get("/clients")
+async def list_connected_clients():
+    """Live WebSocket client_ids currently connected to /ws/client/{id}.
+
+    The WoZ target picker needs to know which devices are actually reachable;
+    without it a researcher aims a command at a headset that went offline and
+    gets silence back.
+    """
+    transport = runtime.ws_transport
+    ids = transport.connected_client_ids() if transport else []
+    return {"clients": ids, "count": len(ids)}
+
+
+@router.get("/latency/last")
+async def get_last_latency():
+    """Most recent STT/LLM/TTS pipeline timings from the orchestrator."""
+    latency = getattr(runtime.orchestrator, "_last_latency", None)
+    return {"status": "ok", "latency": latency or {}}
+
+
 @router.get("/export")
 async def export_telemetry():
     """Exports the current session JSONL into a structured CSV file for analysis"""

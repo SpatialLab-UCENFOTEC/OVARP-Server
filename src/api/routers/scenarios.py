@@ -21,10 +21,48 @@ class ScenarioLoadRequest(BaseModel):
     scenario_id: str
 
 
+class ScenarioStepRequest(BaseModel):
+    id: str
+    instruction: str
+    action: dict | None = None
+    condition: str | None = None
+    auto_marker: str | None = None
+    duration_seconds: int | None = None
+
+
+class ScenarioCreateRequest(BaseModel):
+    id: str
+    name: str
+    description: str = ""
+    steps: list[ScenarioStepRequest] = []
+
+
 @router.get("")
 async def list_scenarios():
     """List all available experiment scenarios."""
     return {"scenarios": runtime.scenario_runner.list_scenarios()}
+
+
+@router.post("")
+async def create_scenario(req: ScenarioCreateRequest):
+    """Create an experiment protocol and persist it to scenarios/<id>.yaml."""
+    from src.core.scenario_runner import Scenario, ScenarioStep
+
+    try:
+        scenario = Scenario(
+            id=req.id,
+            name=req.name,
+            description=req.description,
+            steps=[ScenarioStep(**s.model_dump()) for s in req.steps],
+        )
+        runtime.scenario_runner.add_scenario(scenario, save_to_disk=True)
+        return {
+            "status": "ok",
+            "scenario": scenario.model_dump(),
+            "scenarios": runtime.scenario_runner.list_scenarios(),
+        }
+    except Exception as e:
+        return {"error": str(e)}
 
 
 @router.post("/load")
