@@ -160,26 +160,44 @@ Set both before exposing the server through a tunnel.
 
 ## Known state (2026-08-25)
 
-Tests: 224 passing. `ruff check` is clean on `src/api/`, `src/main.py` and the modules added
+Tests: 246 passing. `ruff check` is clean on `src/api/`, `src/main.py` and the modules added
 recently; the older files still carry ~416 violations (whitespace, line length, `Optional[X]`),
 not gated in CI.
 
-### What `612f22c` did
+### What `612f22c` did, and what came back
 
 `feat: ux improvements` (2026-08-21, straight to main, no PR) imported the parallel AuraLab
 rework on top of Elena's console. It brought the good architecture — `src/api/routers/`,
-`runtime.py`, `survey_manager`, `secrets` — and dropped work that had been merged the day
-before via PR #12/#13. Recovered since: the latency pipeline, the two validation scenarios,
-and the parts of `test_qa_protocol.py` that still apply. Still gone, deliberately:
+`runtime.py`, `survey_manager`, `secrets` — and dropped work merged the day before via
+PR #12/#13. The deletions were collateral, not decisions: the AuraLab tree simply never
+contained those files, and the commit body was empty.
 
-- `src/static/player.html` and its `@app.get("/player")` route, plus `sdk/ovaf-client.js`.
-  `/player` 404s because both the file and the route were removed, not because one lost the
-  other. Reviving it is a product call, not a repair.
-- `src/core/evaluations.py` — genuinely superseded by `survey_manager.py`.
-- The marker tests keyed to `EventMarker.category` and `PUT /api/session/markers/{id}`;
-  that API is now `notes`/`amended` and `PATCH`, covered by `test_api_sessions.py`.
+Recovered since: the latency pipeline, `/player` and its route, `GET /api/clients`,
+`GET /api/latency/last`, `POST /api/profiles/{id}/duplicate`,
+`POST /api/session/markers/presets`, `POST /api/scenarios`, both validation scenarios,
+and the QA protocol tests. The restored write endpoints took typed Pydantic models,
+which the originals lacked.
 
-Anything else it removed is still reachable at `dbbafd1`, the commit before it.
+Deliberately **not** recovered, each superseded rather than lost:
+
+- `src/core/evaluations.py` → `survey_manager.py`
+- `src/static/sdk/ovaf-client.js` → renamed `OVARP-client.js` in the AuraLab line (R095);
+  restoring it would reinstate the duplicate SDK Elena had already flagged as unused
+- `PUT /api/session/markers/{id}` → `PATCH /api/session/marker/{id}`
+- `GET /api/session/export/csv` → `GET /api/telemetry/export`
+- The marker tests keyed to `EventMarker.category`; that field is now `notes`/`amended`,
+  covered by `test_api_sessions.py`
+- `friet256.glb` / `.fbx` / `test_friet.html` / `profiles/friet256.yaml` — a demo-specific
+  character. The GLB is not a VRM, so `avatar.js` cannot load it through `VRMLoaderPlugin`.
+- The API Key Store (`/api/keys/*`) — writes provider keys to `.env` in plaintext, which
+  sits badly beside `secrets.py`. Worth re-adding through the encrypted path, not as-was.
+
+Two QA assertions now check the capability instead of Elena's implementation, and say so
+inline: the console builds its device list from `config.yaml` rather than hardcoding
+`web_panel_01`, and it targets devices through its own `sendCommand` rather than the SDK's
+`setTargets`.
+
+Anything still missing is reachable at `dbbafd1`, the commit before the import.
 
 Pre-existing, not things to fix unprompted:
 

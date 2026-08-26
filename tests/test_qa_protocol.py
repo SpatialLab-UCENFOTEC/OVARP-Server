@@ -1,13 +1,15 @@
 """
 QA test plan as pytest — the researcher validation checklist, without a browser.
 
-Recovered from the pre-rewrite suite. The items covering the standalone /player
-page and the old evaluations module are omitted: those features no longer exist,
-and marker amendment is covered by tests/test_api_sessions.py. What remains is
-the part the current server still owes the protocol:
+Recovered from the pre-rewrite suite:
 
-  researcher usability scenario, post-TTS latency publication, the
-  latency_validation scenario, and latency columns in the session CSV.
+  player pairing, WoZ targeting, researcher usability scenario, post-TTS latency
+  publication, the latency_validation scenario, and latency columns in the CSV.
+
+Only the evaluations items are omitted — that module was genuinely superseded by
+survey_manager, which tests/test_survey_manager.py covers. Marker amendment moved
+to tests/test_api_sessions.py. Two checks assert the capability rather than the
+original implementation, and say so where they do.
 
 It does not open a browser or call a live LLM.
 """
@@ -20,7 +22,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 os.environ["OVARP_TESTING"] = "1"
 
 import pytest
+from fastapi.testclient import TestClient
 
+import src.main as main_module
 from src.core.config import OVARPConfig, config_manager
 from src.core.orchestrator import DialogOrchestrator
 from src.core.scenario_runner import ScenarioRunner
@@ -29,6 +33,7 @@ from src.providers.base import BaseLLMProvider, BaseSTTProvider, BaseTTSProvider
 
 ROOT = Path(__file__).resolve().parents[1]
 INDEX_HTML = ROOT / "src" / "static" / "index.html"
+PLAYER_HTML = ROOT / "src" / "static" / "player.html"
 SDK_JS = ROOT / "src" / "static" / "sdk" / "OVARP-client.js"
 SCENARIOS_DIR = ROOT / "scenarios"
 
@@ -39,6 +44,58 @@ def _reset_scenarios():
     runner._active_scenario = None
     runner._current_step_index = -1
     return runner
+
+
+class TestPlanPlayerPairing:
+    """PR item 1: /player connects as web_panel_01 (VR stand-in)."""
+    def test_player_page_is_the_vr_stand_in(self):
+        html = PLAYER_HTML.read_text(encoding="utf-8")
+        assert "web_panel_01" in html
+        assert "device-chip" in html
+        assert "lat-total" in html
+        assert "Mark event" in html
+        assert "Copy pair info" in html
+        assert "/ws/client/" in html
+        assert "onLatency" in html
+
+    def test_player_route_serves_that_page(self):
+        client = TestClient(main_module.app)
+        resp = client.get("/player")
+        assert resp.status_code == 200
+        assert "web_panel_01" in resp.text
+        assert "OVARPClient" in resp.text
+
+    def test_player_uses_the_surviving_sdk_and_no_phantom_avatar(self):
+        """The duplicate ovaf-client.js and the never-shipped default VRM are gone."""
+        html = PLAYER_HTML.read_text(encoding="utf-8")
+        assert "ovaf-client.js" not in html
+        assert "sdk/OVARP-client.js" in html
+        assert "default_avatar.vrm" not in html
+        assert "/api/avatars" in html
+
+    def test_console_can_reach_and_target_the_player(self):
+        """The device list is built from config.yaml rather than hardcoding
+        web_panel_01, so the check is that the console links to the player and
+        offers a device picker to aim at it."""
+        html = INDEX_HTML.read_text(encoding="utf-8")
+        assert 'href="/player"' in html
+        assert "target-device" in html
+
+
+class TestPlanWozTargeting:
+    """PR item 2: WoZ Speak This Text and gestures target the selected device.
+
+    The console reaches this through its own sendCommand rather than the SDK
+    helper the original test asserted, so the check is on the behaviour: the
+    payload must carry the picker's device and agent, not a hardcoded 'all'.
+    """
+    def test_console_wires_speak_and_actions_to_selected_target(self):
+        html = INDEX_HTML.read_text(encoding="utf-8")
+        assert "direct_tts" in html
+        assert "execute_state" in html
+        assert "send-msg-btn" in html
+        assert "target_device: document.getElementById('target-device').value" in html
+        assert "target_agent: document.getElementById('target-agent').value" in html
 
 
 class TestPlanResearcherScenario:

@@ -230,6 +230,30 @@ Real-time streaming logs from all server components with color-coded severity.
 
 ---
 
+## 🧍 Participant Player (`/player`)
+
+A standalone participant-facing page, reachable from **Open Player** in the console
+header. It is a **browser stand-in for the XR headset**: avatar, chat, hold-to-talk
+microphone, event marker button and a live latency readout, connecting as a regular
+device over `/ws/client/{device_id}`.
+
+It exists so a full loop — participant speaks, agent answers with voice and
+gesture, researcher annotates from the console — can be rehearsed or run without
+an XREAL headset or a Unity build.
+
+Defaults to `web_panel_01` / `agent_alpha`; override with query parameters:
+
+```
+/player?device=web_panel_01&agent=agent_beta
+```
+
+Whatever you pass must exist in `config.yaml → devices` and `agents`, or the
+server rejects the commands. Point the console's **Device** picker at the same id
+to aim Speak This Text and gestures at it; **Copy pair info** yields the exact
+socket URL.
+
+---
+
 ## ⚙️ Configuration
 
 ### `config.yaml` — Experiment Setup
@@ -420,8 +444,10 @@ OpenVirtualAgentResearchPlatform-Server/
 │   │   └── ws_layer.py          # WebSocket transport
 │   │
 │   └── static/
-│       ├── index.html           # WoZ Console (5-tab single-page app)
-│       ├── OVARP-client.js        # Web client SDK
+│       ├── index.html           # WoZ Console (single-page app)
+│       ├── player.html          # Participant page served at /player
+│       ├── survey.html          # Participant questionnaire page
+│       ├── sdk/OVARP-client.js  # Web client SDK
 │       ├── avatar.js            # 3D avatar engine (Three.js + VRM)
 │       └── models/              # VRM/GLB avatar models — ships empty, see above
 │
@@ -521,7 +547,7 @@ Install `requirements_dev.txt` first, then:
 
 ```bash
 OVARP_TESTING=1 OPENAI_API_KEY=sk-dummy GEMINI_API_KEY=dummy pytest -q
-# 224 tests across profiles, schemas, sessions, scenarios, surveys, XR telemetry,
+# 246 tests across profiles, schemas, sessions, scenarios, surveys, XR telemetry,
 # orchestrator, router, providers, security, and HTTP endpoints
 ```
 
@@ -568,6 +594,11 @@ Lint with `ruff check src/ tests/`.
 | `POST` | `/api/xr/telemetry` | Ingest batch XR tracking frames |
 | `GET` | `/api/telemetry/export` | Export session telemetry as CSV |
 | `GET` | `/api/avatars` | List avatar models present in `src/static/models/` |
+| `GET` | `/api/clients` | Live WebSocket client ids currently connected |
+| `GET` | `/api/latency/last` | Most recent STT/LLM/TTS pipeline timings |
+| `POST` | `/api/profiles/{id}/duplicate` | Copy a profile to a new id |
+| `POST` | `/api/session/markers/presets` | Add or update a marker preset |
+| `POST` | `/api/scenarios` | Create a protocol and persist it as YAML |
 
 ---
 
