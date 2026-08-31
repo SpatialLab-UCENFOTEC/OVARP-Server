@@ -147,6 +147,42 @@ OVARP_HEADLESS=true uvicorn src.main:app --host 0.0.0.0 --port 8000
 
 ---
 
+## 🌐 Connect to the Published Web Client
+
+The reference web client (`../OVARP-UnityWebClient`, Unity 6 WebGL) is published on Vercel at
+**https://ovarp-unity-web-client.vercel.app/**. Its "OVARP server" field is what you point at
+your local server.
+
+**Pointing it at `ws://localhost:8000` or `ws://127.0.0.1:8000` does not work.** A page served
+over `https:` (the Vercel deployment) cannot open a plain `ws://` socket to `localhost` on a
+current Chrome (verified live on Chrome 151, 2026): the connection never reaches the server
+(zero lines in the uvicorn log) and the client hangs until it times out with
+`Timed out connecting to ws://localhost:8000/ws/client/web_01.` No "Mixed Content" warning is
+shown, which is why this looks like a bug rather than a browser policy. Older docs describing
+`ws://localhost:8000` as always safe for a same-machine hosted client are stale for this reason.
+
+The path that actually works end to end is a `wss://` tunnel:
+
+```bash
+# 1. Fill in a real API key in .env (OPENAI_API_KEY or GEMINI_API_KEY):
+#    a placeholder key gets you a valid connection but an "API key not valid" reply.
+uvicorn src.main:app --host 0.0.0.0 --port 8000
+
+# 2. In a second terminal, open an ephemeral tunnel (no account needed):
+cloudflared tunnel --url http://localhost:8000
+```
+
+`cloudflared` prints an `https://<random>.trycloudflare.com` URL. Take that hostname, swap the
+scheme to `wss://`, and paste `wss://<random>.trycloudflare.com/ws/client/web_01` into the "OVARP
+server" field on the published client. This has been verified end to end: WebSocket connects,
+`llm_request` reaches the orchestrator, the configured LLM provider replies, TTS audio streams
+back as `tts_chunk`/`tts_complete`, and an avatar `execute_state` action fires: full pipeline,
+not just transport.
+
+When you're done, stop both `cloudflared` and `uvicorn`; the tunnel URL is public while it runs.
+
+---
+
 ## 🏗️ Architecture & Scaling
 
 1.  **Transport Layer**: `ZMQTransport` and `WebSocketTransport` handle raw JSON bytes asynchronously. Both support **Unicast Targeted Routing**, allowing multiple XR headsets to connect to the same server simultaneously without crossing audio or action streams.

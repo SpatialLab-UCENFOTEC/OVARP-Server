@@ -214,13 +214,15 @@ The **XR Connection** card in Live Control reports the address to use, and which
 how the client is served.
 
 A browser page served over HTTPS cannot open a `ws://` socket — the browser blocks it before any
-handshake. `localhost` is the only exception. So:
+handshake. `localhost` used to be documented as an exception; **it is not, as of Chrome 151
+(2026), verified live against the published web client**: `ws://localhost:8000` from an
+`https:` page hangs until timeout, with no "Mixed Content" warning, so it looks like a bug
+rather than a browser policy. So:
 
 | Client | Address |
 |---|---|
 | Native XR build on the same Wi-Fi | `ws://<LAN IP>:8000` |
-| Hosted web client, server on the same machine | `ws://localhost:8000` |
-| Hosted web client, server anywhere else | `wss://…` — needs a tunnel or TLS |
+| Hosted web client (e.g. the published Vercel build), any server location, current Chrome | `wss://…` (needs a tunnel or TLS, even on the same machine) |
 
 `GET /api/server/info` returns `lan_ws_url` and `public_ws_url` separately, deriving the scheme
 from `X-Forwarded-Proto`. Behind a tunnel it reports `wss://`, and the card tells you which
