@@ -84,6 +84,60 @@ async def test_process_audio_interaction_pipeline(orchestrator, mock_stt, mock_l
     assert "total_ms" in commands_sent[6].subcommand
 
 
+@pytest.fixture
+def mock_gemini_stream_llm():
+    """Stand-in for GeminiLLMProvider's streaming-only interface (stream_reply +
+    extract_actions). Deliberately NOT spec'd to BaseLLMProvider, which is exactly
+    why the orchestrator's hasattr(self.llm, "stream_reply") gate is Gemini-only:
+    a plain BaseLLMProvider mock (see mock_llm above) doesn't have this attribute."""
+    llm = MagicMock()
+    llm.model = "gemini-test-model"
+
+    async def fake_stream_reply(prompt, system_prompt=None, history=None):
+        for piece in ["Hi ", "there"]:
+            yield piece
+
+    llm.stream_reply = fake_stream_reply
+    llm.extract_actions = AsyncMock(return_value={"actions": "wave"})
+    return llm
+
+
+@pytest.mark.asyncio
+async def test_process_text_interaction_streams_gemini_reply(mock_stt, mock_gemini_stream_llm, mock_tts, mocker):
+    """The Gemini-only streaming path: deltas go out as llm_reply_chunk in real time,
+    actions are resolved from the assembled text afterward, and the rest of the
+    pipeline (execute_state, tts_chunk, tts_complete, latency) is unaffected."""
+    orch = DialogOrchestrator(
+        stt_provider=mock_stt,
+        llm_providers={"gemini": mock_gemini_stream_llm},
+        tts_providers={"gemini": mock_tts},
+        default_llm="gemini",
+        default_tts="gemini",
+    )
+    mock_router = mocker.patch("src.core.orchestrator.router")
+    mock_router.route_command = AsyncMock()
+
+    await orch.process_text_interaction("Hello bot", "all", "agent_alpha")
+
+    commands_sent = [call_args[0][0] for call_args in mock_router.route_command.call_args_list]
+    assert [c.command for c in commands_sent] == [
+        "llm_reply_chunk", "llm_reply_chunk", "llm_reply",
+        "execute_state", "tts_chunk", "tts_chunk", "tts_complete", "latency",
+    ]
+
+    assert commands_sent[0].subcommand["text"] == "Hi "
+    assert commands_sent[1].subcommand["text"] == "there"
+    assert commands_sent[2].subcommand["text"] == "Hi there"
+    assert commands_sent[2].subcommand["latency"]["llm_first_chunk_ms"] >= 0
+
+    assert commands_sent[3].subcommand == {"actions": "wave"}
+
+    mock_gemini_stream_llm.extract_actions.assert_called_once()
+    assert mock_gemini_stream_llm.extract_actions.call_args[0][0] == "Hi there"
+
+    assert commands_sent[7].subcommand["llm_first_chunk_ms"] >= 0
+
+
 @pytest.mark.asyncio
 async def test_history_management(orchestrator, mock_llm, mocker):
     """Test that the orchestrator properly trims conversation history to prevent context overflow"""

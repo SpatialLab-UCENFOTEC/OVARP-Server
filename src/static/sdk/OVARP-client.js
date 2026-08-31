@@ -25,7 +25,8 @@ export default class OVARPClient {
         this.callbacks = Object.assign({
             onConnect: () => { },
             onDisconnect: () => { },
-            onMessage: (msgSubcommand) => { }, // When text response arrives
+            onMessage: (msgSubcommand) => { }, // When the full text response is finalized
+            onMessageChunk: (chunkSubcommand) => { }, // Incremental delta while the reply streams in (Gemini-only; other providers only ever call onMessage)
             onAgentAction: (actionSubcommand) => { }, // When emotion/anim triggers
             onLog: (msg, type) => { }, // General SDK logs
             onTTSReady: (blobUrl) => { }, // When TTS audio blob is ready for playback
@@ -235,6 +236,9 @@ export default class OVARPClient {
 
             if (data.command_type === "message" && data.command === "llm_reply") {
                 this.callbacks.onMessage(data.subcommand);
+            }
+            else if (data.command_type === "message" && data.command === "llm_reply_chunk") {
+                this.callbacks.onMessageChunk(data.subcommand);
             }
             else if (data.command_type === "action" && data.command === "execute_state") {
                 // Pipe directly to Avatar if it exists

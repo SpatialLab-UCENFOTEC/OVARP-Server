@@ -245,7 +245,12 @@
       bubble.textContent = text;
       chatLog.appendChild(bubble);
       chatLog.scrollTop = chatLog.scrollHeight;
+      return bubble;
     }
+
+    // While a Gemini reply streams in, deltas append to this bubble instead of
+    // each spawning a new chat entry. Cleared once the final llm_reply arrives.
+    let streamingBubble = null;
 
     function setStatus(online, label) {
       connStatus.className = `status ${online ? 'online' : 'offline'}`;
@@ -289,9 +294,23 @@
           reconnectDelayMs = Math.min(reconnectDelayMs * 2, RECONNECT_DELAY_MAX_MS);
         },
         onMessage: (sub) => {
-          const text = typeof sub === 'string' ? sub : (sub?.text || '');
-          if (text) appendChat('agent', text);
+          // Text already rendered incrementally via onMessageChunk (Gemini): don't
+          // duplicate it, just drop the placeholder. Other providers never chunk,
+          // so streamingBubble stays null and the full text is appended here as before.
+          if (streamingBubble) {
+            streamingBubble = null;
+          } else {
+            const text = typeof sub === 'string' ? sub : (sub?.text || '');
+            if (text) appendChat('agent', text);
+          }
           if (sub && typeof sub === 'object' && sub.latency) updateLatency(sub.latency);
+        },
+        onMessageChunk: (sub) => {
+          const delta = sub?.text || '';
+          if (!delta) return;
+          if (!streamingBubble) streamingBubble = appendChat('agent', '');
+          streamingBubble.textContent += delta;
+          chatLog.scrollTop = chatLog.scrollHeight;
         },
         onLatency: (lat) => updateLatency(lat),
         onMarkerLogged: (label) => appendChat('agent', `Marker: ${label}`),

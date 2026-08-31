@@ -1003,6 +1003,10 @@
         // incomplete and is finished by the `latency` event that follows.
         let pendingLatencyEl = null;
 
+        // Gemini-only: llm_reply_chunk deltas build this minimal bubble incrementally;
+        // the final llm_reply event upgrades it in place instead of creating a duplicate.
+        let streamingBubble = null;
+
         function renderLatencyLine(el, lat) {
             if (!el) return;
             const parts = [];
@@ -1061,9 +1065,26 @@
                         cw.scrollTop = cw.scrollHeight;
                     }
                 },
+                onMessageChunk: (sub) => {
+                    // Gemini-only real streaming: create a minimal bubble on the first
+                    // delta, then just append text to it. onMessage upgrades this same
+                    // element in place once the full reply (and its metadata) lands.
+                    const cw = document.getElementById('chat-window');
+                    if (!streamingBubble) {
+                        const bubble = document.createElement('div');
+                        bubble.className = "chat-bubble msg-agent";
+                        bubble.innerHTML = `<strong>Agent:</strong><br><span class="streaming-text"></span>`;
+                        cw.appendChild(bubble);
+                        streamingBubble = { el: bubble, textEl: bubble.querySelector('.streaming-text') };
+                    }
+                    streamingBubble.textEl.textContent += (sub.text || '');
+                    cw.scrollTop = cw.scrollHeight;
+                },
                 onMessage: (sub) => {
                     const cw = document.getElementById('chat-window');
-                    const bubble = document.createElement('div');
+                    // Reuse the streaming bubble if the reply arrived as deltas (Gemini);
+                    // otherwise fall back to creating a fresh bubble as before.
+                    const bubble = streamingBubble ? streamingBubble.el : document.createElement('div');
                     bubble.className = "chat-bubble msg-agent";
 
                     const latencyHtml =
@@ -1093,7 +1114,10 @@
                     replayContainer.className = "replay-container mt-1";
                     bubble.appendChild(replayContainer);
 
-                    cw.appendChild(bubble);
+                    if (!streamingBubble) {
+                        cw.appendChild(bubble);
+                    }
+                    streamingBubble = null;
                     cw.scrollTop = cw.scrollHeight;
                 },
                 onAgentAction: (sub) => {

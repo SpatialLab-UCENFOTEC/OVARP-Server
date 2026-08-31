@@ -360,11 +360,37 @@ class DialogOrchestrator:
             logger.info("Orchestrator: Asking LLM...", prompt=text)
             
             llm_start = time.perf_counter()
-            spoken_reply, actions = await self.llm.generate_response_with_actions(
-                prompt=text,
-                system_prompt=prompt,
-                history=history[:-1]  # Everything except current msg (already in prompt)
-            )
+            llm_first_chunk_ms = None
+            if hasattr(self.llm, "stream_reply"):
+                # Real text streaming (Gemini-only, see gemini_provider.py): the reply
+                # streams to clients chunk by chunk as it's generated, then actions are
+                # resolved in a lean follow-up call once the full text is known.
+                spoken_reply = ""
+                async for delta in self.llm.stream_reply(
+                    prompt=text,
+                    system_prompt=prompt,
+                    history=history[:-1]  # Everything except current msg (already in prompt)
+                ):
+                    if not delta:
+                        continue
+                    if llm_first_chunk_ms is None:
+                        llm_first_chunk_ms = round((time.perf_counter() - llm_start) * 1000)
+                    spoken_reply += delta
+                    await router.route_command(BaseCommand(
+                        sender="server_orchestrator",
+                        target_device="all",
+                        target_agent=target_agent,
+                        command_type="message",
+                        command="llm_reply_chunk",
+                        subcommand={"text": delta, "agent": target_agent},
+                    ))
+                actions = await self.llm.extract_actions(spoken_reply, prompt) if spoken_reply else {}
+            else:
+                spoken_reply, actions = await self.llm.generate_response_with_actions(
+                    prompt=text,
+                    system_prompt=prompt,
+                    history=history[:-1]  # Everything except current msg (already in prompt)
+                )
             llm_ms = round((time.perf_counter() - llm_start) * 1000)
             
             # Append assistant reply to the appropriate history
@@ -383,6 +409,8 @@ class DialogOrchestrator:
                 "stt_ms": stt_ms,
                 "llm_ms": llm_ms,
             }
+            if llm_first_chunk_ms is not None:
+                latency["llm_first_chunk_ms"] = llm_first_chunk_ms
 
             # 0. Broadcast the raw text so the Web UI Chat window can display what the Bot is thinking
             if spoken_reply:
@@ -441,13 +469,14 @@ class DialogOrchestrator:
                     subcommand={
                         "stt_ms": latency.get("stt_ms", 0),
                         "llm_ms": latency.get("llm_ms", 0),
+                        "llm_first_chunk_ms": latency.get("llm_first_chunk_ms", 0),
                         "tts_ms": latency.get("tts_ms", 0),
                         "total_ms": latency.get("total_ms", 0),
                     },
                 ))
             except Exception as lat_err:
                 std_log.warning(f"⚠️ Orchestrator: Could not broadcast latency | {lat_err}")
-            std_log.info(f"⏱️ Orchestrator: Latency | stt={stt_ms}ms llm={llm_ms}ms tts={tts_ms}ms total={total_ms}ms")
+            std_log.info(f"⏱️ Orchestrator: Latency | stt={stt_ms}ms llm={llm_ms}ms llm_first_chunk={llm_first_chunk_ms}ms tts={tts_ms}ms total={total_ms}ms")
 
         except Exception as e:
             std_log.error(f"💥 Orchestrator: CRITICAL ERROR in process_text_interaction | {type(e).__name__}: {str(e)}")
