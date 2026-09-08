@@ -105,8 +105,10 @@ def mock_gemini_stream_llm():
 @pytest.mark.asyncio
 async def test_process_text_interaction_streams_gemini_reply(mock_stt, mock_gemini_stream_llm, mock_tts, mocker):
     """The Gemini-only streaming path: deltas go out as llm_reply_chunk in real time,
-    actions are resolved from the assembled text afterward, and the rest of the
-    pipeline (execute_state, tts_chunk, tts_complete, latency) is unaffected."""
+    the rest of the pipeline (execute_state, tts_chunk, tts_complete, latency) still
+    happens. Actions (extract_actions) and TTS synthesis now run concurrently
+    (OPA-335: gestures no longer block audio), so their relative order on the wire
+    isn't guaranteed -- only that both complete before the final latency command."""
     orch = DialogOrchestrator(
         stt_provider=mock_stt,
         llm_providers={"gemini": mock_gemini_stream_llm},
@@ -120,22 +122,76 @@ async def test_process_text_interaction_streams_gemini_reply(mock_stt, mock_gemi
     await orch.process_text_interaction("Hello bot", "all", "agent_alpha")
 
     commands_sent = [call_args[0][0] for call_args in mock_router.route_command.call_args_list]
-    assert [c.command for c in commands_sent] == [
-        "llm_reply_chunk", "llm_reply_chunk", "llm_reply",
-        "execute_state", "tts_chunk", "tts_chunk", "tts_complete", "latency",
-    ]
+
+    # First three and last are strictly ordered
+    assert [c.command for c in commands_sent[:3]] == ["llm_reply_chunk", "llm_reply_chunk", "llm_reply"]
+    assert commands_sent[-1].command == "latency"
 
     assert commands_sent[0].subcommand["text"] == "Hi "
     assert commands_sent[1].subcommand["text"] == "there"
     assert commands_sent[2].subcommand["text"] == "Hi there"
     assert commands_sent[2].subcommand["latency"]["llm_first_chunk_ms"] >= 0
 
-    assert commands_sent[3].subcommand == {"actions": "wave"}
+    # The parallel actions + TTS commands land in between, order unconstrained
+    middle = [c.command for c in commands_sent[3:-1]]
+    assert sorted(middle) == sorted(["execute_state", "tts_chunk", "tts_chunk", "tts_complete"])
+
+    execute_state_cmd = next(c for c in commands_sent if c.command == "execute_state")
+    assert execute_state_cmd.subcommand == {"actions": "wave"}
 
     mock_gemini_stream_llm.extract_actions.assert_called_once()
     assert mock_gemini_stream_llm.extract_actions.call_args[0][0] == "Hi there"
 
-    assert commands_sent[7].subcommand["llm_first_chunk_ms"] >= 0
+    assert commands_sent[-1].subcommand["llm_first_chunk_ms"] >= 0
+    assert commands_sent[-1].subcommand["tts_first_chunk_ms"] >= 0
+
+
+@pytest.mark.asyncio
+async def test_process_text_interaction_speaks_sentence_by_sentence(mock_stt, mocker):
+    """OPA-335: each finished sentence is synthesized and sent to clients as soon as
+    it's ready, instead of waiting for the whole reply -- two sentences means two
+    separate synthesize_stream calls and two tts_chunk/tts_complete bursts, not one
+    call on the full assembled text."""
+    llm = MagicMock()
+    llm.model = "gemini-test-model"
+
+    async def fake_stream_reply(prompt, system_prompt=None, history=None):
+        for piece in ["First sentence. ", "Second sentence."]:
+            yield piece
+
+    llm.stream_reply = fake_stream_reply
+    llm.extract_actions = AsyncMock(return_value={})
+
+    synth_calls = []
+    tts = MagicMock(spec=BaseTTSProvider)
+
+    async def fake_stream(text):
+        synth_calls.append(text)
+        yield b"audio_chunk"
+
+    tts.synthesize_stream = fake_stream
+
+    orch = DialogOrchestrator(
+        stt_provider=mock_stt,
+        llm_providers={"gemini": llm},
+        tts_providers={"gemini": tts},
+        default_llm="gemini",
+        default_tts="gemini",
+    )
+    mock_router = mocker.patch("src.core.orchestrator.router")
+    mock_router.route_command = AsyncMock()
+
+    await orch.process_text_interaction("Hello bot", "all", "agent_alpha")
+
+    assert synth_calls == ["First sentence.", "Second sentence."]
+
+    commands_sent = [call_args[0][0] for call_args in mock_router.route_command.call_args_list]
+    assert sum(1 for c in commands_sent if c.command == "tts_complete") == 2
+    assert sum(1 for c in commands_sent if c.command == "tts_chunk") == 2
+
+    latency_cmd = commands_sent[-1]
+    assert latency_cmd.command == "latency"
+    assert latency_cmd.subcommand["tts_first_chunk_ms"] >= 0
 
 
 @pytest.mark.asyncio

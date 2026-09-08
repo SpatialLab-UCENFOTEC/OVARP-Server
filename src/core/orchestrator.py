@@ -25,6 +25,111 @@ from src.core.telemetry import telemetry
 logger = get_logger()
 std_log = logging.getLogger("OVARP.orchestrator")
 
+# How many sentences are allowed to synthesize concurrently for one reply. Bounds
+# API load/cost on long replies; three is enough to keep synthesis of sentence N+1
+# ahead of the client finishing playback of sentence N.
+_MAX_CONCURRENT_TTS_SYNTH = 3
+
+_SENTENCE_BOUNDARY_CHARS = ".!?"
+_TRAILING_CLOSERS = "\"')]"
+
+
+def _split_ready_sentences(buffer: str) -> tuple[list[str], str]:
+    """Splits `buffer` into complete sentences plus a leftover fragment.
+
+    A sentence only counts as complete once its terminal punctuation is confirmed
+    by a following character (whitespace, closing quote/paren) -- so streaming text
+    like "3.1" or a still-arriving "Hi ther" is never cut on a guess, only once the
+    next character actually confirms the boundary. This is what lets TTS start on
+    the first sentence while the LLM is still generating the rest of the reply.
+    Known simplification: abbreviations like "Dr." split like a sentence end.
+    """
+    sentences: list[str] = []
+    start = 0
+    i = 0
+    n = len(buffer)
+    while i < n:
+        ch = buffer[i]
+        if ch == "\n":
+            fragment = buffer[start:i].strip()
+            if fragment:
+                sentences.append(fragment)
+            start = i + 1
+        elif ch in _SENTENCE_BOUNDARY_CHARS and i + 1 < n:
+            j = i + 1
+            while j < n and buffer[j] in _TRAILING_CLOSERS:
+                j += 1
+            if j < n and buffer[j].isspace():
+                fragment = buffer[start:j].strip()
+                if fragment:
+                    sentences.append(fragment)
+                start = j
+                i = j
+                continue
+        i += 1
+    return sentences, buffer[start:]
+
+
+class _TTSPipeline:
+    """Feeds sentences to TTS as soon as each is ready and streams their audio to
+    clients strictly in arrival order, while later sentences keep synthesizing
+    concurrently in the background.
+
+    This is what turns "wait for the whole reply, then speak" into "speak the
+    first sentence while the rest is still generating" -- the highest-leverage fix
+    identified in OPA-335: TTS on the full assembled text was consistently the
+    single biggest chunk of total latency (measured: 1586-8356ms of total_ms
+    3266-12055ms in data/sessions/*.jsonl).
+    """
+
+    def __init__(self, orchestrator: "DialogOrchestrator", target_agent: str,
+                 max_concurrent: int = _MAX_CONCURRENT_TTS_SYNTH):
+        self._orchestrator = orchestrator
+        self._target_agent = target_agent
+        self._queue: asyncio.Queue = asyncio.Queue()
+        self._sem = asyncio.Semaphore(max_concurrent)
+        self._start = time.perf_counter()
+        self._first_chunk_ms: Optional[int] = None
+        self._last_sent_ms: Optional[int] = None
+        self._any_sent = False
+        self._consumer = asyncio.create_task(self._consume())
+
+    def feed(self, sentence: str) -> None:
+        sentence = sentence.strip()
+        if not sentence:
+            return
+        task = asyncio.create_task(
+            self._orchestrator._synthesize_sentence(sentence, self._target_agent, self._sem)
+        )
+        self._queue.put_nowait(task)
+
+    async def _consume(self) -> None:
+        while True:
+            task = await self._queue.get()
+            if task is None:
+                break
+            chunks = await task
+            if not chunks:
+                continue
+            if self._first_chunk_ms is None:
+                self._first_chunk_ms = round((time.perf_counter() - self._start) * 1000)
+            await self._orchestrator._send_sentence_audio(chunks, self._target_agent)
+            self._any_sent = True
+            self._last_sent_ms = round((time.perf_counter() - self._start) * 1000)
+
+    async def finish(self) -> tuple[int, Optional[int]]:
+        """No more sentences coming: drain the queue, return (tts_ms, first_chunk_ms).
+
+        tts_ms is timestamped when the last audio chunk was actually sent, not
+        when finish() happens to be awaited -- callers may await something else
+        (e.g. a slow actions-classification call) first, and that wait must not
+        leak into this metric."""
+        self._queue.put_nowait(None)
+        await self._consumer
+        tts_ms = self._last_sent_ms if self._any_sent else 0
+        return tts_ms, self._first_chunk_ms
+
+
 class DialogOrchestrator:
     """
     Manages the core AI Pipeline for the Framework:
@@ -361,11 +466,19 @@ class DialogOrchestrator:
             
             llm_start = time.perf_counter()
             llm_first_chunk_ms = None
+            tts_pipeline: Optional[_TTSPipeline] = None
+            actions_task: Optional[asyncio.Task] = None
             if hasattr(self.llm, "stream_reply"):
                 # Real text streaming (Gemini-only, see gemini_provider.py): the reply
-                # streams to clients chunk by chunk as it's generated, then actions are
-                # resolved in a lean follow-up call once the full text is known.
+                # streams to clients chunk by chunk as it's generated. Each completed
+                # sentence is handed to TTS immediately (_TTSPipeline) instead of
+                # waiting for the full text, and gesture/emotion classification
+                # (extract_actions) runs as a background task in parallel with that
+                # speech instead of blocking in front of the first audio byte.
                 spoken_reply = ""
+                sentence_buffer = ""
+                if self.tts_enabled:
+                    tts_pipeline = _TTSPipeline(self, target_agent)
                 async for delta in self.llm.stream_reply(
                     prompt=text,
                     system_prompt=prompt,
@@ -376,6 +489,7 @@ class DialogOrchestrator:
                     if llm_first_chunk_ms is None:
                         llm_first_chunk_ms = round((time.perf_counter() - llm_start) * 1000)
                     spoken_reply += delta
+                    sentence_buffer += delta
                     await router.route_command(BaseCommand(
                         sender="server_orchestrator",
                         target_device="all",
@@ -384,7 +498,17 @@ class DialogOrchestrator:
                         command="llm_reply_chunk",
                         subcommand={"text": delta, "agent": target_agent},
                     ))
-                actions = await self.llm.extract_actions(spoken_reply, prompt) if spoken_reply else {}
+                    if tts_pipeline is not None:
+                        ready, sentence_buffer = _split_ready_sentences(sentence_buffer)
+                        for sentence in ready:
+                            tts_pipeline.feed(sentence)
+                if tts_pipeline is not None and sentence_buffer.strip():
+                    tts_pipeline.feed(sentence_buffer)
+                actions_task = (
+                    asyncio.create_task(self.llm.extract_actions(spoken_reply, prompt))
+                    if spoken_reply else None
+                )
+                actions = {}  # resolved below, awaited in parallel with the TTS pipeline
             else:
                 spoken_reply, actions = await self.llm.generate_response_with_actions(
                     prompt=text,
@@ -434,13 +558,28 @@ class DialogOrchestrator:
             else:
                 std_log.warning(f"⚠️ Orchestrator: LLM returned empty spoken_reply")
             
-            # 1. Dispatch the chosen actions (Emotions/Transformations) FIRST
+            # 1 & 2. Resolve actions and finish the TTS audio stream concurrently.
+            # Both have been running in the background since the reply text finished
+            # (extract_actions as a task, TTS sentences as they came off the stream).
+            # Awaiting them one after the other would let whichever is slower (in
+            # practice, Gemini's non-streaming actions-classification call, observed
+            # 2-12s) hold up dispatching the other -- gather so neither blocks on
+            # the other's tail.
+            tts_ms = 0
+            tts_first_chunk_ms = None
+            if actions_task is not None and tts_pipeline is not None:
+                actions, (tts_ms, tts_first_chunk_ms) = await asyncio.gather(
+                    actions_task, tts_pipeline.finish()
+                )
+            elif actions_task is not None:
+                actions = await actions_task
+            elif tts_pipeline is not None:
+                tts_ms, tts_first_chunk_ms = await tts_pipeline.finish()
+
             if actions:
                 await self._dispatch_actions(actions, target_device, target_agent)
-                
-            # 2. Dispatch the TTS Audio Stream (only if enabled)
-            tts_ms = 0
-            if spoken_reply and self.tts_enabled:
+
+            if tts_pipeline is None and spoken_reply and self.tts_enabled:
                 tts_start = time.perf_counter()
                 await self._dispatch_tts(spoken_reply, target_device, target_agent)
                 tts_ms = round((time.perf_counter() - tts_start) * 1000)
@@ -450,6 +589,8 @@ class DialogOrchestrator:
             # Finalize latency metrics
             total_ms = round((time.perf_counter() - interaction_start) * 1000)
             latency["tts_ms"] = tts_ms
+            if tts_first_chunk_ms is not None:
+                latency["tts_first_chunk_ms"] = tts_first_chunk_ms
             latency["total_ms"] = total_ms
             latency["target_device"] = target_device
             latency["target_agent"] = target_agent
@@ -471,12 +612,13 @@ class DialogOrchestrator:
                         "llm_ms": latency.get("llm_ms", 0),
                         "llm_first_chunk_ms": latency.get("llm_first_chunk_ms", 0),
                         "tts_ms": latency.get("tts_ms", 0),
+                        "tts_first_chunk_ms": latency.get("tts_first_chunk_ms", 0),
                         "total_ms": latency.get("total_ms", 0),
                     },
                 ))
             except Exception as lat_err:
                 std_log.warning(f"⚠️ Orchestrator: Could not broadcast latency | {lat_err}")
-            std_log.info(f"⏱️ Orchestrator: Latency | stt={stt_ms}ms llm={llm_ms}ms llm_first_chunk={llm_first_chunk_ms}ms tts={tts_ms}ms total={total_ms}ms")
+            std_log.info(f"⏱️ Orchestrator: Latency | stt={stt_ms}ms llm={llm_ms}ms llm_first_chunk={llm_first_chunk_ms}ms tts={tts_ms}ms tts_first_chunk={tts_first_chunk_ms}ms total={total_ms}ms")
 
         except Exception as e:
             std_log.error(f"💥 Orchestrator: CRITICAL ERROR in process_text_interaction | {type(e).__name__}: {str(e)}")
@@ -530,6 +672,49 @@ class DialogOrchestrator:
         except Exception as e:
             std_log.error(f"❌ Orchestrator: Failed to dispatch actions | {str(e)}")
             logger.error("Failed to parse and route LLM actions", error=str(e), actions=actions_dict)
+
+    async def _synthesize_sentence(self, text: str, target_agent: str,
+                                    sem: "asyncio.Semaphore") -> list[bytes]:
+        """Runs one sentence/fragment through the active TTS provider and buffers its
+        audio chunks (used by ``_TTSPipeline`` so synthesis of the next sentence can
+        start while this one's audio is still being sent). ``sem`` bounds how many of
+        these run concurrently for one reply."""
+        async with sem:
+            provider, voice_id = self._resolve_tts(target_agent)
+            if voice_id and provider.voice != voice_id:
+                provider.voice = voice_id
+            chunks: list[bytes] = []
+            try:
+                async for chunk in provider.synthesize_stream(text):
+                    chunks.append(chunk)
+            except Exception as e:
+                std_log.error(
+                    f"❌ Orchestrator: sentence TTS synthesis failed | text=\"{text[:60]}\" "
+                    f"| {type(e).__name__}: {str(e)}"
+                )
+            return chunks
+
+    async def _send_sentence_audio(self, chunks: list[bytes], target_agent: str) -> None:
+        """Streams pre-synthesized audio chunks for one sentence to clients, then signals
+        completion for that sentence so playback can start without waiting for the rest
+        of the reply. See ``_TTSPipeline``."""
+        for audio_chunk in chunks:
+            b64_chunk = base64.b64encode(audio_chunk).decode("utf-8")
+            await router.route_command(BaseCommand(
+                sender="server_orchestrator",
+                target_device="all",  # Broadcast so WoZ console also receives audio
+                target_agent=target_agent,
+                command_type="audio",
+                command="tts_chunk",
+                subcommand={"audio_base64": b64_chunk}
+            ))
+        await router.route_command(BaseCommand(
+            sender="server_orchestrator",
+            target_device="all",  # Broadcast so WoZ console also receives audio
+            target_agent=target_agent,
+            command_type="audio",
+            command="tts_complete"
+        ))
 
     async def _dispatch_tts(self, text: str, target_device: str, target_agent: str):
         """Starts TTS generation and streams audio chunks through the router as they arrive."""

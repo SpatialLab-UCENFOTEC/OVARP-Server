@@ -46,10 +46,21 @@ export default class OVARPClient {
         this._audioChunks = [];
         this.isRecording = false;
 
-        // TTS buffer
+        // TTS buffer + playback queue. The server now speaks a reply sentence by
+        // sentence (see OPA-335): each sentence arrives as its own tts_chunk...tts_complete
+        // burst, so multiple of those happen per reply instead of just one. Queueing here
+        // (instead of interrupting the current sentence on every tts_complete) is what lets
+        // the client actually benefit from that: sentence 1 plays while sentence 2 is still
+        // being synthesized on the server, and they play back to back with no gap/cutoff.
         this._ttsAudioChunks = [];
+        this._ttsPlaybackQueue = [];
+        this._ttsIsPlaying = false;
         this._ttsAudioPlayer = document.createElement('audio');
         this._ttsAudioPlayer.id = 'OVARP-tts-audio-player';
+        this._ttsAudioPlayer.addEventListener('ended', () => {
+            this._ttsIsPlaying = false;
+            this._pumpTTSQueue();
+        });
         document.body.appendChild(this._ttsAudioPlayer);
 
         if (config.canvas) {
@@ -154,6 +165,7 @@ export default class OVARPClient {
      * @param {string} text 
      */
     sendText(text) {
+        this._resetTTSPlayback(); // barge-in: a new request makes the current reply stale
         this.sendCommand('message', 'llm_request', { text });
     }
 
@@ -190,6 +202,7 @@ export default class OVARPClient {
                 // IMPORTANT: OVARP Server expects raw base64 data without data-uri prefix
                 const b64Data = base64Audio.split(',')[1];
 
+                this._resetTTSPlayback(); // barge-in: a new request makes the current reply stale
                 this.sendCommand('audio', 'stt_request', { audio_base64: b64Data });
                 this.callbacks.onLog(`[Mic STT] Sending ${this._audioChunks.length} chunks`, 'info');
 
@@ -291,22 +304,45 @@ export default class OVARPClient {
                 const url = URL.createObjectURL(blob);
                 this._ttsAudioChunks = []; // reset
 
-                // Stop any currently playing audio before setting new source
-                this._ttsAudioPlayer.pause();
-                this._ttsAudioPlayer.currentTime = 0;
-                // Note: we do NOT revokeObjectURL here because replay buttons retain references to past blob URLs
-                this._ttsAudioPlayer.src = url;
-                this._ttsAudioPlayer.play().catch(e => this.callbacks.onLog(`TTS Autoplay blocked: ${e}`, 'warn'));
-
-                // Notify the UI so it can attach a replay button
-                this.callbacks.onTTSReady(url);
-
-                // Synergize LipSync magically
-                if (this.avatar) {
-                    this.avatar.connectAudio(this._ttsAudioPlayer);
-                }
+                // Queue instead of interrupting: a reply now arrives as one
+                // tts_complete per sentence, and each one has to play out fully
+                // before the next starts.
+                this._ttsPlaybackQueue.push(url);
+                this._pumpTTSQueue();
             }
         }
+    }
+
+    /** Plays the next queued sentence, if any, once the current one has ended. */
+    _pumpTTSQueue() {
+        if (this._ttsIsPlaying || this._ttsPlaybackQueue.length === 0) return;
+        const url = this._ttsPlaybackQueue.shift();
+        this._ttsIsPlaying = true;
+        // Note: we do NOT revokeObjectURL here because replay buttons retain references to past blob URLs
+        this._ttsAudioPlayer.src = url;
+        this._ttsAudioPlayer.play().catch(e => {
+            this._ttsIsPlaying = false;
+            this.callbacks.onLog(`TTS Autoplay blocked: ${e}`, 'warn');
+            this._pumpTTSQueue(); // don't strand the rest of the queue behind one blocked play()
+        });
+
+        // Notify the UI so it can attach a replay button
+        this.callbacks.onTTSReady(url);
+
+        // Synergize LipSync magically
+        if (this.avatar) {
+            this.avatar.connectAudio(this._ttsAudioPlayer);
+        }
+    }
+
+    /** Stops any in-flight/queued speech. Used on barge-in: the user starting a new
+     * request means whatever the agent was still saying is now stale. */
+    _resetTTSPlayback() {
+        this._ttsAudioChunks = [];
+        this._ttsPlaybackQueue = [];
+        this._ttsIsPlaying = false;
+        this._ttsAudioPlayer.pause();
+        this._ttsAudioPlayer.currentTime = 0;
     }
 
     // --- Utils ---
