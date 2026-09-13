@@ -425,6 +425,23 @@
                                     ↗ Open the participant client
                                 </button>
                                 <small id="open-player-hint" class="text-muted d-block mt-1"></small>
+                                <hr class="border-secondary my-2">
+                                <small class="text-muted d-block mb-1"><strong>🌐 Connect the published Web Client</strong>
+                                    (Unity WebGL on Vercel):</small>
+                                <ol class="text-muted small ps-3 mb-2">
+                                    <li>Set a real API key in <code>.env</code>, then start the server so it's
+                                        reachable on the network: <code>uvicorn src.main:app --host 0.0.0.0 --port
+                                            8000</code>.</li>
+                                    <li>In a second terminal, open a tunnel: <code>cloudflared tunnel --url
+                                            http://localhost:8000</code>.</li>
+                                    <li>Take the printed <code>https://&lt;random&gt;.trycloudflare.com</code> URL
+                                        and swap <code>https://</code> for <code>wss://</code>.</li>
+                                    <li>Paste <code>wss://&lt;random&gt;.trycloudflare.com/ws/client/web_01</code>
+                                        into the "OVARP server" field on the web client.</li>
+                                </ol>
+                                <small class="text-warning d-block">Plain <code>ws://localhost</code> does not work
+                                    from the HTTPS-hosted client: the browser blocks it silently (no Mixed Content
+                                    warning), so it just times out.</small>
                             </div>
                         </div>
 
@@ -487,11 +504,8 @@
                                         <select id="pg-profile-select" class="form-select">
                                             <option value="">No profile (global prompt)</option>
                                         </select>
-                                        <button id="pg-apply-profile-btn" class="btn btn-outline-light"
-                                            title="Apply this persona to the target agent">Apply</button>
-                                        <button id="pg-new-profile-btn" class="btn btn-outline-success"
-                                            title="Create a new persona" onclick="openProfileEditor()">➕</button>
                                     </div>
+                                    <small class="text-muted mt-1 d-block">Selecting a persona applies it right away. Create new personas in the 👤 Profiles tab.</small>
                                     <small id="pg-profile-hint" class="text-muted mt-1 d-block"></small>
                                 </div>
 
@@ -1022,8 +1036,20 @@
         }
 
         // --- OVARP Web SDK Initialization ---
+        // Each browser tab/window needs its own device id: the server broadcasts
+        // to every open socket sharing a device id, so a stale/duplicate tab of
+        // this same console would otherwise play its own copy of every reply.
+        function getPlaygroundDeviceId() {
+            let id = sessionStorage.getItem('ovarp_woz_device_id');
+            if (!id) {
+                id = 'woz_console_' + Math.random().toString(36).slice(2, 10);
+                sessionStorage.setItem('ovarp_woz_device_id', id);
+            }
+            return id;
+        }
+
         const OVARPClient = new OVARPClientSDK({
-            deviceId: 'woz_console',
+            deviceId: getPlaygroundDeviceId(),
             canvas: document.getElementById('avatar-canvas'),
             callbacks: {
                 onConnect: () => {
@@ -1163,7 +1189,7 @@
                 return;
             }
             const payload = {
-                sender: "woz_console",
+                sender: OVARPClient.deviceId,
                 target_device: document.getElementById('target-device').value,
                 target_agent: document.getElementById('target-agent').value,
                 command_type: cmdType,

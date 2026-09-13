@@ -117,10 +117,10 @@ async function refreshHint() {
 }
 
 export async function initPlaygroundPersona() {
-    const applyBtn = document.getElementById('pg-apply-profile-btn');
-    if (!applyBtn) return;
+    const select = document.getElementById('pg-profile-select');
+    if (!select) return;
 
-    applyBtn.addEventListener('click', applySelectedProfile);
+    select.addEventListener('change', applySelectedProfile);
     document.getElementById('target-agent')?.addEventListener('change', refreshHint);
     document.addEventListener('ovarp:profiles-changed', populateProfiles);
 
