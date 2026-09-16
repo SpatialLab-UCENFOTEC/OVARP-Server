@@ -1,4 +1,4 @@
-﻿"""
+"""
 Open Virtual Agent Research Platform (OVARP) — Dialog Orchestrator
 
 Central AI pipeline manager that coordinates the full interaction cycle:

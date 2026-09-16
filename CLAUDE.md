@@ -5,7 +5,12 @@ for XR/web HCI experiments. Sits between AI providers (OpenAI / Gemini / any Ope
 endpoint) and clients (Unity WebGL, XREAL, Unreal, web), and ships a Wizard-of-Oz console for
 researchers.
 
-Companion repo (second working directory): `../OVARP-UnityWebClient` — Unity 6 WebGL reference client.
+Companion repos (additional working directories):
+
+- `../OVARP-UnityWebClient` — Unity 6 WebGL reference client.
+- `../OVARP-Server-Alex` — **Alex's repo (`alebar000/OVARP-Server`) is the base of truth.**
+  It shares no git history with this one; the two trees were synced by copying snapshots.
+  When Alex has already solved something, follow his shape. See "Converging on Alex's base".
 
 ## Environment
 
@@ -72,9 +77,19 @@ back through Router → dispatch_outbound → all transports
 - **`src/core/profile_manager.py`** — YAML personas in `profiles/`, persisted on create/update.
 - **`src/core/survey_manager.py`** — questionnaires in `surveys/`, with SUS and UEQ scoring.
 - **`src/core/secrets.py`** — encrypts provider credentials at rest, redacts them from responses.
+- **`src/core/key_store.py`** — the provider keys the console can set at runtime. Values live in
+  `provider_keys.yaml` (git-ignored) through `secrets.py`, are mirrored into `os.environ`, and
+  are restored on boot, where a stored key **wins over `.env`**.
 - **`src/api/deps.py`** — the console access token.
-- **`src/static/index.html`** — the WoZ console shell. New behaviour goes in `src/static/js/*.js`
-  modules, which the shell imports; they talk to it through DOM ids and `document` events.
+- **`src/static/index.html`** — the WoZ console shell, built on Alex's design system v3.0
+  (CSS custom properties per theme, `.card` / `.metric-box` / `.badge-*` / `.btn-ghost` /
+  `.btn-action-primary`, monospace pill nav). Colours come from those tokens, not from Bootstrap
+  semantic classes, and the markup carries **no emoji** — that was a deliberate sweep on both
+  sides. New behaviour goes in `src/static/js/*.js` modules, which the shell imports; they talk
+  to it through DOM ids and `document` events.
+  Tabs are numbered in study order: `(01) OVERVIEW` … `(08) SYSTEM LOGS`. Overview is the
+  landing tab and must stay that way — opening on a control surface was the single loudest
+  usability complaint.
 
 ### Single sources of truth
 
@@ -128,10 +143,17 @@ Both are opt-in via `.env`, and absent by default so a localhost run needs no se
 
 - `OVARP_ACCESS_TOKEN` — required in the `X-OVARP-Token` header on every `/api/` call. The agent
   WebSocket and the participant survey page are exempt: XR clients and participants have no token.
-- `OVARP_SECRET_KEY` — encrypts custom provider API keys in `custom_providers.yaml`. Provider
-  credentials are never returned by the API; `GET /api/providers` reports `has_key` instead.
+- `OVARP_SECRET_KEY` — encrypts stored credentials: custom providers in `custom_providers.yaml`
+  and the built-in provider keys in `provider_keys.yaml`. Without it both keep working in plain
+  text, so an existing localhost setup does not break on upgrade.
 
 Set both before exposing the server through a tunnel.
+
+Credentials never ride along on a response that something polls. `GET /api/providers` reports
+`has_key`, `GET /api/keys/status` reports a mask and a badge, and the raw value is only returned
+by `POST /api/keys/reveal`, which the console calls when a researcher presses **Show**. Alex's
+version put `full_key` in every status response; this is the one place the implementation
+deliberately departs from his, and the UX is unchanged.
 
 ## Unity client contract (`../OVARP-UnityWebClient`)
 
@@ -155,14 +177,51 @@ Set both before exposing the server through a tunnel.
 - A new provider implements `BaseLLMProvider.generate_response_with_actions` returning
   `(spoken_reply, actions_dict)`. Anything OpenAI-compatible needs no code — register it at
   `/api/providers/register`.
+- **Provider SDK clients are lazy `@property` reads, never bound in `__init__`.** The console can
+  change an API key at runtime; an eagerly bound client would keep authenticating with the old
+  one. `OpenAIClientSingleton.reset_client()` / `GeminiClientSingleton.reset_client()` drop the
+  cache, and `key_store.set_keys()` calls both. This regressed once already — see below.
+- `/api/health/providers` checks **key presence, not connectivity**. Probing the providers for
+  real took 10s+ and left the console showing stale error badges while it waited.
 - Functions used from inline `onclick=` must be assigned to `window` explicitly: the console runs
   as a `<script type="module">`, where declarations are not global.
 
-## Known state (2026-08-25)
+## Known state (2026-09-16)
 
-Tests: 246 passing. `ruff check` is clean on `src/api/`, `src/main.py` and the modules added
-recently; the older files still carry ~416 violations (whitespace, line length, `Optional[X]`),
-not gated in CI.
+Tests: 280 passing. `ruff check` is clean on `src/api/`, `src/main.py`, `src/core/key_store.py`
+and the modules added recently; the older files still carry ~400 violations (whitespace, line
+length, `Optional[X]`), not gated in CI. New code in an older file matches that file's existing
+style rather than importing a second convention into it.
+
+## Converging on Alex's base
+
+`../OVARP-Server-Alex` is the base of truth. The rule agreed on 2026-09-16: **where Alex already
+solved something, follow his shape; where only this repo has something functional, keep it and
+port it into his shape.** Two things were settled explicitly and should not be re-litigated:
+
+- **The routers architecture stays.** Alex's `src/main.py` is a 1118-line monolith; this repo
+  keeps `src/api/routers/` + `runtime.py`, and his endpoints were brought *into* the routers.
+- **The console adopted his UI wholesale** — design system, tab order, Overview and API Key
+  Store — and this repo's own tabs (Surveys, `/player`) were ported into it.
+
+Brought over from his line:
+
+- `GET /api/keys/*` (API Key Store), rewired to the encrypted store instead of plaintext `.env`
+- instant `/api/health/providers`, and the lazy `@property` provider clients that `612f22c`
+  had reverted
+- `GET /api/session/export/csv` and `EventMarker.category`, kept alongside this repo's
+  append-only `PATCH` amendment rather than replacing it
+- the Overview tab, theme toggle, pipeline status card, latency panel, Stop Audio
+- the marker preset builder, the scenario builder, the system-log filter/search/export toolbar
+- the zero-emoji sweep and the BOM strip across `src/`
+
+What is still only here: `survey_manager` + the Surveys tab, `/player`, `/api/clients`,
+`/api/latency/last`, `/api/avatars`, `/api/server/info`, profile duplicate/PUT, the
+`condition_*` profiles, `secrets.py`, and `web_01` / `xreal_01` in `config.yaml` (without which
+the Unity client is rejected — Alex's `config.yaml` does not declare them).
+
+Not adopted from his line: `friet256` (demo-specific character, and the GLB is not a VRM so
+`avatar.js` cannot load it), and `full_key` in the key status response (see Security).
 
 ### What `612f22c` did, and what came back
 
@@ -189,8 +248,8 @@ Deliberately **not** recovered, each superseded rather than lost:
   covered by `test_api_sessions.py`
 - `friet256.glb` / `.fbx` / `test_friet.html` / `profiles/friet256.yaml` — a demo-specific
   character. The GLB is not a VRM, so `avatar.js` cannot load it through `VRMLoaderPlugin`.
-- The API Key Store (`/api/keys/*`) — writes provider keys to `.env` in plaintext, which
-  sits badly beside `secrets.py`. Worth re-adding through the encrypted path, not as-was.
+- The API Key Store as Alex wrote it — it writes provider keys to `.env` in plaintext. Re-added
+  on 2026-09-16 through the encrypted path instead; see "Converging on Alex's base".
 
 Two QA assertions now check the capability instead of Elena's implementation, and say so
 inline: the console builds its device list from `config.yaml` rather than hardcoding
@@ -204,7 +263,6 @@ Pre-existing, not things to fix unprompted:
 - `venv/` is broken — its interpreter points at the pre-rename path
   `/Users/briammora/Projects/github/OpenVirtualAgentFramework-Server/venv`. Recreate it, or
   go through `./venv/bin/python -m pip` / `-m pytest`, which ignores the shebang.
-- `.env` has no `GEMINI_API_KEY`, so the Gemini provider is disabled at boot.
 - `.github/workflows/pytest.yml` is stale after the rename: uses `OVAF_TESTING` and a codecov slug
   of `AURAxLab/OpenVirtualAgentFramework-Server`.
 - `src/woz/` and `src/base/` are empty packages left from an earlier layout.

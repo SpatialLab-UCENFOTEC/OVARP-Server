@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Open Virtual Agent Research Platform (OVARP) — Avatar Rendering Engine
  *
  * Renders an interactive 3D embodied agent using Three.js and @pixiv/three-vrm.

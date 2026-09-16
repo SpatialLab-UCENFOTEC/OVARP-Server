@@ -1,4 +1,4 @@
-﻿"""
+"""
 Open Virtual Agent Research Platform (OVARP) — Mock XR Client
 
 Development utility that simulates a Unity/Unreal XR client connecting

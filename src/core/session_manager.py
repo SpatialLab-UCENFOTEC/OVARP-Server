@@ -1,4 +1,4 @@
-﻿"""
+"""
 Open Virtual Agent Research Platform (OVARP) — Session Manager
 
 Manages experiment sessions with participant tracking, lifecycle control
@@ -28,6 +28,7 @@ class EventMarker(BaseModel):
     iso_time: str = Field(description="Human-readable ISO timestamp")
     label: str = Field(description="Short label, e.g. 'task_started', 'participant_discomfort'")
     metadata: Optional[dict] = Field(default=None, description="Optional extra data")
+    category: Optional[str] = Field(default=None, description="Marker category for analysis")
     notes: Optional[str] = Field(default=None, description="Free-text detail added after the fact")
     amended: bool = Field(default=False, description="True once the label or notes were edited")
 
@@ -128,7 +129,8 @@ class SessionManager:
         self._session = None
         return completed
 
-    def add_marker(self, label: str, metadata: dict = None) -> EventMarker:
+    def add_marker(self, label: str, metadata: dict = None,
+                   category: str = None, notes: str = None) -> EventMarker:
         """Add an event marker to the active session and log it to telemetry."""
         if not self._session or self._session.status == "completed":
             raise ValueError("No active session for markers")
@@ -139,6 +141,8 @@ class SessionManager:
             iso_time=now.isoformat(),
             label=label,
             metadata=metadata,
+            category=category,
+            notes=notes,
         )
         self._session.markers.append(marker)
         std_log.info(f"📌 MARKER | label=\"{label}\" | session={self._session.session_id}")
@@ -150,8 +154,9 @@ class SessionManager:
             return None
         return next((m for m in self._session.markers if m.id == marker_id), None)
 
-    def amend_marker(self, marker_id: str, label: str = None, notes: str = None) -> tuple:
-        """Correct a marker's label or attach notes, leaving its timestamp alone.
+    def amend_marker(self, marker_id: str, label: str = None, notes: str = None,
+                     category: str = None) -> tuple:
+        """Correct a marker's label, category or notes, leaving its timestamp alone.
 
         Returns ``(marker, before)`` where ``before`` holds the replaced values,
         so the caller can write the amendment to the append-only session log and
@@ -168,6 +173,9 @@ class SessionManager:
         if notes is not None and notes != marker.notes:
             before["notes"] = marker.notes
             marker.notes = notes
+        if category is not None and category != marker.category:
+            before["category"] = marker.category
+            marker.category = category
 
         if before:
             marker.amended = True

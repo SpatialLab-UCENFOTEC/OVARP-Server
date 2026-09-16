@@ -1,4 +1,4 @@
-﻿"""
+"""
 Open Virtual Agent Research Platform (OVARP) — Command Router
 
 Receives raw JSON messages from all transports, validates them against

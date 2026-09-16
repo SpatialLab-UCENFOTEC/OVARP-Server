@@ -1,4 +1,4 @@
-﻿"""
+"""
 Open Virtual Agent Research Platform (OVARP) — Transport Base Class
 
 Defines ``BaseTransport``, the abstract base class for all communication

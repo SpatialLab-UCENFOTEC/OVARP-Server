@@ -26,6 +26,7 @@ data/evaluations/
 # Local exports
 test_export.csv
 custom_providers.yaml
+provider_keys.yaml
 
 # Editor
 .cursorignore

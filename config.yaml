@@ -1,4 +1,4 @@
-﻿# OpenVirtualAgentResearchPlatform (OVARP) - Experiment Configuration
+# OpenVirtualAgentResearchPlatform (OVARP) - Experiment Configuration
 # This file dynamically defines the properties available to the framework and the IA tools.
 
 experiment:
@@ -6,9 +6,10 @@ experiment:
   description: "A pilot study to test agent reactions to basic commands."
   version: "1.0.0"
 
-# Where the participant-facing client is hosted. The console links to it from
-# the XR Connection card so you can open it without hunting for the URL.
-# client_url: "https://your-client.vercel.app"
+# Where the participant-facing client is hosted. The console links to it from the
+# header, the Overview tab and the XR Connection card, so it is reachable without
+# hunting for the URL. Comment it out to hide those buttons.
+client_url: "https://ovarp-unity-web-client.vercel.app/"
 
 # Devices connected to the framework via ZMQ or WebSockets
 devices:

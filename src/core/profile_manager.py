@@ -1,4 +1,4 @@
-﻿"""
+"""
 Open Virtual Agent Research Platform (OVARP) — Profile Manager
 
 Manages Agent Profiles: rich persona definitions that bundle identity,

@@ -1,4 +1,4 @@
-﻿"""
+"""
 Open Virtual Agent Research Platform (OVARP) — Schema Validation Tests
 
 Unit tests for ``BaseCommand`` Pydantic schema validation. Verifies

@@ -1,4 +1,4 @@
-﻿"""
+"""
 Integration tests for the Session Management REST API endpoints.
 
 Covers:
@@ -173,3 +173,74 @@ class TestMarkerEditing:
     def test_unknown_marker_returns_error(self, client, marker_id):
         assert "error" in client.patch("/api/session/marker/nope", json={"label": "x"}).json()
         assert "error" in client.delete("/api/session/marker/nope").json()
+
+
+class TestMarkerCategory:
+    """Markers carry a category so the export can group them."""
+
+    def test_marker_stores_its_category(self, client):
+        client.post("/api/session/start", json={"participant_id": "P10"})
+
+        resp = client.post(
+            "/api/session/marker",
+            json={"label": "headset_slipped", "category": "Technical Issue"},
+        )
+
+        assert resp.json()["marker"]["category"] == "Technical Issue"
+
+    def test_category_can_be_amended(self, client):
+        client.post("/api/session/start", json={"participant_id": "P11"})
+        marker_id = client.post(
+            "/api/session/marker", json={"label": "odd_reply"}
+        ).json()["marker"]["id"]
+
+        resp = client.patch(
+            f"/api/session/marker/{marker_id}", json={"category": "Agent Error"}
+        )
+
+        assert resp.json()["marker"]["category"] == "Agent Error"
+        assert resp.json()["marker"]["amended"] is True
+
+
+class TestSessionCsvExport:
+    """GET /api/session/export/csv hands a researcher a flat table."""
+
+    def test_export_contains_the_header_and_markers(self, client):
+        client.post("/api/session/start", json={"participant_id": "P12"})
+        client.post(
+            "/api/session/marker",
+            json={"label": "task_started", "category": "Protocol", "notes": "after consent"},
+        )
+
+        resp = client.get("/api/session/export/csv")
+
+        assert resp.status_code == 200
+        assert resp.headers["content-type"].startswith("text/csv")
+        lines = resp.text.strip().splitlines()
+        assert lines[0].startswith("Timestamp_ISO,Unix_Timestamp,Session_ID")
+        assert "SESSION_START" in lines[1]
+        assert "Protocol" in lines[2]
+        assert "after consent" in lines[2]
+
+    def test_export_falls_back_to_the_label_without_a_category(self, client):
+        client.post("/api/session/start", json={"participant_id": "P13"})
+        client.post("/api/session/marker", json={"label": "uncategorised"})
+
+        assert "uncategorised" in client.get("/api/session/export/csv").text
+
+    def test_export_without_a_session_still_returns_a_table(self, client):
+        resp = client.get("/api/session/export/csv")
+
+        assert resp.status_code == 200
+        assert "NO_ACTIVE_SESSION" in resp.text
+
+    def test_amended_markers_are_flagged_in_the_export(self, client):
+        client.post("/api/session/start", json={"participant_id": "P14"})
+        marker_id = client.post(
+            "/api/session/marker", json={"label": "typo"}
+        ).json()["marker"]["id"]
+        client.patch(f"/api/session/marker/{marker_id}", json={"label": "fixed"})
+
+        rows = client.get("/api/session/export/csv").text.strip().splitlines()
+
+        assert rows[2].endswith(",yes")

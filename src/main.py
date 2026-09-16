@@ -29,6 +29,7 @@ from src.api import websockets  # noqa: E402
 from src.api.deps import require_console_token  # noqa: E402
 from src.api.routers import (  # noqa: E402
     auth,
+    keys,
     llm,
     profiles,
     providers,
@@ -37,6 +38,7 @@ from src.api.routers import (  # noqa: E402
     surveys,
     system,
 )
+from src.core import key_store  # noqa: E402
 from src.core.logging_setup import configure_logging  # noqa: E402
 from src.core.orchestrator import DialogOrchestrator  # noqa: E402
 from src.core.runtime import is_headless, is_testing, runtime  # noqa: E402
@@ -103,6 +105,8 @@ def _bootstrap():
     runtime.scenario_runner.load_scenarios_from_dir("scenarios")
     runtime.survey_manager.load_surveys_from_dir("surveys")
 
+    key_store.load_stored_keys()
+
     from src.api.routers.providers import load_custom_providers
     load_custom_providers()
 
@@ -143,7 +147,7 @@ app.include_router(auth.router)
 app.include_router(surveys.router)
 
 # Everything a researcher can drive is behind the console token when one is set
-for api_router in (system.router, llm.router, providers.router,
+for api_router in (system.router, llm.router, providers.router, keys.router,
                    sessions.router, profiles.router, scenarios.router):
     app.include_router(api_router, dependencies=[Depends(require_console_token)])
 
@@ -158,7 +162,11 @@ if os.path.exists(static_path):
 
     @app.get("/player")
     async def serve_player():
-        """Standalone participant page: a browser stand-in for the XR headset.
+        """A plain page for talking to the agent: text, push-to-talk, markers.
+
+        Not the participant-facing client — that is the Unity WebGL build at
+        ``config.yaml → client_url``. This one exists so the pipeline can be
+        exercised with nothing but a browser.
 
         Registered before the static mount, which claims "/" and would otherwise
         answer this path itself.

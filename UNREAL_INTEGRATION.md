@@ -1,4 +1,4 @@
-﻿# Unreal Engine Integration Guide: Open Virtual Agent Research Platform (OVARP)
+# Unreal Engine Integration Guide: Open Virtual Agent Research Platform (OVARP)
 
 > **Target Engine Version:** Unreal Engine 5.5+ (tested with UE 5.7)
 

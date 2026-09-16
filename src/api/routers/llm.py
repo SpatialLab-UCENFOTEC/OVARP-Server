@@ -8,7 +8,7 @@ Author: Alexander Barquero Elizondo, Ph.D. — UCR, ECCI/CITIC
 License: MIT
 """
 
-import asyncio
+import os
 
 from fastapi import APIRouter
 from pydantic import BaseModel
@@ -16,6 +16,10 @@ from pydantic import BaseModel
 from src.core.runtime import runtime
 
 router = APIRouter(prefix="/api", tags=["llm"])
+
+# Credentials the console can report on without calling out to the provider.
+PROVIDER_ENV_KEYS = {"openai": "OPENAI_API_KEY", "gemini": "GEMINI_API_KEY"}
+PLACEHOLDER_KEYS = {"sk-dummy", "dummy"}
 
 
 class LLMConfigUpdate(BaseModel):
@@ -155,37 +159,18 @@ async def clear_history():
 
 @router.get("/health/providers")
 async def check_provider_health():
-    """Validates API key connectivity for each registered provider dynamically."""
-    orchestrator = runtime.orchestrator
+    """Reports whether each registered provider has a usable credential.
+
+    Presence of the key rather than a live API call: probing the providers took
+    10s+ and left the console showing stale error badges while it waited.
+    """
     results = {}
-    for name in orchestrator.llm_providers:
-        try:
-            if name == "openai":
-                from src.providers.openai_provider import OpenAIClientSingleton
-                client = OpenAIClientSingleton.get_client()
-                await client.models.list()
-                results[name] = "ok"
-            elif name == "gemini":
-                from src.providers.gemini_provider import GeminiClientSingleton
-                client = GeminiClientSingleton.get_client()
-                if client is None:
-                    raise ValueError("GEMINI_API_KEY not set")
-                await asyncio.to_thread(client.models.list)
-                results[name] = "ok"
-            else:
-                # Custom / third-party providers — test via their base_url
-                provider = orchestrator.llm_providers[name]
-                if hasattr(provider, "base_url"):
-                    from src.providers.custom_provider import test_custom_endpoint
-                    ok, _ = await test_custom_endpoint(
-                        provider.base_url,
-                        getattr(provider, "api_key", ""),
-                        getattr(provider, "model", ""),
-                    )
-                    results[name] = "ok" if ok else "error"
-                else:
-                    results[name] = "ok"  # No way to test, assume ok
-        except Exception as e:
-            results[name] = "error"
-            results[f"{name}_error"] = str(e)[:120]
+    for name, provider in runtime.orchestrator.llm_providers.items():
+        env_var = PROVIDER_ENV_KEYS.get(name)
+        if env_var:
+            key = os.getenv(env_var, "").strip()
+            results[name] = "ok" if key and key not in PLACEHOLDER_KEYS else "error"
+        else:
+            base_url = getattr(provider, "base_url", "")
+            results[name] = "ok" if base_url else "error"
     return results

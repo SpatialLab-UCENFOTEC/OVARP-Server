@@ -1,4 +1,4 @@
-﻿"""
+"""
 Open Virtual Agent Research Platform (OVARP) — Configuration Manager
 
 Loads and validates the experiment configuration from ``config.yaml``.

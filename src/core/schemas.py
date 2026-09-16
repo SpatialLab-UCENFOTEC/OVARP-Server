@@ -1,4 +1,4 @@
-﻿"""
+"""
 Open Virtual Agent Research Platform (OVARP) — Command Schemas
 
 Defines the ``BaseCommand`` Pydantic model that is the universal message

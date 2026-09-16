@@ -1,4 +1,4 @@
-﻿"""
+"""
 Open Virtual Agent Research Platform (OVARP) — Scenario Runner
 
 Manages scripted experiment protocols. Scenarios are YAML-defined sequences

@@ -1,11 +1,15 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en" data-bs-theme="dark">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OVARP: Wizard of Oz Console</title>
-    <!-- Use a simple modern CSS framework for MVP -->
+    <!-- Google Fonts: Plus Jakarta Sans & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- Bootstrap 5.3 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Three.js + VRM Import Map for ES Modules -->
     <script type="importmap">
@@ -18,364 +22,873 @@
     }
     </script>
     <style>
-        body {
-            background-color: #121212;
-            color: #f8f9fa;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        /* =============================================
+        OVARP DESIGN SYSTEM v3.0
+        Slate / Indigo - Unified Palette
+        ============================================= */
+
+        /* --- CSS Custom Properties --- */
+        :root {
+        --accent: #6366f1;
+        --accent-hover: #4f46e5;
+        --accent-glow: rgba(99, 102, 241, 0.25);
+        --emerald: #10b981;
+        --amber: #f59e0b;
+        --rose: #f43f5e;
+        --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+        --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+        --radius-card: 14px;
+        --radius-btn: 8px;
+        --radius-sm: 6px;
         }
 
+        [data-bs-theme="dark"] {
+        --bg: #0b1120;
+        --bg-card: #111827;
+        --bg-card-header: #1a2233;
+        --bg-input: #1a2233;
+        --border: rgba(255,255,255,0.09);
+        --text: #e2e8f0;
+        --text-muted: #64748b;
+        --text-label: #94a3b8;
+        --shadow: 0 4px 24px rgba(0,0,0,0.4);
+        }
+
+        [data-bs-theme="light"] {
+        --bg: #f1f5f9;
+        --bg-card: #ffffff;
+        --bg-card-header: #f8fafc;
+        --bg-input: #f8fafc;
+        --border: rgba(0,0,0,0.08);
+        --text: #0f172a;
+        --text-muted: #94a3b8;
+        --text-label: #475569;
+        --shadow: 0 2px 12px rgba(0,0,0,0.08);
+        }
+
+        /* --- Base --- */
+        *, *::before, *::after { box-sizing: border-box; }
+
+        body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--font-sans);
+        font-size: 0.9375rem;
+        line-height: 1.6;
+        min-height: 100vh;
+        transition: background 0.25s ease, color 0.25s ease;
+        }
+
+        .mono-font, code, pre { font-family: var(--font-mono) !important; }
+
+        /* --- Top Header Bar --- */
+        .brand-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 0 10px;
+        border-bottom: 1px solid var(--border);
+        margin-bottom: 20px;
+        }
+
+        .brand-logo {
+        font-family: var(--font-mono);
+        font-weight: 700;
+        font-size: 1.25rem;
+        letter-spacing: 0.08em;
+        color: var(--accent);
+        }
+
+        .brand-version {
+        font-family: var(--font-mono);
+        font-size: 0.7rem;
+        font-weight: 500;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 3px 10px;
+        }
+
+        /* --- Theme Toggle Button --- */
+        #theme-toggle-btn {
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 6px 14px;
+        font-family: var(--font-mono);
+        font-size: 0.72rem;
+        font-weight: 500;
+        color: var(--text-label);
+        letter-spacing: 0.05em;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        }
+        #theme-toggle-btn:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+        }
+
+        /* --- Help Banner --- */
+        .help-banner {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        padding: 14px 18px;
+        margin-bottom: 16px;
+        font-size: 0.84rem;
+        color: var(--text-label);
+        }
+        .help-banner strong { color: var(--text); }
+        .help-banner .help-toggle { cursor: pointer; user-select: none; }
+        .help-banner ol { margin-bottom: 0; padding-left: 20px; }
+        .help-banner ol li { margin-bottom: 4px; }
+        .help-banner kbd {
+        background: var(--bg-card-header);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 1px 6px;
+        font-family: var(--font-mono);
+        font-size: 0.8em;
+        color: var(--text);
+        }
+
+        /* --- Navigation Pills --- */
+        .pill-nav-container {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        padding: 6px 8px;
+        margin-bottom: 24px;
+        display: flex;
+        }
+
+        .pill-nav-container .nav { gap: 4px; }
+
+        .pill-nav-container .nav-link {
+        font-family: var(--font-mono);
+        font-size: 0.72rem;
+        font-weight: 500;
+        letter-spacing: 0.04em;
+        color: var(--text-muted);
+        border-radius: var(--radius-sm);
+        padding: 7px 14px;
+        border: none;
+        background: transparent;
+        transition: all 0.15s ease;
+        white-space: nowrap;
+        }
+
+        .pill-nav-container .nav-link:hover {
+        background: rgba(99,102,241,0.08);
+        color: var(--text);
+        }
+
+        .pill-nav-container .nav-link.active {
+        background: var(--accent);
+        color: #ffffff !important;
+        font-weight: 600;
+        box-shadow: 0 2px 8px var(--accent-glow);
+        }
+
+        /* --- Cards --- */
         .card {
-            background-color: #1e1e1e;
-            border: 1px solid #333;
-            margin-bottom: 20px;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        box-shadow: var(--shadow);
+        margin-bottom: 20px;
+        overflow: hidden;
         }
 
         .card-header {
-            border-bottom: 1px solid #333;
-            background-color: #2c2c2c;
-            font-weight: bold;
+        background: var(--bg-card-header);
+        border-bottom: 1px solid var(--border);
+        padding: 12px 18px;
+        font-weight: 600;
+        font-size: 0.88rem;
+        color: var(--text);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
         }
 
-        .form-control,
-        .form-select {
-            background-color: #2a2a2a;
-            color: white;
-            border: 1px solid #444;
+        .card-body { padding: 18px; }
+
+        /* Nested card inside card-body: no double border collapse */
+        .card-body > .card {
+        border-color: var(--border);
         }
 
-        .form-control:focus,
-        .form-select:focus {
-            background-color: #333;
-            color: white;
-            border-color: #0d6efd;
-            box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.25);
+        /* --- Form Inputs --- */
+        .form-control, .form-select {
+        background: var(--bg-input);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-btn);
+        color: var(--text);
+        font-size: 0.875rem;
+        padding: 8px 12px;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
         }
 
+        .form-control:focus, .form-select:focus {
+        background: var(--bg-input);
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-glow);
+        color: var(--text);
+        outline: none;
+        }
+
+        .form-label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--text-label);
+        letter-spacing: 0.03em;
+        margin-bottom: 5px;
+        }
+
+        /* --- Buttons --- */
+        .btn {
+        border-radius: var(--radius-btn);
+        font-size: 0.84rem;
+        font-weight: 500;
+        padding: 8px 16px;
+        transition: all 0.15s ease;
+        }
+
+        .btn-action-primary {
+        background: var(--accent);
+        border: none;
+        color: #fff;
+        font-weight: 600;
+        font-size: 0.9rem;
+        border-radius: var(--radius-btn);
+        padding: 11px 20px;
+        box-shadow: 0 2px 10px var(--accent-glow);
+        transition: all 0.2s ease;
+        }
+        .btn-action-primary:hover {
+        background: var(--accent-hover);
+        box-shadow: 0 4px 16px var(--accent-glow);
+        color: #fff;
+        transform: translateY(-1px);
+        }
+
+        .btn-launcher {
+        background: var(--bg-card-header);
+        border: 1px solid var(--border);
+        color: var(--text);
+        border-radius: var(--radius-btn);
+        padding: 10px 14px;
+        font-size: 0.84rem;
+        text-align: left;
+        transition: all 0.15s ease;
+        }
+        .btn-launcher:hover {
+        border-color: var(--accent);
+        background: rgba(99,102,241,0.07);
+        color: var(--text);
+        transform: translateX(2px);
+        }
+        .btn-launcher strong { color: var(--text); font-weight: 600; }
+
+        .btn-ghost {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--text-label);
+        border-radius: var(--radius-btn);
+        }
+        .btn-ghost:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+        background: rgba(99,102,241,0.06);
+        }
+
+        /* Override Bootstrap outline/text color buttons to avoid rainbow effect */
+        .btn-outline-primary, .btn-outline-info, .btn-outline-success,
+        .btn-outline-warning, .btn-outline-danger, .btn-outline-secondary,
+        .btn-outline-light {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--text-label);
+        }
+        .btn-outline-primary:hover, .btn-outline-info:hover, .btn-outline-success:hover,
+        .btn-outline-warning:hover, .btn-outline-danger:hover, .btn-outline-secondary:hover,
+        .btn-outline-light:hover {
+        background: rgba(99,102,241,0.08);
+        border-color: var(--accent);
+        color: var(--text);
+        }
+
+        /* Action buttons in WoZ panel stay subtle */
         .btn-action {
-            margin: 5px;
+        margin: 4px;
+        background: var(--bg-card-header);
+        border: 1px solid var(--border);
+        color: var(--text);
+        border-radius: var(--radius-btn);
+        font-size: 0.82rem;
+        padding: 6px 12px;
+        }
+        .btn-action:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+        background: rgba(99,102,241,0.06);
+        }
+        .btn-action-cmd { letter-spacing: 0.02em; }
+
+        /* --- Badges --- */
+        .badge {
+        font-family: var(--font-mono);
+        font-size: 0.72rem;
+        font-weight: 500;
+        border-radius: var(--radius-sm);
+        padding: 4px 8px;
+        letter-spacing: 0.04em;
         }
 
-        /* Toast Notification */
-        .OVARP-toast {
-            position: fixed;
-            bottom: 24px;
-            right: 24px;
-            z-index: 9999;
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-size: 0.9em;
-            font-weight: 500;
-            color: white;
-            opacity: 0;
-            transform: translateY(20px);
-            transition: all 0.3s ease;
-            pointer-events: none;
-            max-width: 400px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+        .badge-indigo {
+        background: rgba(99,102,241,0.12);
+        color: #a5b4fc;
+        border: 1px solid rgba(99,102,241,0.2);
         }
-        .OVARP-toast.show {
-            opacity: 1;
-            transform: translateY(0);
+        .badge-emerald {
+        background: rgba(16,185,129,0.12);
+        color: #6ee7b7;
+        border: 1px solid rgba(16,185,129,0.2);
         }
-        .OVARP-toast.success { background: linear-gradient(135deg, #198754, #20c997); }
-        .OVARP-toast.info    { background: linear-gradient(135deg, #0d6efd, #6ea8fe); }
-        .OVARP-toast.warning { background: linear-gradient(135deg, #fd7e14, #ffc107); color: #000; }
-        .OVARP-toast.error   { background: linear-gradient(135deg, #dc3545, #ff6b6b); }
+        .badge-amber {
+        background: rgba(245,158,11,0.12);
+        color: #fcd34d;
+        border: 1px solid rgba(245,158,11,0.2);
+        }
+        .badge-rose {
+        background: rgba(244,63,94,0.12);
+        color: #fda4af;
+        border: 1px solid rgba(244,63,94,0.2);
+        }
+        .badge-slate {
+        background: rgba(100,116,139,0.12);
+        color: var(--text-label);
+        border: 1px solid var(--border);
+        }
+        .badge-online {
+        background: rgba(16,185,129,0.12);
+        color: #6ee7b7;
+        border: 1px solid rgba(16,185,129,0.2);
+        }
+        .badge-offline {
+        background: rgba(244,63,94,0.12);
+        color: #fda4af;
+        border: 1px solid rgba(244,63,94,0.2);
+        }
 
-        /* Profile Card Hover & Selected */
+        /* Keep Bootstrap bg-success/warning/danger for session badge (dynamic JS) */
+        .badge.bg-success { background-color: rgba(16,185,129,0.15) !important; color: #6ee7b7 !important; border: 1px solid rgba(16,185,129,0.25) !important; }
+        .badge.bg-warning { background-color: rgba(245,158,11,0.15) !important; color: #fcd34d !important; border: 1px solid rgba(245,158,11,0.25) !important; }
+        .badge.bg-danger { background-color: rgba(244,63,94,0.12) !important; color: #fda4af !important; border: 1px solid rgba(244,63,94,0.2) !important; }
+        .badge.bg-secondary { background-color: rgba(100,116,139,0.12) !important; color: var(--text-label) !important; border: 1px solid var(--border) !important; }
+
+        /* --- Metric Boxes (Telemetry) --- */
+        .metric-box {
+        background: var(--bg-card-header);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-btn);
+        padding: 12px 16px;
+        }
+        .metric-box .metric-label {
+        font-size: 0.72rem;
+        color: var(--text-muted);
+        font-weight: 500;
+        letter-spacing: 0.04em;
+        margin-bottom: 4px;
+        }
+        .metric-box .metric-value {
+        font-size: 0.92rem;
+        font-weight: 600;
+        color: var(--text);
+        }
+
+        /* --- Log Window --- */
+        #log-window, #syslogs-window {
+        height: 260px;
+        overflow-y: scroll;
+        background: #020610;
+        padding: 10px 12px;
+        font-family: var(--font-mono);
+        font-size: 0.8rem;
+        line-height: 1.5;
+        border-radius: 0 0 var(--radius-card) var(--radius-card);
+        border: none;
+        }
+        .log-sent { color: #818cf8; }
+        .log-recv { color: #6ee7b7; }
+        .log-err { color: #fda4af; }
+        .log-info { color: var(--text-label); }
+
+        /* --- Chat --- */
+        .chat-container {
+        height: 380px;
+        overflow-y: auto;
+        background: var(--bg-card);
+        padding: 14px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-btn);
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        }
+        .chat-bubble {
+        max-width: 80%;
+        padding: 9px 14px;
+        border-radius: 12px;
+        font-size: 0.88rem;
+        word-wrap: break-word;
+        line-height: 1.5;
+        }
+        .msg-user {
+        background: var(--accent);
+        color: #fff;
+        align-self: flex-end;
+        border-bottom-right-radius: 3px;
+        }
+        .msg-agent {
+        background: var(--bg-card-header);
+        color: var(--text);
+        align-self: flex-start;
+        border: 1px solid var(--border);
+        border-bottom-left-radius: 3px;
+        }
+
+        /* --- Profile Cards --- */
         .profile-card {
-            transition: all 0.2s ease;
-            border-left: 3px solid transparent !important;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-left: 3px solid transparent !important;
+        border-radius: var(--radius-btn);
+        cursor: pointer;
+        transition: all 0.15s ease;
+        margin-bottom: 8px;
         }
-        .profile-card:hover {
-            background-color: #2a2a3a !important;
-            border-left-color: #e879f9 !important;
-            transform: translateX(2px);
-        }
-        .profile-card.selected {
-            background-color: #2a2a3a !important;
-            border-left-color: #e879f9 !important;
-            box-shadow: 0 0 8px rgba(232, 121, 249, 0.2);
+        .profile-card:hover { border-left-color: var(--accent) !important; transform: translateX(2px); }
+        .profile-card.selected { border-left-color: var(--accent) !important; background: rgba(99,102,241,0.06); }
+
+        /* --- Session Timer --- */
+        .timer-idle { color: var(--text-muted); }
+        .timer-active { color: var(--emerald); }
+        .timer-paused { color: var(--amber); animation: blink 1.4s ease-in-out infinite; }
+        @keyframes blink { 0%,100% { opacity:1 } 50% { opacity:0.45 } }
+
+        /* --- Inline section dividers (no duplicate borders) --- */
+        .section-divider {
+        border: none;
+        border-top: 1px solid var(--border);
+        margin: 14px 0;
         }
 
-        /* Action Button Hover */
-        .btn-action-cmd {
-            transition: all 0.15s ease;
-            background-color: transparent;
+        /* --- Status dot --- */
+        .dot {
+        display: inline-block;
+        width: 7px; height: 7px;
+        border-radius: 50%;
+        margin-right: 5px;
         }
-        .btn-action-cmd:hover {
-            background-color: rgba(255,255,255,0.1);
-            transform: scale(1.05);
-        }
-        .btn-action-cmd:active {
-            transform: scale(0.95);
-        }
-        .btn-action-cmd.flash {
-            background-color: rgba(25, 135, 84, 0.3) !important;
-            border-color: #198754 !important;
+        .dot-online { background: var(--emerald); box-shadow: 0 0 5px rgba(16,185,129,0.5); }
+        .dot-offline { background: var(--rose); }
+        .dot-idle { background: var(--amber); }
+
+        /* --- Inline profile block in LLM Playground --- */
+        .profile-inline-block {
+        background: var(--bg-card-header);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-btn);
+        padding: 12px 14px;
+        margin-bottom: 14px;
         }
 
-        /* Active profile indicator */
-        .active-profile-badge {
-            font-size: 0.7em;
-            padding: 2px 8px;
-            border-radius: 10px;
-            background: linear-gradient(135deg, #6f42c1, #e879f9);
-            color: white;
-            font-weight: bold;
+        /* --- LLM Telemetry Status Card (inside Agent Config) --- */
+        .telemetry-card {
+        background: var(--bg-card-header);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-btn);
+        padding: 12px 14px;
+        margin-bottom: 14px;
+        font-size: 0.83rem;
+        }
+        .telemetry-card .tlm-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 3px 0;
+        color: var(--text-label);
+        }
+        .telemetry-card .tlm-val {
+        font-family: var(--font-mono);
+        color: var(--text);
+        font-weight: 500;
         }
 
-        /* Session Timer States */
-        .timer-idle { color: #6c757d; }
-        .timer-active { color: #20c997; text-shadow: 0 0 8px rgba(32, 201, 151, 0.3); }
-        .timer-paused { color: #ffc107; animation: pulse-timer 1.5s ease-in-out infinite; }
-        @keyframes pulse-timer {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
+        /* --- Scenario progress bar --- */
+        .progress { background: var(--bg-card-header); border-radius: 99px; height: 5px; }
+        .progress-bar { background: var(--accent); }
 
-        /* Unsaved changes dot */
+        /* --- Unsaved dot pulse --- */
         .unsaved-dot {
-            display: inline-block;
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #ffc107;
-            margin-left: 6px;
-            animation: pulse-dot 1.2s ease-in-out infinite;
-        }
-        @keyframes pulse-dot {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.3; }
+        display: inline-block; width: 7px; height: 7px;
+        border-radius: 50%; background: var(--amber);
+        margin-left: 6px;
+        animation: blink 1.2s ease-in-out infinite;
         }
 
-        /* Connection status dot */
+        /* --- Toast --- */
+        .OVARP-toast {
+        position: fixed; bottom: 24px; right: 24px;
+        z-index: 9999; padding: 11px 22px;
+        border-radius: var(--radius-btn); font-size: 0.86rem;
+        font-weight: 500; color: #fff;
+        opacity: 0; transform: translateY(16px);
+        transition: all 0.25s ease; pointer-events: none;
+        max-width: 380px; box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+        font-family: var(--font-sans);
+        }
+        .OVARP-toast.show { opacity: 1; transform: translateY(0); }
+        .OVARP-toast.success { background: #059669; }
+        .OVARP-toast.info { background: var(--accent); }
+        .OVARP-toast.warning { background: var(--amber); color: #000; }
+        .OVARP-toast.error { background: var(--rose); }
+
+        /* --- Avatar canvas --- */
+        .avatar-card { position: relative; background: #090d18; }
+        .avatar-card canvas { width:100%!important; height:100%!important; display:block; border-radius:0 0 var(--radius-card) var(--radius-card); }
+        .avatar-status { position:absolute; top:8px; right:8px; z-index:10; }
+
+        /* --- Revert link --- */
+        .revert-link { font-size: 0.75em; color: var(--accent); cursor:pointer; text-decoration:underline; opacity:0.8; }
+        .revert-link:hover { opacity:1; }
+
+        /* =============================================
+           OVARP additions on top of the design system:
+           elements the Cenfo console introduced.
+           ============================================= */
+
+        /* --- Connection dot (chat header) --- */
         .conn-dot {
             display: inline-block;
-            width: 8px;
-            height: 8px;
+            width: 8px; height: 8px;
             border-radius: 50%;
             margin-right: 6px;
         }
-        .conn-dot.connected { background: #20c997; box-shadow: 0 0 4px rgba(32, 201, 151, 0.5); }
-        .conn-dot.disconnected { background: #dc3545; }
+        .conn-dot.connected { background: var(--emerald); box-shadow: 0 0 4px rgba(16,185,129,0.5); }
+        .conn-dot.disconnected { background: var(--rose); }
 
-        /* Revert link */
-        .revert-link {
-            font-size: 0.75em;
-            color: #6ea8fe;
-            cursor: pointer;
-            text-decoration: underline;
-            opacity: 0.8;
-            transition: opacity 0.2s;
-        }
-        .revert-link:hover { opacity: 1; }
-
-        /* Help Banner */
-        .help-banner {
-            background: linear-gradient(135deg, #1a1a2e, #16213e);
-            border: 1px solid #0d6efd44;
-            border-radius: 8px;
-            padding: 16px 20px;
-            margin-bottom: 16px;
-            font-size: 0.88em;
-        }
-        .help-banner .help-toggle {
-            cursor: pointer;
-            user-select: none;
-        }
-        .help-banner ol {
-            margin-bottom: 0;
-            padding-left: 20px;
-        }
-        .help-banner ol li {
-            margin-bottom: 6px;
-        }
-        .help-banner kbd {
-            background: #333;
-            border: 1px solid #555;
-            border-radius: 3px;
-            padding: 1px 5px;
-            font-size: 0.85em;
-        }
-
-        #log-window {
-            height: 250px;
-            overflow-y: scroll;
-            background: #000;
-            padding: 10px;
-            font-family: monospace;
-            font-size: 0.85em;
-            border: 1px solid #333;
-        }
-
-        .log-sent {
-            color: #0dcaf0;
-        }
-
-        .log-recv {
-            color: #20c997;
-        }
-
-        .log-err {
-            color: #dc3545;
-        }
-
-        /* Chat Styles */
-        .chat-container {
-            height: 400px;
-            overflow-y: auto;
-            background: #1e1e1e;
-            padding: 15px;
-            border: 1px solid #333;
-            border-radius: 5px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .chat-bubble {
-            max-width: 80%;
-            padding: 10px 15px;
-            border-radius: 15px;
-            font-size: 0.95em;
-            word-wrap: break-word;
-        }
-
-        .msg-user {
-            background-color: #0d6efd;
-            color: white;
-            align-self: flex-end;
-            border-bottom-right-radius: 2px;
-        }
-
-        .msg-agent {
-            background-color: #333;
-            color: #f8f9fa;
-            align-self: flex-start;
-            border-bottom-left-radius: 2px;
-            border: 1px solid #444;
-        }
-
-        /* Avatar Styles */
-        .avatar-card {
-            position: relative;
-            background: #1a1a2e;
-        }
-
-        .avatar-card canvas {
-            width: 100% !important;
-            height: 100% !important;
-            display: block;
-            border-radius: 0 0 5px 5px;
-        }
-
-        .avatar-status {
-            position: absolute;
-            top: 8px;
-            right: 8px;
-            z-index: 10;
-        }
-
+        /* --- Action tag on an agent reply --- */
         .action-tag {
-            font-size: 0.75em;
-            padding: 2px 6px;
+            font-size: 0.72rem;
+            padding: 2px 7px;
             margin-right: 4px;
-            border-radius: 10px;
-            background-color: #ffc107;
-            color: black;
-            font-weight: bold;
-            display: inline-block;
             margin-top: 5px;
+            border-radius: var(--radius-sm);
+            background: rgba(245,158,11,0.14);
+            color: #fcd34d;
+            border: 1px solid rgba(245,158,11,0.22);
+            font-family: var(--font-mono);
+            display: inline-block;
+        }
+
+        /* --- Applied-profile pill --- */
+        .active-profile-badge {
+            font-size: 0.7rem;
+            padding: 2px 9px;
+            border-radius: 999px;
+            background: rgba(232,121,249,0.14);
+            color: #f0abfc;
+            border: 1px solid rgba(232,121,249,0.22);
+            font-family: var(--font-mono);
+        }
+
+        /* --- WoZ command buttons acknowledge a dispatch --- */
+        .btn-action-cmd:active { transform: scale(0.96); }
+        .btn-action-cmd.flash {
+            background: rgba(16,185,129,0.18) !important;
+            border-color: var(--emerald) !important;
+            color: #6ee7b7 !important;
+        }
+
+        /* --- Per-reply latency line under a chat bubble --- */
+        .latency-line {
+            font-family: var(--font-mono);
+            font-size: 0.68rem;
+            color: var(--text-muted);
+        }
+
+        /* --- Key store rows --- */
+        .key-row {
+            background: var(--bg-card-header);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-btn);
+            padding: 14px 16px;
+            margin-bottom: 14px;
+        }
+
+        /* --- Small buttons in dense toolbars --- */
+        .btn-xs {
+            font-size: 0.7rem;
+            padding: 3px 9px;
+            border-radius: var(--radius-sm);
         }
     </style>
-</head>
 
 <body>
 
-    <div class="container mt-4">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h2 class="mb-0">🪄 OpenVirtualAgentResearchPlatform <span class="badge bg-primary fs-6">WoZ Console</span></h2>
-            <a href="/player" target="_blank" class="btn btn-sm btn-outline-info" rel="noopener">
-                🧍 Open Player
-            </a>
+    <div class="container-fluid px-4 mt-3">
+
+        <!-- Top Header -->
+        <div class="brand-header">
+            <div class="d-flex align-items-center gap-3">
+                <span class="brand-logo">OVARP</span>
+                <span class="brand-version mono-font">WIZARD OF OZ CONSOLE</span>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <a href="/player" target="_blank" class="btn btn-ghost btn-sm mono-font" rel="noopener"
+                    title="Open the built-in participant page in a new tab">OPEN PLAYER</a>
+                <a id="web-client-link" href="#" target="_blank"
+                    class="btn btn-ghost btn-sm mono-font d-none" rel="noopener"
+                    title="Open the published Unity WebGL client in a new tab">WEB CLIENT</a>
+                <button id="theme-toggle-btn" title="Toggle light / dark mode">
+                    <span id="theme-toggle-label">THEME: DARK</span>
+                </button>
+            </div>
         </div>
 
         <!-- Collapsible Getting Started Banner -->
         <div class="help-banner" id="help-banner">
-            <div class="d-flex justify-content-between align-items-center help-toggle" onclick="document.getElementById('help-body').classList.toggle('d-none'); this.querySelector('.chevron').textContent = document.getElementById('help-body').classList.contains('d-none') ? '▶' : '▼';">
-                <span>💡 <strong>Getting Started</strong> <span class="text-muted">— Quick guide for new users</span></span>
-                <span class="chevron text-muted">▼</span>
+            <div class="d-flex justify-content-between align-items-center help-toggle"
+                onclick="document.getElementById('help-body').classList.toggle('d-none');">
+                <span style="font-size:0.82rem; font-weight:600; color:var(--text-label);">[INFO] Getting Started</span>
+                <span style="color:var(--text-muted); font-size:0.8rem;">click to expand</span>
             </div>
-            <div id="help-body" class="mt-2">
-                <p class="mb-2" style="font-size:.92em">
+            <div id="help-body" class="mt-2 d-none">
+                <p class="mb-2">
                     OVARP runs studies with a conversational virtual agent. You script the agent's
                     persona, let a participant talk to it on their own device, steer it live if you
                     need to, and take away a timestamped log of everything that happened.
-                    <span class="text-muted">Every tab below is one step of that.</span>
+                    <span style="color:var(--text-muted)">Every tab below is one step of that.</span>
                 </p>
                 <ol>
-                    <li><strong>Build the agent</strong> in <span class="text-info">🧠 Playground</span> — pick the
-                        provider and voice, write the prompt or apply a persona, then talk to it yourself
-                        to hear how it responds.</li>
-                    <li><strong>Save it as a persona</strong> in <span style="color:#e879f9">👤 Profiles</span> so you can
-                        switch between experimental conditions in one click, and reuse them across sessions.</li>
-                    <li><strong>Run the session</strong> in <span class="text-success">🧪 Study Session</span> — enter a
-                        Participant ID, hit <span class="text-success">▶ Start</span>, and drop
-                        <span class="text-warning">Event Markers</span> as things happen. You can correct a marker
-                        or add notes afterwards.</li>
-                    <li><strong>Intervene when you need to</strong> from <span class="text-white">🎮 Live Control</span> —
-                        make the agent gesture, change emotion or say an exact line, Wizard-of-Oz style.
-                        It is also where you find the address the participant's client connects to.</li>
-                    <li><strong>Collect the feedback</strong> in <span style="color:#7dd3fc">📋 Feedback</span> — send SUS,
-                        UEQ or your own questions to the participant's phone, then export everything as CSV
-                        from the Live Control tab.</li>
+                    <li><strong>Build the agent</strong> in <strong>LLM Playground</strong>: pick the provider and
+                        voice, write the prompt or apply a persona, then talk to it yourself to hear how it responds.</li>
+                    <li><strong>Save it as a persona</strong> in <strong>Profiles</strong> so you can switch between
+                        experimental conditions in one click, and reuse them across sessions.</li>
+                    <li><strong>Run the session</strong> in <strong>Study Session</strong>: enter a Participant ID,
+                        press Start, and drop Event Markers as things happen. You can reclassify a marker or add
+                        notes afterwards.</li>
+                    <li><strong>Intervene when you need to</strong> from <strong>WoZ Control</strong>: make the agent
+                        gesture, change emotion or say an exact line. It is also where you find the address the
+                        participant's client connects to.</li>
+                    <li><strong>Collect the feedback</strong> in <strong>Surveys</strong>: send SUS, UEQ or your own
+                        questions to the participant's phone, then export everything as CSV.</li>
                 </ol>
-                <small class="text-muted">Keyboard: <kbd>Enter</kbd> sends chat messages and markers. <kbd>Hold 🎤</kbd> for voice input. <a href="#" class="text-muted" onclick="event.preventDefault(); document.getElementById('help-banner').style.display='none'; localStorage.setItem('OVARP_hide_help','1');">Dismiss permanently</a></small>
+                <small style="color:var(--text-muted)">Keyboard: <kbd>Enter</kbd> sends chat messages and markers.
+                    Hold the mic button for voice input.
+                    <a href="#" style="color:var(--text-muted)"
+                        onclick="event.preventDefault(); document.getElementById('help-banner').style.display='none'; localStorage.setItem('OVARP_hide_help','1');">Dismiss
+                        permanently</a></small>
             </div>
         </div>
 
-        <!-- Bootstrap Nav Tabs (ordered by research workflow) -->
-        <ul class="nav nav-tabs mb-3 border-secondary" id="wozTabs" role="tablist">
-            <li class="nav-item" role="presentation">
-                <button class="nav-link active text-white bg-dark border-secondary border-bottom-0" id="llm-tab"
-                    data-bs-toggle="tab" data-bs-target="#llm-panel" type="button" role="tab"
-                    aria-controls="llm-panel" aria-selected="true"
-                    title="Configure the agent and talk to it">🧠 Playground</button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link border-secondary" id="profiles-tab" data-bs-toggle="tab"
-                    data-bs-target="#profiles-panel" type="button" role="tab" aria-controls="profiles-panel"
-                    aria-selected="false" style="color: #e879f9;"
-                    title="Define and apply agent personas">👤 Profiles</button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link text-success border-secondary" id="session-tab" data-bs-toggle="tab"
-                    data-bs-target="#session-panel" type="button" role="tab" aria-controls="session-panel"
-                    aria-selected="false" title="Run a participant session">🧪 Study Session</button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link border-secondary" id="xr-tab" data-bs-toggle="tab"
-                    data-bs-target="#xr-panel" type="button" role="tab" aria-controls="xr-panel"
-                    aria-selected="false"
-                    title="Drive the agent live during a session: emotions, gestures, movement">🎮 Live Control</button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link border-secondary" id="surveys-tab" data-bs-toggle="tab"
-                    data-bs-target="#surveys-panel" type="button" role="tab" aria-controls="surveys-panel"
-                    aria-selected="false" style="color: #7dd3fc;"
-                    title="Send SUS, UEQ and open questions to the participant">📋 Feedback</button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link text-warning border-secondary" id="logs-tab" data-bs-toggle="tab"
-                    data-bs-target="#logs-panel" type="button" role="tab" aria-controls="logs-panel"
-                    aria-selected="false" title="Server and browser logs">🖥️ System Logs</button>
-            </li>
-        </ul>
+        <!-- Segmented Pill Navigation Bar -->
+        <div class="pill-nav-container">
+            <ul class="nav nav-pills" id="wozTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="overview-tab" data-bs-toggle="tab"
+                        data-bs-target="#overview-panel" type="button" role="tab" aria-controls="overview-panel"
+                        aria-selected="true" title="Where to start and how the server is doing">(01) OVERVIEW</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="llm-tab" data-bs-toggle="tab" data-bs-target="#llm-panel"
+                        type="button" role="tab" aria-controls="llm-panel" aria-selected="false"
+                        title="Configure the agent and talk to it">(02) LLM PLAYGROUND</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="profiles-tab" data-bs-toggle="tab" data-bs-target="#profiles-panel"
+                        type="button" role="tab" aria-controls="profiles-panel" aria-selected="false"
+                        title="Define and apply agent personas">(03) PROFILES</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="session-tab" data-bs-toggle="tab" data-bs-target="#session-panel"
+                        type="button" role="tab" aria-controls="session-panel" aria-selected="false"
+                        title="Run a participant session">(04) STUDY SESSION</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="xr-tab" data-bs-toggle="tab" data-bs-target="#xr-panel"
+                        type="button" role="tab" aria-controls="xr-panel" aria-selected="false"
+                        title="Drive the agent live: emotions, gestures, movement">(05) WOZ CONTROL</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="surveys-tab" data-bs-toggle="tab" data-bs-target="#surveys-panel"
+                        type="button" role="tab" aria-controls="surveys-panel" aria-selected="false"
+                        title="Send SUS, UEQ and open questions to the participant">(06) SURVEYS</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="keystore-tab" data-bs-toggle="tab" data-bs-target="#keystore-panel"
+                        type="button" role="tab" aria-controls="keystore-panel" aria-selected="false"
+                        title="Configure provider credentials">(07) API KEY STORE</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="logs-tab" data-bs-toggle="tab" data-bs-target="#logs-panel"
+                        type="button" role="tab" aria-controls="logs-panel" aria-selected="false"
+                        title="Server and browser logs">(08) SYSTEM LOGS</button>
+                </li>
+            </ul>
+        </div>
 
         <!-- Tab Contents -->
         <div class="tab-content" id="wozTabsContent">
 
+            <!-- TAB 1: OVERVIEW -->
+            <div class="tab-pane fade show active" id="overview-panel" role="tabpanel"
+                aria-labelledby="overview-tab">
+                <div class="row">
+                    <!-- Quick-Start Action Launchers -->
+                    <div class="col-md-5">
+                        <div class="card">
+                            <div class="card-header">Quick-Start Launchers</div>
+                            <div class="card-body">
+                                <p class="small mb-3" style="color:var(--text-muted);">
+                                    A study runs top to bottom. Start wherever you left off:
+                                </p>
+                                <div class="d-grid gap-2">
+                                    <button class="btn btn-launcher" onclick="switchTab('llm-tab')">
+                                        <strong>LLM Playground</strong>: pick a provider, write the prompt, talk to
+                                        the agent
+                                    </button>
+                                    <button class="btn btn-launcher" onclick="switchTab('profiles-tab')">
+                                        <strong>Agent Profiles</strong>: create, edit and swap persona configurations
+                                    </button>
+                                    <button class="btn btn-launcher" onclick="switchTab('session-tab')">
+                                        <strong>Study Session</strong>: start participant tracking and log markers
+                                    </button>
+                                    <button class="btn btn-launcher" onclick="switchTab('xr-tab')">
+                                        <strong>WoZ Control</strong>: drive the agent live during a session
+                                    </button>
+                                    <button class="btn btn-launcher" onclick="switchTab('surveys-tab')">
+                                        <strong>Surveys</strong>: send SUS, UEQ and open questions to the participant
+                                    </button>
+                                    <button class="btn btn-launcher" onclick="switchTab('keystore-tab')">
+                                        <strong>API Key Store</strong>: configure OpenAI, Gemini and ElevenLabs keys
+                                    </button>
+                                </div>
+                                <hr class="section-divider">
+                                <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">
+                                    Two ways for someone to talk to the agent:
+                                </div>
+
+                                <div class="d-flex justify-content-between align-items-start gap-3">
+                                    <div>
+                                        <strong style="font-size:0.86rem;">Player</strong>
+                                        <div style="font-size:0.78rem; color:var(--text-muted); margin-top:2px;">
+                                            A plain page on this server. Type or hold to talk, hear the reply, drop
+                                            a marker. No 3D scene, no build. Use it to check the pipeline works.
+                                        </div>
+                                    </div>
+                                    <a href="/player" target="_blank" rel="noopener"
+                                        class="btn btn-ghost btn-sm" style="white-space:nowrap;">Open Player</a>
+                                </div>
+
+                                <div id="ov-web-client-row"
+                                    class="d-flex justify-content-between align-items-start gap-3 mt-3 d-none">
+                                    <div>
+                                        <strong style="font-size:0.86rem;">Web Client</strong>
+                                        <div style="font-size:0.78rem; color:var(--text-muted); margin-top:2px;">
+                                            The published Unity WebGL build, with the embodied agent. What a
+                                            participant actually uses. Served over HTTPS, so it needs a
+                                            <code>wss://</code> address, so run a tunnel rather than plain localhost.
+                                        </div>
+                                        <div id="ov-web-client-url" class="mono-font"
+                                            style="font-size:0.72rem; color:var(--text-muted); margin-top:4px;"></div>
+                                    </div>
+                                    <a id="ov-web-client-link" href="#" target="_blank" rel="noopener"
+                                        class="btn btn-ghost btn-sm" style="white-space:nowrap;">Open Web Client</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Telemetry & System Status -->
+                    <div class="col-md-7">
+                        <div class="card">
+                            <div class="card-header">
+                                <span>Server Telemetry &amp; System Status</span>
+                                <button class="btn btn-ghost btn-sm mono-font"
+                                    onclick="refreshOverview()">Refresh</button>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-sm-6">
+                                        <div class="metric-box">
+                                            <div class="metric-label">Server Connection</div>
+                                            <div id="ov-server-status" class="metric-value"
+                                                style="color:var(--text-muted);">Connecting…</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <div class="metric-box">
+                                            <div class="metric-label">Active Session</div>
+                                            <div id="ov-session-status" class="metric-value"
+                                                style="color:var(--text-muted);">No Session</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <div class="metric-box">
+                                            <div class="metric-label">Active LLM Provider</div>
+                                            <div id="ov-llm-provider" class="metric-value">—</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <div class="metric-box">
+                                            <div class="metric-label">API Key Storage</div>
+                                            <div id="ov-key-status" class="metric-value"
+                                                style="color:var(--text-muted);">[NOT CONFIGURED]</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <div class="metric-box">
+                                            <div class="metric-label">Connected Clients</div>
+                                            <div id="ov-client-count" class="metric-value">0</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <div class="metric-box">
+                                            <div class="metric-label">Active Persona</div>
+                                            <div id="ov-profile" class="metric-value"
+                                                style="color:var(--text-muted);">None</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <hr class="section-divider">
+
+                                <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap">
+                                    <div>
+                                        <strong style="font-size:0.86rem;">Session Telemetry Export</strong>
+                                        <div style="font-size:0.78rem; color:var(--text-muted); margin-top:2px;">
+                                            Logged session events and markers as a structured CSV
+                                        </div>
+                                    </div>
+                                    <div class="d-flex gap-2">
+                                        <button class="btn btn-ghost btn-sm"
+                                            onclick="window.open('/api/session/export/csv','_blank')">Markers
+                                            CSV</button>
+                                        <button class="btn btn-ghost btn-sm"
+                                            onclick="window.open('/api/export','_blank')">Full Telemetry CSV</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
             <!-- TAB: REMOTE AGENT CONTROL (appears as 1st tab, active by default) -->
             <div class="tab-pane fade" id="xr-panel" role="tabpanel" aria-labelledby="xr-tab">
 
@@ -383,7 +896,7 @@
                     <!-- Settings Panel -->
                     <div class="col-md-4">
                         <div class="card">
-                            <div class="card-header">🎯 Target Selection</div>
+                            <div class="card-header">Target Selection</div>
                             <div class="card-body">
                                 <div class="mb-3">
                                     <label class="form-label">Device ID</label>
@@ -392,6 +905,14 @@
                                 <div class="mb-3">
                                     <label class="form-label">Agent ID</label>
                                     <select id="target-agent" class="form-select"></select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label" style="color:#e879f9" for="lc-profile-select">Agent Persona</label>
+                                    <select id="lc-profile-select" class="form-select">
+                                        <option value="">No profile (global prompt)</option>
+                                    </select>
+                                    <small class="text-muted mt-1 d-block">Applies to the agent above right away.</small>
+                                    <small id="lc-profile-hint" class="text-muted mt-1 d-block"></small>
                                 </div>
                                 <hr class="border-secondary">
                                 <div>
@@ -402,14 +923,14 @@
 
                         <!-- XR Connection Info -->
                         <div class="card border-info">
-                            <div class="card-header">🥽 XR Connection</div>
+                            <div class="card-header">XR Connection</div>
                             <div class="card-body">
                                 <small class="text-muted d-block mb-1">Server IP to enter in the XREAL / Unity app:</small>
                                 <div class="input-group mb-2">
                                     <input id="server-ip" type="text" class="form-control fw-bold fs-5 text-info"
                                         value="…" readonly aria-label="Server LAN IP address">
                                     <button id="copy-ip-btn" class="btn btn-outline-info" title="Copy IP"
-                                        aria-label="Copy server IP to clipboard">📋</button>
+                                        aria-label="Copy server IP to clipboard">Copy</button>
                                 </div>
                                 <small class="text-muted d-block">
                                     WebSocket: <code id="conn-ws-port">8000</code> ·
@@ -426,7 +947,7 @@
                                 </button>
                                 <small id="open-player-hint" class="text-muted d-block mt-1"></small>
                                 <hr class="border-secondary my-2">
-                                <small class="text-muted d-block mb-1"><strong>🌐 Connect the published Web Client</strong>
+                                <small class="text-muted d-block mb-1"><strong>Connect the published Web Client</strong>
                                     (Unity WebGL on Vercel):</small>
                                 <ol class="text-muted small ps-3 mb-2">
                                     <li>Set a real API key in <code>.env</code>, then start the server so it's
@@ -445,23 +966,12 @@
                             </div>
                         </div>
 
-                        <div class="card">
-                            <div class="card-header">📢 Direct TTS Message</div>
-                            <div class="card-body">
-                                <textarea id="direct-msg" class="form-control mb-2" rows="3"
-                                    placeholder="Type what the agent should say..." aria-label="Direct TTS message text"></textarea>
-                                <button id="send-msg-btn" class="btn btn-primary w-100" aria-label="Send text directly to TTS">🔊 Speak This Text</button>
-                                <small class="text-muted mt-1 d-block">Bypasses the LLM and sends directly to
-                                    TTS.</small>
-                            </div>
-                        </div>
-
                     </div>
 
                     <!-- Dynamic Actions Panel -->
                     <div class="col-md-8">
                         <div class="card">
-                            <div class="card-header">⚡ Dynamic Actions</div>
+                            <div class="card-header">Dynamic Actions</div>
                             <div class="card-body" id="dynamic-actions-container">
                                 <div class="text-center text-muted col-12 my-5">
                                     <div class="spinner-border spinner-border-sm" role="status"></div> Loading
@@ -471,8 +981,19 @@
                         </div>
 
                         <div class="card">
+                            <div class="card-header">Direct TTS Message</div>
+                            <div class="card-body">
+                                <textarea id="direct-msg" class="form-control mb-2" rows="3"
+                                    placeholder="Type what the agent should say..." aria-label="Direct TTS message text"></textarea>
+                                <button id="send-msg-btn" class="btn btn-action-primary w-100" aria-label="Send text directly to TTS">Speak This Text</button>
+                                <small class="text-muted mt-1 d-block">Bypasses the LLM and sends directly to
+                                    TTS.</small>
+                            </div>
+                        </div>
+
+                        <div class="card">
                             <div class="card-header d-flex justify-content-between align-items-center">
-                                <span>📡 Telemetry & Router Logs</span>
+                                <span>Telemetry & Router Logs</span>
                                 <button id="export-btn" class="btn btn-sm btn-outline-success">Export Telemetry
                                     CSV</button>
                             </div>
@@ -485,15 +1006,46 @@
             </div> <!-- End XR Control -->
 
             <!-- TAB: LLM PLAYGROUND (appears as 4th tab) -->
-            <div class="tab-pane fade show active" id="llm-panel" role="tabpanel" aria-labelledby="llm-tab">
+            <div class="tab-pane fade" id="llm-panel" role="tabpanel" aria-labelledby="llm-tab">
                 <div class="row">
                     <!-- LLM Configuration -->
                     <div class="col-md-3">
                         <div class="card">
-                            <div class="card-header">🧠 Agent Configuration</div>
+                            <div class="card-header">Agent Configuration</div>
                             <div class="card-body">
+                                <!-- Live pipeline state: which provider is actually answering -->
+                                <div class="telemetry-card">
+                                    <div class="tlm-row">Active Provider: <span id="llm-status-provider"
+                                            class="tlm-val badge badge-indigo">—</span></div>
+                                    <div class="tlm-row">Model ID: <span id="llm-status-model"
+                                            class="tlm-val badge badge-slate">—</span></div>
+                                    <div class="tlm-row">Speech: <span id="llm-status-tts"
+                                            class="tlm-val badge badge-slate">—</span></div>
+                                    <hr class="section-divider">
+                                    <div style="font-size:0.72rem; color:var(--text-muted); margin-bottom:6px;">
+                                        LAST REPLY LATENCY (ms)</div>
+                                    <div class="d-flex gap-2">
+                                        <div class="metric-box flex-fill text-center" style="padding:8px;">
+                                            <div class="metric-label">STT</div>
+                                            <div class="metric-value" id="latency-stt">—</div>
+                                        </div>
+                                        <div class="metric-box flex-fill text-center" style="padding:8px;">
+                                            <div class="metric-label">LLM</div>
+                                            <div class="metric-value" id="latency-llm">—</div>
+                                        </div>
+                                        <div class="metric-box flex-fill text-center" style="padding:8px;">
+                                            <div class="metric-label">TTS</div>
+                                            <div class="metric-value" id="latency-tts">—</div>
+                                        </div>
+                                        <div class="metric-box flex-fill text-center" style="padding:8px;">
+                                            <div class="metric-label">Total</div>
+                                            <div class="metric-value" id="latency-total">—</div>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <div class="mb-3">
-                                    <label class="form-label text-info">Active LLM Provider</label>
+                                    <label class="form-label">Active LLM Provider</label>
                                     <select id="llm-provider-select" class="form-select"></select>
                                     <div id="provider-health" class="mt-1 d-flex gap-2 flex-wrap"></div>
                                 </div>
@@ -504,26 +1056,31 @@
                                         <select id="pg-profile-select" class="form-select">
                                             <option value="">No profile (global prompt)</option>
                                         </select>
+                                        <button id="pg-new-profile-btn" class="btn btn-outline-success" type="button"
+                                            onclick="openProfileEditor()" title="Create a new persona"
+                                            aria-label="Create a new persona">New</button>
                                     </div>
-                                    <small class="text-muted mt-1 d-block">Selecting a persona applies it right away. Create new personas in the 👤 Profiles tab.</small>
+                                    <small class="text-muted mt-1 d-block">Selecting a persona applies it right away. New creates one without leaving this tab.</small>
                                     <small id="pg-profile-hint" class="text-muted mt-1 d-block"></small>
                                 </div>
 
                                 <div class="mb-3">
-                                    <label class="form-label text-warning" for="system-prompt">System Prompt (Personality)</label>
+                                    <label class="form-label" for="system-prompt">System Prompt (Personality)</label>
                                     <div id="prompt-override-warning" class="alert alert-warning py-2 px-2 mb-2 d-none"
                                         role="status" style="font-size:.8em"></div>
-                                    <textarea id="system-prompt" class="form-control text-warning" rows="10"
+                                    <textarea id="system-prompt" class="form-control" rows="10"
                                         style="font-family: monospace; font-size: 0.85em;"></textarea>
                                     <small class="text-muted mt-1 d-block">
                                         Applies to agents without a profile. A profile carries its own prompt.
                                     </small>
                                 </div>
-                                <button id="save-llm-btn" class="btn btn-success w-100">💾 Save &amp; Apply</button>
+                                <button id="save-llm-btn" class="btn btn-action-primary w-100">Save &amp; Apply</button>
                                 <div class="d-flex gap-2 mt-2">
-                                    <button id="tts-toggle-btn" class="btn btn-outline-warning flex-fill">🔊 TTS
-                                        ON</button>
-                                    <button id="clear-history-btn" class="btn btn-outline-danger flex-fill">🗑️ Reset
+                                    <button id="tts-toggle-btn" class="btn btn-ghost flex-fill">TTS ON</button>
+                                    <button id="stop-audio-btn" class="btn btn-ghost flex-fill"
+                                        title="Stop what the agent is saying and drop the queued sentences">Stop
+                                        Audio</button>
+                                    <button id="clear-history-btn" class="btn btn-ghost flex-fill">Reset
                                         Agent</button>
                                 </div>
                                 <!-- TTS Provider Picker -->
@@ -550,7 +1107,7 @@
                                 <hr class="border-secondary my-3">
                                 <div>
                                     <a href="#" class="text-info text-decoration-none" onclick="event.preventDefault(); document.getElementById('custom-provider-form').classList.toggle('d-none'); this.querySelector('.cp-chevron').textContent = document.getElementById('custom-provider-form').classList.contains('d-none') ? '▶' : '▼';">
-                                        <span class="cp-chevron">▶</span> ➕ Register Custom Endpoint
+                                        <span class="cp-chevron">▶</span> Register Custom Endpoint
                                     </a>
                                     <div id="custom-provider-form" class="d-none mt-2">
                                         <div class="mb-2">
@@ -576,8 +1133,8 @@
                                             </div>
                                         </div>
                                         <div class="d-flex gap-2">
-                                            <button class="btn btn-outline-info btn-sm flex-fill" id="cp-test-btn" title="Test connectivity before registering">🔗 Test</button>
-                                            <button class="btn btn-success btn-sm flex-fill" id="cp-register-btn" title="Register this endpoint">📝 Register</button>
+                                            <button class="btn btn-outline-info btn-sm flex-fill" id="cp-test-btn" title="Test connectivity before registering">Test</button>
+                                            <button class="btn btn-success btn-sm flex-fill" id="cp-register-btn" title="Register this endpoint">Register</button>
                                         </div>
                                         <small id="cp-status" class="text-muted mt-1 d-block"></small>
                                     </div>
@@ -592,7 +1149,7 @@
                     <div class="col-md-5">
                         <div class="card">
                             <div class="card-header d-flex justify-content-between align-items-center">
-                                <span>💬 Simulated Conversation</span>
+                                <span>Simulated Conversation</span>
                                 <span id="llm-conn-status"><span class="conn-dot disconnected"></span><small class="text-muted">Offline</small></span>
                             </div>
                             <div class="card-body p-0">
@@ -605,7 +1162,7 @@
                                 <div class="p-3 border-top border-secondary" style="background: #2a2a2a;">
                                     <div class="input-group">
                                         <button class="btn btn-danger" id="mic-btn" style="width:50px; font-size:1.2em;"
-                                            title="Hold to Talk">🎤</button>
+                                            title="Hold to Talk"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg></button>
                                         <input type="text" id="chat-input" class="form-control"
                                             placeholder="Type or hold Mic to talk..." aria-label="Chat message input">
                                         <button class="btn btn-primary" id="chat-send-btn" title="Send message to LLM (Enter)">Send (Trigger LLM)</button>
@@ -615,8 +1172,8 @@
                                         <select id="stt-provider-select" class="form-select form-select-sm"
                                             style="width: auto; flex: 0 0 auto;"
                                             title="Where speech is turned into text">
-                                            <option value="webspeech" selected>🌐 Browser (WebSpeech, free)</option>
-                                            <option value="server">☁️ Server (<span id="stt-server-name">…</span>)</option>
+                                            <option value="webspeech" selected>Browser (WebSpeech, free)</option>
+                                            <option value="server">Server (<span id="stt-server-name">…</span>)</option>
                                         </select>
                                         <small id="stt-status" class="text-muted"></small>
                                     </div>
@@ -629,7 +1186,7 @@
                     <div class="col-md-4">
                         <div class="card avatar-card">
                             <div class="card-header d-flex justify-content-between align-items-center">
-                                <span>🧑 Embodied Agent</span>
+                                <span>Embodied Agent</span>
                                 <span id="avatar-status" class="badge bg-secondary avatar-status">Loading...</span>
                             </div>
                             <div class="p-2 border-bottom border-secondary" style="background: #1e1e30;">
@@ -638,7 +1195,7 @@
                                         <option value="">Loading models…</option>
                                     </select>
                                     <label class="btn btn-sm btn-outline-info" style="white-space:nowrap;">
-                                        📂 Upload
+                                        Upload
                                         <input type="file" id="avatar-upload" accept=".vrm" style="display:none">
                                     </label>
                                 </div>
@@ -659,7 +1216,7 @@
                         <!-- Session Control Card -->
                         <div class="card" style="border-color: #198754; background: linear-gradient(135deg, #1a2e1a, #1e2e1e);">
                             <div class="card-header d-flex justify-content-between align-items-center" style="background: #19875422; border-color: #19875455;">
-                                <span>🧪 Experiment Session</span>
+                                <span>Experiment Session</span>
                                 <span id="session-status-badge" class="badge bg-secondary">No Session</span>
                             </div>
                             <div class="card-body">
@@ -671,7 +1228,7 @@
                                     </div>
                                     <!-- Timer (enlarged, color-coded) -->
                                     <span id="session-timer-wrap" class="timer-idle" style="font-family: 'Courier New', monospace;">
-                                        ⏱️ <span id="session-timer" style="font-size: 1.6em; font-weight: bold;">00:00</span>
+                                        <span id="session-timer" style="font-size: 1.6em; font-weight: bold;">00:00</span>
                                     </span>
                                 </div>
                                 <!-- Session Controls -->
@@ -682,13 +1239,17 @@
                                     <button id="session-end-btn" class="btn btn-outline-danger" onclick="endSession()" disabled>⏹ End</button>
                                 </div>
                                 <!-- Marker Count -->
-                                <span id="session-marker-count" class="badge bg-dark" style="display:none;">📌 0 markers</span>
+                                <span id="session-marker-count" class="badge bg-dark" style="display:none;">0 markers</span>
                             </div>
                         </div>
 
                         <!-- Event Marker Card -->
                         <div class="card" id="marker-card">
-                            <div class="card-header" style="color: #ffc107;">📌 Event Markers</div>
+                            <div class="card-header">
+                                <span>Event Markers &amp; Reclassification</span>
+                                <button class="btn btn-ghost btn-sm" data-bs-toggle="modal"
+                                    data-bs-target="#createMarkerPresetModal">Add Preset</button>
+                            </div>
                             <div class="card-body">
                                 <!-- Preset Quick-Fire Buttons -->
                                 <div id="marker-presets" class="d-flex flex-wrap gap-2 mb-3"></div>
@@ -698,7 +1259,9 @@
                                         <button class="btn btn-warning btn-sm" onclick="addMarker()" title="Add timestamped marker (Enter)">Mark</button>
                                     </div>
                                 </div>
-                                <small class="text-muted mt-1 d-block">Use a preset above or type a custom label. Agents and devices can also fire markers programmatically.</small>
+                                <small class="text-muted mt-1 d-block">Use a preset above or type a custom
+                                    label. Click the edit icon on any marker below to reclassify it or add notes.
+                                    Agents and devices can also fire markers programmatically.</small>
                                 <!-- Marker History -->
                                 <div id="marker-history" class="mt-3" style="max-height: 300px; overflow-y: auto;"></div>
                             </div>
@@ -710,20 +1273,20 @@
                         <!-- Agent Profile Shortcut Card -->
                         <div class="card" style="border-color: #e879f9;">
                             <div class="card-header d-flex justify-content-between align-items-center" style="background: #e879f922; border-color: #e879f955;">
-                                <span>👤 Agent Profile</span>
+                                <span>Agent Profile</span>
                                 <span id="active-profile-session-badge" class="badge bg-secondary">None</span>
                             </div>
                             <div class="card-body">
                                 <div class="d-flex align-items-center gap-3">
                                     <span class="text-muted" style="font-size: 0.9em;">Configure agent persona, voice, and personality via the Profiles tab.</span>
-                                    <button class="btn btn-sm btn-outline-light" onclick="document.getElementById('profiles-tab').click();">👤 Open Profiles</button>
+                                    <button class="btn btn-sm btn-outline-light" onclick="document.getElementById('profiles-tab').click();">Open Profiles</button>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Session Info Card -->
                         <div class="card">
-                            <div class="card-header">📋 Session Summary</div>
+                            <div class="card-header">Session Summary</div>
                             <div class="card-body">
                                 <div id="session-summary-content" class="text-muted">
                                     <small>Start a session to see live details here.</small>
@@ -734,8 +1297,12 @@
                         <!-- Scenario Runner Card -->
                         <div class="card" style="border-color: #fd7e14;">
                             <div class="card-header d-flex justify-content-between align-items-center" style="background: #fd7e1422; border-color: #fd7e1455;">
-                                <span>🎬 Scenario Runner</span>
-                                <span id="scenario-status-badge" class="badge bg-secondary">No Scenario</span>
+                                <span>Scenario Runner</span>
+                                <div class="d-flex align-items-center gap-2">
+                                    <button class="btn btn-ghost btn-sm" data-bs-toggle="modal"
+                                        data-bs-target="#createScenarioModal">New Scenario</button>
+                                    <span id="scenario-status-badge" class="badge bg-secondary">No Scenario</span>
+                                </div>
                             </div>
                             <div class="card-body">
                                 <!-- Scenario Selection -->
@@ -743,7 +1310,7 @@
                                     <select id="scenario-select" class="form-select form-select-sm" style="max-width: 280px;">
                                         <option value="">Select a scenario...</option>
                                     </select>
-                                    <button class="btn btn-sm btn-outline-warning" onclick="loadScenario()">🎬 Load</button>
+                                    <button class="btn btn-sm btn-outline-warning" onclick="loadScenario()">Load</button>
                                 </div>
                                 <!-- Active Step Display -->
                                 <div id="scenario-active-step" style="display: none;">
@@ -778,16 +1345,28 @@
                 <div class="row">
                     <div class="col-12">
                         <div class="card">
-                            <div class="card-header d-flex justify-content-between align-items-center">
-                                <span>Live System Logs & Web Errors</span>
-                                <div>
-                                    <button class="btn btn-sm btn-outline-info me-2"
-                                        onclick="navigator.clipboard.writeText(document.getElementById('syslogs-window').innerText).then(()=>{this.textContent='✅ Copied!'; setTimeout(()=>this.textContent='📋 Copy All', 1500)})">📋
-                                        Copy
-                                        All</button>
-                                    <button class="btn btn-sm btn-outline-danger"
-                                        onclick="document.getElementById('syslogs-window').innerHTML=''">Clear
-                                        Console</button>
+                            <div class="card-header flex-wrap gap-2">
+                                <div class="d-flex align-items-center gap-2">
+                                    <span>Live System Logs &amp; Web Errors</span>
+                                    <span id="syslog-count-badge" class="badge badge-slate mono-font">0 logs</span>
+                                </div>
+                                <div class="d-flex gap-1 flex-wrap" id="syslog-filters">
+                                    <button class="btn btn-ghost btn-xs mono-font active"
+                                        onclick="setSysLogFilter('ALL', this)">ALL</button>
+                                    <button class="btn btn-ghost btn-xs mono-font"
+                                        onclick="setSysLogFilter('INFO', this)">INFO</button>
+                                    <button class="btn btn-ghost btn-xs mono-font"
+                                        onclick="setSysLogFilter('WARNING', this)">WARN</button>
+                                    <button class="btn btn-ghost btn-xs mono-font"
+                                        onclick="setSysLogFilter('ERROR', this)">ERRORS</button>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <input type="text" id="syslog-search" class="form-control form-control-sm"
+                                        placeholder="Search logs..." style="width:170px;"
+                                        oninput="applySysLogFilter()" aria-label="Search system logs">
+                                    <button class="btn btn-ghost btn-sm" onclick="exportSysLogs()">Export</button>
+                                    <button class="btn btn-ghost btn-sm" onclick="copySysLogs(this)">Copy</button>
+                                    <button class="btn btn-ghost btn-sm" onclick="clearSysLogs()">Clear</button>
                                 </div>
                             </div>
                             <div class="card-body p-0">
@@ -814,7 +1393,7 @@
                                 <span>Available Profiles</span>
                                 <div class="d-flex gap-2">
                                     <button id="new-profile-btn" class="btn btn-sm btn-success"
-                                        onclick="openProfileEditor()" title="Create a new persona">➕ New</button>
+                                        onclick="openProfileEditor()" title="Create a new persona">New</button>
                                     <button id="refresh-profiles-btn" class="btn btn-sm btn-outline-light"
                                         onclick="loadProfiles()">Refresh</button>
                                 </div>
@@ -863,7 +1442,7 @@
                     <div class="col-md-5">
                         <div class="card" style="border-color: #7dd3fc;">
                             <div class="card-header" style="background:#7dd3fc22; border-color:#7dd3fc55;">
-                                📋 Questionnaires
+                                Questionnaires
                             </div>
                             <div class="card-body">
                                 <div class="mb-3">
@@ -883,7 +1462,7 @@
                                     <input id="survey-link" type="text" class="form-control font-monospace"
                                         readonly aria-label="Participant questionnaire link">
                                     <button id="survey-copy-btn" class="btn btn-outline-info"
-                                        title="Copy link" aria-label="Copy questionnaire link">📋</button>
+                                        title="Copy link" aria-label="Copy questionnaire link">Copy</button>
                                 </div>
                                 <button id="survey-open-btn" class="btn btn-info w-100">
                                     ↗ Open questionnaire in a new window
@@ -899,7 +1478,7 @@
                     <div class="col-md-7">
                         <div class="card">
                             <div class="card-header d-flex justify-content-between align-items-center">
-                                <span>📊 Responses this session</span>
+                                <span>Responses this session</span>
                                 <button id="survey-refresh-btn" class="btn btn-sm btn-outline-light">Refresh</button>
                             </div>
                             <div class="card-body" id="survey-results">
@@ -907,7 +1486,7 @@
                             </div>
                         </div>
                         <div class="card">
-                            <div class="card-header">➕ Add your own questionnaire</div>
+                            <div class="card-header">Add your own questionnaire</div>
                             <div class="card-body">
                                 <small class="text-muted">
                                     Drop a YAML file into <code>surveys/</code> and restart. It appears here
@@ -920,7 +1499,197 @@
                     </div>
                 </div>
             </div> <!-- End Feedback -->
+            <!-- TAB 7: API KEY STORE -->
+            <div class="tab-pane fade" id="keystore-panel" role="tabpanel" aria-labelledby="keystore-tab">
+                <div class="row">
+                    <div class="col-lg-8">
+                        <div class="card">
+                            <div class="card-header">
+                                <span>Provider API Keys</span>
+                                <span id="keystore-summary-badge"
+                                    class="badge badge-slate mono-font">[NOT CONFIGURED]</span>
+                            </div>
+                            <div class="card-body">
+                                <p class="small mb-4" style="color:var(--text-muted);">
+                                    Keys take effect immediately: the provider clients are rebuilt on save, so you
+                                    do not need to restart the server. <strong>Apply</strong> keeps a key in memory
+                                    for this run only; <strong>Save</strong> also writes it to
+                                    <code>provider_keys.yaml</code>.
+                                </p>
 
+                                <div class="key-row" data-provider="openai">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <label class="form-label mb-0" for="key-openai">OpenAI API Key</label>
+                                        <span id="status-key-openai"
+                                            class="badge badge-slate mono-font">[NOT CONFIGURED]</span>
+                                    </div>
+                                    <div class="input-group">
+                                        <input type="password" id="key-openai" class="form-control"
+                                            placeholder="sk-..." autocomplete="off">
+                                        <button class="btn btn-ghost" type="button"
+                                            onclick="toggleKeyVisibility('openai')"
+                                            id="toggle-key-openai">Show</button>
+                                        <button class="btn btn-ghost" type="button" onclick="clearKey('openai')"
+                                            title="Remove this key from memory and from the store">Clear</button>
+                                    </div>
+                                </div>
+
+                                <div class="key-row" data-provider="gemini">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <label class="form-label mb-0" for="key-gemini">Gemini API Key</label>
+                                        <span id="status-key-gemini"
+                                            class="badge badge-slate mono-font">[NOT CONFIGURED]</span>
+                                    </div>
+                                    <div class="input-group">
+                                        <input type="password" id="key-gemini" class="form-control"
+                                            placeholder="AIza..." autocomplete="off">
+                                        <button class="btn btn-ghost" type="button"
+                                            onclick="toggleKeyVisibility('gemini')"
+                                            id="toggle-key-gemini">Show</button>
+                                        <button class="btn btn-ghost" type="button" onclick="clearKey('gemini')"
+                                            title="Remove this key from memory and from the store">Clear</button>
+                                    </div>
+                                </div>
+
+                                <div class="key-row" data-provider="elevenlabs">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <label class="form-label mb-0" for="key-elevenlabs">ElevenLabs API Key</label>
+                                        <span id="status-key-elevenlabs"
+                                            class="badge badge-slate mono-font">[NOT CONFIGURED]</span>
+                                    </div>
+                                    <div class="input-group">
+                                        <input type="password" id="key-elevenlabs" class="form-control"
+                                            placeholder="sk_..." autocomplete="off">
+                                        <button class="btn btn-ghost" type="button"
+                                            onclick="toggleKeyVisibility('elevenlabs')"
+                                            id="toggle-key-elevenlabs">Show</button>
+                                        <button class="btn btn-ghost" type="button"
+                                            onclick="clearKey('elevenlabs')"
+                                            title="Remove this key from memory and from the store">Clear</button>
+                                    </div>
+                                </div>
+
+                                <div class="d-flex gap-3 mt-4">
+                                    <button id="btn-apply-keys" class="btn btn-ghost flex-fill"
+                                        onclick="applyKeys(false)">Apply for this run</button>
+                                    <button id="btn-save-keys" class="btn btn-action-primary flex-fill"
+                                        onclick="applyKeys(true)">Save to the key store</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-4">
+                        <div class="card">
+                            <div class="card-header">How keys are stored</div>
+                            <div class="card-body">
+                                <div id="keystore-encryption-state" class="metric-box mb-3">
+                                    <div class="metric-label">Encryption at rest</div>
+                                    <div id="keystore-encryption-value" class="metric-value"
+                                        style="color:var(--amber);">Checking…</div>
+                                </div>
+                                <p class="small" style="color:var(--text-muted);">
+                                    Saved keys go to <code>provider_keys.yaml</code>, which is git-ignored. Set
+                                    <code>OVARP_SECRET_KEY</code> in <code>.env</code> and they are encrypted with
+                                    it; without that key they are written in plain text, exactly as
+                                    <code>.env</code> would hold them.
+                                </p>
+                                <p class="small mb-0" style="color:var(--text-muted);">
+                                    A key is never included in a status response. <strong>Show</strong> asks the
+                                    server for it explicitly. Set <code>OVARP_ACCESS_TOKEN</code> as well before
+                                    exposing this console through a tunnel.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: EVENT MARKER PRESET BUILDER -->
+    <div class="modal fade" id="createMarkerPresetModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Create a custom event marker preset</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-2">
+                        <label class="form-label" for="new-preset-id">Marker ID</label>
+                        <input type="text" id="new-preset-id" class="form-control form-control-sm"
+                            placeholder="e.g. participant_hesitated">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label" for="new-preset-label">Display label</label>
+                        <input type="text" id="new-preset-label" class="form-control form-control-sm"
+                            placeholder="e.g. Participant Hesitated">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label" for="new-preset-desc">Description</label>
+                        <input type="text" id="new-preset-desc" class="form-control form-control-sm"
+                            placeholder="e.g. Participant paused before answering">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label" for="new-preset-color">Badge colour</label>
+                        <input type="color" id="new-preset-color"
+                            class="form-control form-control-color form-control-sm" value="#f59e0b">
+                    </div>
+                    <small class="text-muted d-block">Presets added here last until the server restarts. To keep
+                        one, add it to <code>event_markers</code> in <code>config.yaml</code>.</small>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-ghost btn-sm" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-action-primary btn-sm"
+                        onclick="saveMarkerPreset()">Save Preset</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: SCENARIO BUILDER -->
+    <div class="modal fade" id="createScenarioModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Create a new experiment scenario</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label" for="new-scenario-id">Scenario ID</label>
+                            <input type="text" id="new-scenario-id" class="form-control form-control-sm"
+                                placeholder="e.g. emotion_study_v2">
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label" for="new-scenario-name">Scenario name</label>
+                            <input type="text" id="new-scenario-name" class="form-control form-control-sm"
+                                placeholder="e.g. Emotion &amp; Empathy Protocol">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="new-scenario-desc">Description</label>
+                        <textarea id="new-scenario-desc" class="form-control form-control-sm" rows="2"
+                            placeholder="What this protocol is for..."></textarea>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <label class="form-label mb-0">Protocol steps</label>
+                        <button type="button" class="btn btn-ghost btn-xs"
+                            onclick="addScenarioStepInput()">Add Step</button>
+                    </div>
+                    <div id="scenario-steps-input-list" class="d-flex flex-column gap-2"
+                        style="max-height: 40vh; overflow-y: auto;"></div>
+                    <small class="text-muted d-block mt-2">A step's condition resolves through the profile system,
+                        so it can name a profile id or a legacy condition.</small>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-ghost btn-sm" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-action-primary btn-sm"
+                        onclick="saveNewScenario()">Save Scenario</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -933,7 +1702,11 @@
         import { initSurveysPanel, refreshResults } from './js/surveys.js';
         import { initProfileEditor, reloadProfileList } from './js/profile-editor.js';
         import { initMarkers, renderMarkerHistory } from './js/markers.js';
-        import { initPlaygroundPersona, refreshOverrideWarning } from './js/playground.js';
+        import { initPersonaPickers, refreshOverrideWarning, refreshPersonaPickers } from './js/playground.js';
+        import { initTheme } from './js/theme.js';
+        import { initOverview, refreshOverview, setOverviewConnection } from './js/overview.js';
+        import { initKeyStore, refreshKeyStatus } from './js/keystore.js';
+        import { initBuilders } from './js/builders.js';
 
         let ws = null;
         const logWindow = document.getElementById('log-window');
@@ -974,10 +1747,86 @@
             else if (level === 'INFO') color = '#33b5e5';
             else if (level === 'DEBUG') color = '#888';
 
+            div.className = 'syslog-line';
+            div.dataset.level = level || 'INFO';
+            div.dataset.time = new Date().toISOString();
             div.innerHTML = `<strong style="color:${color}">[${level}]</strong> <span class="text-muted">[${name}]</span> ${message}`;
             sysLogWindow.appendChild(div);
+            applySysLogFilter(div);
             sysLogWindow.scrollTop = sysLogWindow.scrollHeight;
+            updateSysLogCount();
         }
+
+        // --- System log filtering, search and export ---
+        let sysLogFilter = 'ALL';
+
+        function sysLogLineMatches(line) {
+            if (sysLogFilter !== 'ALL' && line.dataset.level !== sysLogFilter) return false;
+            const needle = (document.getElementById('syslog-search')?.value || '').toLowerCase();
+            return !needle || line.textContent.toLowerCase().includes(needle);
+        }
+
+        // Pass a single line to filter just that one; a new line should not
+        // force a pass over a window that already holds thousands.
+        function applySysLogFilter(onlyLine = null) {
+            const lines = onlyLine ? [onlyLine] : sysLogWindow.querySelectorAll('.syslog-line');
+            lines.forEach(line => { line.hidden = !sysLogLineMatches(line); });
+            if (!onlyLine) updateSysLogCount();
+        }
+
+        function updateSysLogCount() {
+            const badge = document.getElementById('syslog-count-badge');
+            if (!badge) return;
+            const shown = sysLogWindow.querySelectorAll('.syslog-line:not([hidden])').length;
+            const total = sysLogWindow.querySelectorAll('.syslog-line').length;
+            badge.textContent = shown === total ? `${total} logs` : `${shown} / ${total} logs`;
+        }
+
+        function setSysLogFilter(level, button) {
+            sysLogFilter = level;
+            document.querySelectorAll('#syslog-filters .btn')
+                .forEach(b => b.classList.toggle('active', b === button));
+            applySysLogFilter();
+        }
+
+        function visibleSysLogs() {
+            return Array.from(sysLogWindow.querySelectorAll('.syslog-line:not([hidden])'));
+        }
+
+        function clearSysLogs() {
+            sysLogWindow.innerHTML = '';
+            updateSysLogCount();
+        }
+
+        function copySysLogs(button) {
+            const text = visibleSysLogs().map(l => l.textContent).join('\n');
+            navigator.clipboard.writeText(text).then(() => {
+                button.textContent = 'Copied';
+                setTimeout(() => { button.textContent = 'Copy'; }, 1500);
+            });
+        }
+
+        function exportSysLogs() {
+            const rows = [['Timestamp_ISO', 'Level', 'Message']];
+            visibleSysLogs().forEach(line => {
+                rows.push([line.dataset.time, line.dataset.level, line.textContent]);
+            });
+            const csv = rows
+                .map(r => r.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+                .join('\n');
+            const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'ovarp_system_logs.csv';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        window.setSysLogFilter = setSysLogFilter;
+        window.applySysLogFilter = applySysLogFilter;
+        window.clearSysLogs = clearSysLogs;
+        window.copySysLogs = copySysLogs;
+        window.exportSysLogs = exportSysLogs;
 
         // Global Error Handlers for debugging without DevTools
         window.onerror = function (msg, src, ln, col, err) {
@@ -1028,11 +1877,25 @@
             if (lat.llm_ms) parts.push(`LLM: ${lat.llm_ms}ms`);
             if (lat.tts_ms) parts.push(`TTS: ${lat.tts_ms}ms`);
             if (lat.total_ms) parts.push(`Total: ${lat.total_ms}ms`);
-            el.innerHTML = parts.length > 0 ? `⏱️ ${parts.join(' | ')}` : '';
+            el.innerHTML = parts.length > 0 ? `${parts.join(' | ')}` : '';
         }
 
         function updatePlaygroundLatency(timings) {
             renderLatencyLine(pendingLatencyEl, timings || {});
+            renderLatencyBoxes(timings || {});
+        }
+
+        // The Playground's standing latency readout, separate from the per-reply
+        // line: it survives scrolling the chat and is what you watch while tuning.
+        function renderLatencyBoxes(timings) {
+            const box = (id, seconds) => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = seconds == null ? '—' : Math.round(seconds * 1000);
+            };
+            box('latency-stt', timings.stt);
+            box('latency-llm', timings.llm);
+            box('latency-tts', timings.tts);
+            box('latency-total', timings.total);
         }
 
         // --- OVARP Web SDK Initialization ---
@@ -1058,6 +1921,7 @@
                     // Update LLM connection indicator
                     const connEl = document.getElementById('llm-conn-status');
                     if (connEl) connEl.innerHTML = '<span class="conn-dot connected"></span><small class="text-success">Online</small>';
+                    setOverviewConnection(true);
                     reconnectDelayMs = RECONNECT_DELAY_MIN_MS;
                 },
                 onDisconnect: () => {
@@ -1066,6 +1930,7 @@
                     // Update LLM connection indicator
                     const connEl = document.getElementById('llm-conn-status');
                     if (connEl) connEl.innerHTML = '<span class="conn-dot disconnected"></span><small class="text-muted">Offline</small>';
+                    setOverviewConnection(false);
                     setTimeout(() => OVARPClient.connect(), reconnectDelayMs);
                     reconnectDelayMs = Math.min(reconnectDelayMs * 2, RECONNECT_DELAY_MAX_MS);
                 },
@@ -1076,14 +1941,14 @@
                     // free tier otherwise looks identical to an agent with nothing to say.
                     const stage = (info.stage || 'pipeline').toUpperCase();
                     const provider = info.provider ? ` (${info.provider})` : '';
-                    showToast(`${stage}${provider} failed — see System Logs`, 'warning');
+                    showToast(`${stage}${provider} failed. See System Logs`, 'warning');
 
                     const cw = document.getElementById('chat-window');
                     if (cw) {
                         const bubble = document.createElement('div');
                         bubble.className = 'chat-bubble msg-agent';
                         bubble.style.borderLeft = '3px solid #dc3545';
-                        bubble.innerHTML = `<strong class="text-danger">⚠️ ${escapeHtml(stage)} failed</strong>` +
+                        bubble.innerHTML = `<strong class="text-danger">⚠ ${escapeHtml(stage)} failed</strong>` +
                             `<br><small class="text-muted">${escapeHtml(info.provider || '')} · ` +
                             `${escapeHtml(info.error || '')}</small>` +
                             `<br><small style="font-size:.7em">${escapeHtml(info.detail || '')}</small>`;
@@ -1124,7 +1989,7 @@
                     bubble.innerHTML = `
                         <strong>Agent:</strong><br>
                         ${replyText}<br>
-                        <small class="text-muted" style="font-size:0.7em;">🧠 ${providerLabel} · ${modelLabel}</small>
+                        <small class="text-muted" style="font-size:0.7em;">${providerLabel} · ${modelLabel}</small>
                         ${latencyHtml}
                     `;
 
@@ -1154,7 +2019,7 @@
                         for (const [key, value] of Object.entries(sub)) {
                             const tag = document.createElement('span');
                             tag.className = "action-tag";
-                            tag.textContent = `⚡ [${key}: ${value}]`;
+                            tag.textContent = `[${key}: ${value}]`;
                             tagsCtr.appendChild(tag);
                         }
                     }
@@ -1170,7 +2035,7 @@
                             const btn = document.createElement('button');
                             btn.className = 'btn btn-outline-info btn-sm mt-1';
                             btn.style.cssText = 'font-size:0.7em; padding:2px 8px;';
-                            btn.textContent = '🔁 Replay';
+                            btn.textContent = 'Replay';
                             btn.onclick = () => {
                                 const audio = new Audio(blobUrl);
                                 audio.play().catch(e => log(`Replay failed: ${e}`, 'error'));
@@ -1203,6 +2068,23 @@
 
         // Fetch the server's LAN IP + ports so researchers know what to enter
         // in XR clients (XREAL/Unity headsets) to connect.
+
+        // Reveal every entry point to the published web client, or leave them hidden
+        // when config.yaml does not say where it lives.
+        function showWebClientLinks(clientUrl) {
+            const headerLink = document.getElementById('web-client-link');
+            const row = document.getElementById('ov-web-client-row');
+            const rowLink = document.getElementById('ov-web-client-link');
+            const rowUrl = document.getElementById('ov-web-client-url');
+            if (!clientUrl) return;
+
+            headerLink.href = clientUrl;
+            headerLink.classList.remove('d-none');
+            rowLink.href = clientUrl;
+            rowUrl.textContent = clientUrl;
+            row.classList.remove('d-none');
+        }
+
         async function loadServerInfo() {
             try {
                 const info = await (await fetch('/api/server/info')).json();
@@ -1212,19 +2094,23 @@
                 document.getElementById('conn-ws-url').textContent = info.ws_url_template;
 
                 // A browser page served over HTTPS cannot open a ws:// socket, so a
-                // hosted web client needs this address — the LAN IP only works for
+                // hosted web client needs this address. The LAN IP only works for
                 // native builds, or when the client runs on this same machine.
                 const address = info.is_secure ? info.public_ws_url : info.lan_ip;
                 document.getElementById('server-ip').value = address;
 
                 document.getElementById('conn-guidance').innerHTML = info.is_secure
-                    ? `<small class="text-success d-block">🔒 Reached over HTTPS — paste
+                    ? `<small class="text-success d-block">Reached over HTTPS. Paste
                        <code>${escapeHtml(info.public_ws_url)}</code> into the web client.</small>
                        <small class="text-muted d-block">Native XR builds on this Wi-Fi can use
                        <code>${escapeHtml(info.lan_ws_url)}</code>.</small>`
-                    : `<small class="text-warning d-block">⚠️ Plain HTTP. A web client served over
-                       HTTPS will refuse this address — it accepts only <code>localhost</code> or a
+                    : `<small class="text-warning d-block">⚠ Plain HTTP. A web client served over
+                       HTTPS will refuse this address. It accepts only <code>localhost</code> or a
                        <code>wss://</code> URL. Native XR builds on the same Wi-Fi are fine.</small>`;
+
+                // config.yaml is the single source for this address; the header and
+                // Overview buttons stay hidden until it names one.
+                showWebClientLinks(info.client_url);
 
                 const playerBtn = document.getElementById('open-player-btn');
                 const playerHint = document.getElementById('open-player-hint');
@@ -1251,12 +2137,42 @@
                 document.getElementById('server-ip').select(); // fallback: select for manual copy
             }
             const btn = document.getElementById('copy-ip-btn');
-            const original = btn.textContent;
-            btn.textContent = '✅';
-            setTimeout(() => { btn.textContent = original; }, 1000);
+            btn.textContent = 'Copied';
+            setTimeout(() => { btn.textContent = 'Copy'; }, 1000);
         });
 
         // Load Config and Generate UI
+
+        // The three pickers below each own one stage of the pipeline; this restates
+        // the resulting combination in one line, which is the question a researcher
+        // actually asks ("what is answering me right now?").
+        function updatePipelineBadges() {
+            const value = (id) => document.getElementById(id)?.value || '';
+            const set = (id, text) => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = text || '—';
+            };
+            const llm = value('llm-provider-select');
+            set('llm-status-provider', llm.toUpperCase());
+            set('llm-status-model', MODEL_LABELS[llm] || (llm ? 'default model' : ''));
+
+            const tts = value('tts-provider-select');
+            const voice = value('tts-voice-select');
+            set('llm-status-tts', tts ? `${tts} / ${voice || 'default'}` : '');
+        }
+        window.updatePipelineBadges = updatePipelineBadges;
+
+        // The server picks the exact model id from env vars; the console only
+        // knows the family, so it names that rather than inventing a version.
+        const MODEL_LABELS = {
+            openai: 'gpt-4o',
+            gemini: 'gemini-flash-latest',
+        };
+
+        for (const id of ['llm-provider-select', 'tts-provider-select', 'tts-voice-select']) {
+            document.getElementById(id)?.addEventListener('change', updatePipelineBadges);
+        }
+
         async function initConfig() {
             try {
                 const resp = await fetch('/api/config');
@@ -1297,7 +2213,7 @@
                             sendCommand('action', 'execute_state', subcmd);
                             // Visual feedback: flash green
                             btn.className = 'btn btn-success btn-action btn-sm';
-                            btn.textContent = `✅ ${val}`;
+                            btn.textContent = `${val}`;
                             setTimeout(() => {
                                 btn.className = 'btn btn-outline-light btn-action btn-sm';
                                 btn.textContent = val;
@@ -1343,6 +2259,8 @@
 
                 // Load available TTS voices for the active provider
                 await loadTtsVoices();
+
+                updatePipelineBadges();
 
                 // Check provider API key health
                 await checkProviderHealth();
@@ -1444,7 +2362,7 @@
 
         document.getElementById('cp-test-btn').onclick = async () => {
             const statusEl = document.getElementById('cp-status');
-            statusEl.textContent = '⏳ Testing...';
+            statusEl.textContent = 'Testing...';
             statusEl.className = 'text-warning mt-1 d-block';
             try {
                 const resp = await fetch('/api/providers/test', {
@@ -1457,10 +2375,10 @@
                     })
                 });
                 const result = await resp.json();
-                statusEl.textContent = result.ok ? `✅ ${result.detail}` : `❌ ${result.detail}`;
+                statusEl.textContent = result.ok ? `${result.detail}` : `${result.detail}`;
                 statusEl.className = (result.ok ? 'text-success' : 'text-danger') + ' mt-1 d-block';
             } catch (e) {
-                statusEl.textContent = `❌ ${e}`;
+                statusEl.textContent = `${e}`;
                 statusEl.className = 'text-danger mt-1 d-block';
             }
         };
@@ -1527,13 +2445,13 @@
         // TTS Toggle
         function updateTTSButton(enabled) {
             const btn = document.getElementById('tts-toggle-btn');
-            btn.textContent = enabled ? '🔊 TTS ON' : '🔇 TTS OFF';
-            btn.className = 'btn flex-fill ' + (enabled ? 'btn-outline-warning' : 'btn-outline-secondary');
+            btn.textContent = enabled ? 'TTS ON' : 'TTS OFF';
+            btn.className = 'btn btn-ghost flex-fill';
         }
 
         document.getElementById('tts-toggle-btn').onclick = async function () {
             this.disabled = true;
-            this.textContent = '⏳ ...';
+            this.textContent = '...';
             try {
                 const resp = await fetch('/api/llm/tts', { method: 'POST' });
                 const data = await resp.json();
@@ -1585,7 +2503,7 @@
             }
         });
 
-        // TTS Provider change — independent of LLM
+        // TTS Provider change, independent of LLM
         document.getElementById('server-stt-select').addEventListener('change', async function () {
             try {
                 const resp = await fetch('/api/stt/provider', {
@@ -1640,10 +2558,10 @@
                 localStorage.removeItem('OVARP_llm_provider');
                 localStorage.removeItem('OVARP_system_prompt');
                 localStorage.removeItem('OVARP_tts_enabled');
-                this.textContent = '✅ Agent Reset!';
+                this.textContent = 'Agent Reset!';
                 showToast('Agent fully reset', 'success');
                 log('Agent fully reset: history, chat, and saved state cleared', 'info');
-                setTimeout(() => { this.textContent = '🗑️ Reset Agent'; this.disabled = false; }, 1500);
+                setTimeout(() => { this.textContent = 'Reset Agent'; this.disabled = false; }, 1500);
             } catch (e) {
                 log(`Failed to reset agent: ${e}`, 'error');
                 showToast('Could not reset agent. Check your connection and try again.', 'error');
@@ -1693,7 +2611,7 @@
             if (e.key === 'Enter') sendChatMsg();
         });
 
-        // Mic STT Events — Dual mode: WebSpeech (browser) or OpenAI (server)
+        // Mic STT Events. Dual mode: WebSpeech (browser) or OpenAI (server)
         const micBtn = document.getElementById('mic-btn');
         const chatInput = document.getElementById('chat-input');
         let _webSpeechRecognition = null;
@@ -1717,7 +2635,7 @@
             _webSpeechRecognition.onresult = (event) => {
                 const transcript = event.results[0][0].transcript;
                 if (transcript) {
-                    log(`🎤 WebSpeech: "${transcript}"`, 'info');
+                    log(`WebSpeech: "${transcript}"`, 'info');
                     // Remove placeholder
                     const cw = document.getElementById('chat-window');
                     cw.querySelectorAll('.text-muted.mt-5').forEach(p => p.remove());
@@ -1742,10 +2660,9 @@
             };
 
             _webSpeechRecognition.start();
-            micBtn.textContent = '🛑';
             micBtn.classList.replace('btn-danger', 'btn-outline-danger');
             chatInput.placeholder = 'Listening (browser STT)...';
-            document.getElementById('stt-status').textContent = '🔴 Listening...';
+            document.getElementById('stt-status').textContent = 'Listening...';
         }
 
         function stopWebSpeechSTT() {
@@ -1757,7 +2674,6 @@
         }
 
         function resetMicUI() {
-            micBtn.textContent = '🎤';
             micBtn.classList.remove('btn-outline-danger');
             micBtn.classList.add('btn-danger');
             chatInput.placeholder = 'Type or hold Mic to talk...';
@@ -1770,7 +2686,6 @@
                 startWebSpeechSTT();
             } else {
                 OVARPClient.startMic();
-                micBtn.textContent = '🛑';
                 micBtn.classList.replace('btn-danger', 'btn-outline-danger');
                 chatInput.placeholder = 'Recording (OpenAI Whisper)...';
             }
@@ -1828,10 +2743,11 @@
 
         // Boot
         window.onload = async () => {
-            // Must settle before anything else touches /api/ — otherwise the console
+            // Must settle before anything else touches /api/, otherwise the console
             // renders a half-loaded state assembled from 401 responses.
             await initApiAccess();
 
+            initTheme();
             restoreState();
             initConfig();
             OVARPClient.connect();
@@ -1840,7 +2756,18 @@
             initSurveysPanel();
             initProfileEditor();
             initMarkers();
-            initPlaygroundPersona();
+            initPersonaPickers();
+            initOverview();
+            initKeyStore({ showToast });
+            initBuilders({ showToast, reloadPresets: loadMarkerPresets });
+
+            // A scenario saved from the builder should show up in the picker at once
+            document.addEventListener('ovarp:scenarios-changed', () => loadScenarios());
+
+            document.getElementById('stop-audio-btn')?.addEventListener('click', () => {
+                OVARPClient.stopAudio();
+                showToast('Audio stopped', 'info');
+            });
 
             // The markers module fires this after adding, editing or removing one
             document.addEventListener('ovarp:session-refresh', async () => {
@@ -1961,7 +2888,7 @@
                 if (select) {
                     const opt = document.createElement('option');
                     opt.value = '';
-                    opt.textContent = 'No model installed — use Upload';
+                    opt.textContent = 'No model installed, use Upload';
                     select.appendChild(opt);
                 }
                 if (statusBadge) {
@@ -1993,7 +2920,7 @@
             const select = document.getElementById('avatar-select');
             const opt = document.createElement('option');
             opt.value = url;
-            opt.textContent = `📁 ${file.name}`;
+            opt.textContent = `${file.name}`;
             select.appendChild(opt);
             select.value = url;
             loadAvatar(url);
@@ -2039,17 +2966,17 @@
             markerCount.style.display = '';
             // Marker count label (handle singular vs plural)
             const markerLabel = data.marker_count !== 1 ? 'markers' : 'marker';
-            markerCount.textContent = `📌 ${data.marker_count} ${markerLabel}`;
+            markerCount.textContent = `${data.marker_count} ${markerLabel}`;
 
             if (data.status === 'active') {
-                badge.textContent = `● Active — ${data.participant_id}`;
+                badge.textContent = `● Active: ${data.participant_id}`;
                 badge.className = 'badge bg-success';
                 pauseBtn.disabled = false;
                 pauseBtn.style.display = '';
                 resumeBtn.style.display = 'none';
                 document.getElementById('session-timer-wrap').className = 'timer-active';
             } else if (data.status === 'paused') {
-                badge.textContent = `⏸ Paused — ${data.participant_id}`;
+                badge.textContent = `⏸ Paused: ${data.participant_id}`;
                 badge.className = 'badge bg-warning text-dark';
                 pauseBtn.style.display = 'none';
                 resumeBtn.style.display = '';
@@ -2096,7 +3023,7 @@
                 updateSessionUI(data);
                 startSessionTimer();
                 showToast(`Session started for ${pid}`, 'success');
-                log(`🧪 Session started for ${pid}`, 'info');
+                log(`Session started for ${pid}`, 'info');
             } catch (e) { log(`Session start failed: ${e}`, 'error'); }
         };
 
@@ -2133,7 +3060,7 @@
                 // Safely get marker count from the response
                 const markerTotal = data.session?.markers?.length || 0;
                 log(`⏹ Session ended | markers: ${markerTotal}`, 'info');
-                showToast(`Session ended — ${markerTotal} markers recorded`, 'info');
+                showToast(`Session ended: ${markerTotal} markers recorded`, 'info');
             } catch (e) { log(`End failed: ${e}`, 'error'); }
         };
 
@@ -2171,7 +3098,7 @@
             }
         }
 
-        // --- Experimental Conditions (deprecated — use Agent Profiles instead) ---
+        // --- Experimental Conditions (deprecated, use Agent Profiles instead) ---
         // Legacy conditions are auto-migrated to profiles at startup.
         // The API endpoints still exist for backward compatibility.
 
@@ -2223,13 +3150,13 @@
             // Show badges for any auto-applied features on this step
             let badges = '';
             if (data.step?.condition) {
-                badges += `<span class="badge bg-info me-1">🧬 ${data.step.condition}</span>`;
+                badges += `<span class="badge bg-info me-1">${data.step.condition}</span>`;
             }
             if (data.step?.auto_marker) {
-                badges += `<span class="badge bg-warning text-dark me-1">📌 ${data.step.auto_marker}</span>`;
+                badges += `<span class="badge bg-warning text-dark me-1">${data.step.auto_marker}</span>`;
             }
             if (data.step?.action) {
-                badges += `<span class="badge bg-success me-1">⚡ ${JSON.stringify(data.step.action)}</span>`;
+                badges += `<span class="badge bg-success me-1">${JSON.stringify(data.step.action)}</span>`;
             }
             document.getElementById('scenario-badges').innerHTML = badges;
         }
@@ -2248,7 +3175,7 @@
                     return;
                 }
                 updateScenarioUI(data);
-                log(`📋 Scenario loaded: ${data.scenario_name}`, 'info');
+                log(`Scenario loaded: ${data.scenario_name}`, 'info');
 
                 // Refresh session UI in case markers were auto-added
                 try {
@@ -2266,7 +3193,7 @@
                 const data = await resp.json();
                 if (data.status === 'completed') {
                     updateScenarioUI({ active: false });
-                    log('✅ Scenario completed!', 'info');
+                    log('Scenario completed!', 'info');
                 } else if (data.error) {
                     log(`Scenario error: ${data.error}`, 'error');
                 } else {
@@ -2498,6 +3425,7 @@
                 const badge = document.getElementById('active-profile-session-badge');
                 if (badge) { badge.textContent = data.profile_name; badge.className = 'active-profile-badge'; }
                 log(`Profile '${data.profile_name}' applied to ${agentId}`, 'info');
+                await refreshPersonaPickers();
 
                 // Show revert link if there was a previously applied profile
                 const revertContainer = document.getElementById('profile-revert-container');

@@ -1,4 +1,4 @@
-﻿"""
+"""
 Unit tests for the CustomLLMProvider and CustomTTSProvider.
 
 These test the custom provider module that enables runtime registration

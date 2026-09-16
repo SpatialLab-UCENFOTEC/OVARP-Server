@@ -1,4 +1,4 @@
-﻿"""
+"""
 Integration tests for the deprecated Conditions REST API endpoints.
 
 These endpoints exist for backward compatibility with clients that used

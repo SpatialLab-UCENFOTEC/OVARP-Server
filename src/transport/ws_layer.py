@@ -1,4 +1,4 @@
-﻿"""
+"""
 Open Virtual Agent Research Platform (OVARP) — WebSocket Transport
 
 Bidirectional transport layer for web-based clients using FastAPI's

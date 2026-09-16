@@ -1,4 +1,4 @@
-﻿"""
+"""
 Open Virtual Agent Research Platform (OVARP) — Google Gemini Provider
 
 Implements LLM and TTS providers using the Google ``genai`` SDK:
@@ -56,6 +56,11 @@ class GeminiClientSingleton:
 
         return cls._client
 
+    @classmethod
+    def reset_client(cls):
+        """Drop the cached client so the next call picks up a changed API key."""
+        cls._client = None
+
 class GeminiLLMProvider(BaseLLMProvider):
     """Google Gemini Language Model utilizing Native Tool Calling for configuration actions."""
 
@@ -70,7 +75,10 @@ class GeminiLLMProvider(BaseLLMProvider):
         # A dated id goes stale: gemini-2.5-flash is already refused for new
         # accounts. The rolling alias keeps working; the env var is the override.
         self.model = model_name or os.getenv("OVARP_GEMINI_LLM_MODEL", "gemini-flash-latest")
-        self.client = GeminiClientSingleton.get_client()
+
+    @property
+    def client(self) -> genai.Client:
+        return GeminiClientSingleton.get_client()
 
     def _build_tools_schema(self) -> list:
         """Dynamically build Gemini Tool Schema from the config_manager."""
@@ -377,7 +385,10 @@ class GeminiSTTProvider(BaseSTTProvider):
 
     def __init__(self, model_name: str = None):
         self.model = model_name or os.getenv("OVARP_GEMINI_STT_MODEL", "gemini-flash-latest")
-        self.client = GeminiClientSingleton.get_client()
+
+    @property
+    def client(self) -> genai.Client:
+        return GeminiClientSingleton.get_client()
 
     async def transcribe(self, audio_data: bytes) -> str:
         if not self.client:
@@ -423,7 +434,10 @@ class GeminiTTSProvider(BaseTTSProvider):
             "OVARP_GEMINI_TTS_MODEL", "gemini-3.1-flash-tts-preview"
         )
         self.voice = voice
-        self.client = GeminiClientSingleton.get_client()
+
+    @property
+    def client(self) -> genai.Client:
+        return GeminiClientSingleton.get_client()
 
     def _collect_stream(self, tts_prompt: str) -> tuple[bytes, Optional[str]]:
         """Runs synchronously in a worker thread: consumes the streaming response

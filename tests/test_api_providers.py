@@ -1,4 +1,4 @@
-﻿"""
+"""
 Integration tests for the Custom Provider Registration REST API endpoints.
 
 Covers:

@@ -1,4 +1,4 @@
-﻿"""
+"""
 Open Virtual Agent Research Platform (OVARP) — Telemetry Logger
 
 Handles structured logging of all interactions for experimental

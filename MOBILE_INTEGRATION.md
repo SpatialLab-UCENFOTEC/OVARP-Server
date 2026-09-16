@@ -1,4 +1,4 @@
-﻿# Mobile Integration Guide (React Native / Flutter)
+# Mobile Integration Guide (React Native / Flutter)
 
 The Open Virtual Agent Research Platform (OVARP) is fully agnostic to the client rendering technology. Thanks to its lightweight WebSocket + Base64 architecture, you can easily integrate a 3D Virtual Agent into any **iOS** or **Android** application.
 

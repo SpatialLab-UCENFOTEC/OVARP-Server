@@ -1,5 +1,5 @@
 /**
- * OVARP — API access layer.
+ * OVARP: API access layer.
  *
  * Wraps window.fetch so every same-origin /api/ call carries the console token
  * when the server asks for one. Wrapping rather than routing each call site
@@ -94,7 +94,7 @@ export async function initApiAccess() {
     try {
         status = await (await fetch('/api/auth/status')).json();
     } catch {
-        return;  // Server unreachable — the console surfaces that on its own
+        return;  // Server unreachable, the console surfaces that on its own
     }
 
     tokenRequired = Boolean(status.required);

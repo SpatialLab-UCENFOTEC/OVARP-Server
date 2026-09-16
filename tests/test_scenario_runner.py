@@ -1,4 +1,4 @@
-﻿"""
+"""
 Tests for ScenarioRunner — loading, starting, advancing, and stopping scenarios.
 """
 import os

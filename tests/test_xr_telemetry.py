@@ -1,4 +1,4 @@
-﻿"""
+"""
 Tests for XR Telemetry ingest endpoint.
 """
 import os

@@ -26,27 +26,41 @@ The Wizard-of-Oz console at `http://localhost:8000` is organised as the steps of
 
 | Tab | What it is for |
 |---|---|
-| 🧠 **Playground** | Build and try the agent. Opens here by default. |
-| 👤 **Profiles** | Author and apply personas. |
-| 🧪 **Study Session** | Run a participant through the protocol. |
-| 🎮 **Live Control** | Intervene mid-session; also holds the client connection details. |
-| 📋 **Feedback** | Send questionnaires and watch scores arrive. |
-| 🖥️ **System Logs** | Server stdout and browser errors. |
+| **(01) Overview** | Where to start, and whether the server is healthy. Opens here by default. |
+| **(02) LLM Playground** | Build and try the agent. |
+| **(03) Profiles** | Author and apply personas. |
+| **(04) Study Session** | Run a participant through the protocol. |
+| **(05) WoZ Control** | Intervene mid-session; also holds the client connection details. |
+| **(06) Surveys** | Send questionnaires and watch scores arrive. |
+| **(07) API Key Store** | Set provider credentials without editing `.env`. |
+| **(08) System Logs** | Server stdout and browser errors. |
 
-A dismissible **Getting Started** banner explains the platform and walks through those five steps.
-It stays dismissed via `localStorage`.
+A dismissible **Getting Started** banner explains the platform and walks through those steps.
+It stays dismissed via `localStorage`. A **theme toggle** in the header switches the console
+between dark and light, remembered per browser.
+
+### Overview
+
+The landing tab, because opening straight onto a control surface left people with no idea what
+the platform was for. It carries a **Quick-Start launcher** per stage of a study, in order, plus
+live status — server connection, active session, active LLM provider, API key storage, connected
+clients, applied persona — and the two CSV exports.
 
 ### Playground
 
 Everything needed to shape the agent, in one column:
 
-- **Agent Persona** — apply a profile to the target agent, or create one with ➕ without leaving
-  the tab. Selecting the empty option releases the agent back to the global prompt.
+- **Pipeline status** — which provider, model and voice are actually answering, stated once
+  instead of inferred from three separate pickers, with a standing STT / LLM / TTS / Total
+  latency readout underneath.
+- **Agent Persona** — apply a profile to the target agent, or create one with **New** without
+  leaving the tab. Selecting the empty option releases the agent back to the global prompt.
 - **System Prompt** — the global prompt, used by agents that have no profile.
 - **LLM / TTS provider and voice** — chosen independently of one another.
 - **Custom endpoint registration** — see [AI providers](#ai-providers).
-- **Simulated conversation** — type or hold 🎤 to talk. STT runs either in the browser (WebSpeech,
-  no API key) or through OpenAI Whisper.
+- **Simulated conversation** — type or hold the mic to talk. STT runs either in the browser
+  (WebSpeech, no API key) or server-side.
+- **Stop Audio** — cut the agent off mid-sentence and drop its queued speech.
 - **3D avatar** — lip-synced VRM preview.
 
 > **Why the prompt box can warn you**
@@ -75,7 +89,7 @@ Profiles live in `profiles/*.yaml` and are composed into a system prompt by
 
 ### Authoring from the console
 
-The ➕ **New** button in the Profiles tab, and the ➕ next to the persona picker in the Playground,
+The **New** button in the Profiles tab, and the one next to the persona picker in the Playground,
 open the same editor. Both are places you realise the persona needs a change, so there is one
 dialog rather than two.
 
@@ -112,19 +126,24 @@ time. Session state is exposed at `GET /api/session/status` and drives the conso
 Timestamped annotations of what happened. Fire them three ways:
 
 1. **Preset buttons** — defined in `config.yaml → event_markers`, with labels and colours.
+   **Add Preset** invents one mid-study; it lasts until the server restarts, because a preset
+   thought up during a session is a convenience for that session, not an edit to the experiment.
 2. **Free-text box** — type a label and hit Enter.
 3. **Programmatically** — any connected device or agent can send
    `{command_type: "system", command: "log_marker", subcommand: {label, metadata}}` over the bus.
 
-### Correcting a marker
+### Reclassifying a marker
 
-Markers can be corrected after the fact — the ✎ button on any row in the history opens an inline
-editor for the label and a free-text notes field, and 🗑 removes one fired by mistake.
+Markers can be corrected after the fact — the edit button on any row in the history opens an
+inline editor for the **category**, the label and a free-text notes field, and the delete button
+removes one fired by mistake. Categories are the usual review vocabulary: Technical Issue,
+Participant Confused, User Interrupted, Task Completed, Researcher Note.
 
 **The timestamp is never touched, and nothing is rewritten.** The session log is append-only: the
 original `marker` entry stays as captured and the correction is appended as `marker_amended`,
 carrying both the previous and the new value. An edited marker is flagged in the console, and the
-CSV export carries `marker_amended_from` / `marker_amended_to` columns.
+CSV export carries `marker_amended_from` / `marker_amended_to` columns. `GET /api/session/export/csv`
+gives the shorter, marker-only table, with the category in the `Category_or_Label` column.
 
 That property is deliberate — a study record has to keep showing what was captured live, not just
 its latest state. Preserve it when adding anything else that lets a researcher change recorded data.
@@ -149,7 +168,7 @@ SUS and UEQ include their attribution, which UEQ requires.
 
 ### How it works
 
-The **📋 Feedback** tab builds a link, fills in the participant ID from the active session, and
+The **Surveys** tab builds a link, fills in the participant ID from the active session, and
 either copies it or opens it in a new window. The participant opens
 `/survey.html?id=sus&lang=es&participant=P001` on their phone — a standalone, mobile-first page
 with a progress bar, per-question validation and a confirmation screen. It needs no console
@@ -236,8 +255,14 @@ cloudflared tunnel --url http://localhost:8000
 
 Then enter the printed URL **with `wss://`** in the client — not the `https://` form it prints.
 
-Set `client_url` in `config.yaml` and the card gains a button that opens the participant client
-directly.
+`client_url` in `config.yaml` is the single source for where the published client lives. It is
+set to the Vercel deployment, and three places in the console open it in a new tab: **WEB CLIENT**
+in the header, **Open Web Client** on the Overview tab, and the button on this card. Comment the
+setting out and all three disappear.
+
+That client is separate from the built-in `/player`: `/player` is served by this server and speaks
+the bus directly, while the Vercel one is the Unity WebGL build and needs a `wss://` address to
+reach you.
 
 ---
 
@@ -258,11 +283,22 @@ because a participant has no token.
 
 ### `OVARP_SECRET_KEY`
 
-Encrypts custom provider API keys at rest in `custom_providers.yaml` (Fernet, key derived from the
-passphrase). Without it the registry still works in plain text, so upgrading breaks nothing.
+Encrypts stored credentials at rest with Fernet, the key derived from the passphrase: custom
+providers in `custom_providers.yaml` and the built-in provider keys in `provider_keys.yaml`.
+Without it both still work in plain text, so upgrading breaks nothing.
 
-Independently of encryption, **credentials are never returned by the API**. `GET /api/providers`
-reports `has_key: true|false` instead of the value.
+Independently of encryption, **a credential never rides along on a response that something
+polls**. `GET /api/providers` reports `has_key: true|false`; `GET /api/keys/status` reports a
+mask and a storage badge. The raw value comes back only from `POST /api/keys/reveal`, which the
+console calls when a researcher presses **Show**.
+
+### The API Key Store
+
+The console's key tab writes through the same path. **Apply for this run** sets the key in the
+server process and rebuilds the provider SDK clients, so the very next call authenticates with
+it — no restart. **Save to the key store** additionally writes it to `provider_keys.yaml`, which
+is git-ignored and restored on boot. A saved key wins over `.env`: it is what the researcher set
+last, and they expect it to stick.
 
 ---
 
@@ -336,7 +372,7 @@ resolution point:
 
 ## API reference
 
-47 HTTP endpoints and 2 WebSockets. Interactive docs at `/docs` while the server runs.
+53 HTTP endpoints and 2 WebSockets. Interactive docs at `/docs` while the server runs.
 
 ### System
 | Method | Path | |
@@ -387,13 +423,15 @@ resolution point:
 | GET | `/api/session/status` | Live session state |
 | POST | `/api/session/start` · `pause` · `resume` · `end` | Lifecycle |
 | POST | `/api/session/marker` | Fire a marker |
-| PATCH · DELETE | `/api/session/marker/{id}` | Correct or retract one |
-| GET | `/api/session/markers/presets` | Preset buttons from `config.yaml` |
+| PATCH · DELETE | `/api/session/marker/{id}` | Reclassify or retract one |
+| GET · POST | `/api/session/markers/presets` | Read the presets, or add one for this run |
+| GET | `/api/session/export/csv` | Markers as a flat CSV |
 
 ### Scenarios
 | Method | Path | |
 |---|---|---|
 | GET | `/api/scenarios` · `/api/scenarios/status` | List and current step |
+| POST | `/api/scenarios` | Create a protocol and persist it as YAML |
 | POST | `/api/scenarios/load` · `advance` · `stop` | Run a protocol |
 
 ### Surveys
@@ -402,6 +440,14 @@ resolution point:
 | GET | `/api/surveys` · `/api/surveys/{id}` | List and definition (`?lang=es`) |
 | POST | `/api/surveys/response` | Submit and score (unauthenticated) |
 | GET | `/api/surveys/responses` | Responses collected this run |
+
+### API keys
+| Method | Path | |
+|---|---|---|
+| GET | `/api/keys/status` | Storage state per credential, masked |
+| POST | `/api/keys/update` | Apply a credential; `persist` also saves it |
+| POST | `/api/keys/persist` | Save what is currently in memory |
+| POST | `/api/keys/reveal` | One credential in the clear, on request |
 
 ### WebSockets
 | Path | |
@@ -417,7 +463,7 @@ resolution point:
 OVARP_TESTING=1 OPENAI_API_KEY=sk-dummy GEMINI_API_KEY=dummy python -m pytest -q
 ```
 
-205 tests. `OVARP_TESTING=1` skips transport and provider bootstrap and serves a bare app; tests
+280 tests. `OVARP_TESTING=1` skips transport and provider bootstrap and serves a bare app; tests
 substitute collaborators on the runtime container
 (`monkeypatch.setattr(runtime, "orchestrator", mock)`).
 

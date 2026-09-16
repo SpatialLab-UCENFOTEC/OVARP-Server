@@ -1,15 +1,24 @@
 /**
- * OVARP — Event markers.
+ * OVARP: Event markers.
  *
  * One code path for every marker, whether it comes from a preset button or the
- * free-text box: the two used to be separate copies and had already drifted —
+ * free-text box: the two used to be separate copies and had already drifted,
  * the custom one ignored the server's error response and reported success when
  * no session was active.
  *
- * Markers can be corrected afterwards. The timestamp is never touched and the
- * server appends the amendment to the session log, so the record still shows
- * what was captured live.
+ * Markers can be reclassified afterwards: category, label or notes. The
+ * timestamp is never touched and the server appends the amendment to the
+ * session log, so the record still shows what was captured live.
  */
+
+/** Categories a marker can be filed under when reviewing a session. */
+export const MARKER_CATEGORIES = [
+    'Technical Issue',
+    'Participant Confused',
+    'User Interrupted',
+    'Task Completed',
+    'Researcher Note',
+];
 
 const esc = (s) => { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; };
 
@@ -54,7 +63,7 @@ export async function addMarker(label, { metadata = null, button = null, display
         }
 
         notify(`Marker: "${display || label}"`, 'info');
-        flash(button, '✅');
+        flash(button, '✓');
         requestSessionRefresh();
         return data.marker;
     } catch (e) {
@@ -92,16 +101,19 @@ function markerRow(marker) {
     const notes = marker.notes
         ? `<div class="text-muted ps-3" style="font-size:.8em">↳ ${esc(marker.notes)}</div>`
         : '';
+    const category = marker.category
+        ? `<span class="badge badge-slate ms-1">${esc(marker.category)}</span>`
+        : '';
 
     return `
         <div class="py-1 border-bottom border-secondary" data-marker="${esc(marker.id)}" style="font-size:.85em">
             <div class="d-flex justify-content-between align-items-center gap-2">
-                <span class="text-warning flex-grow-1">📌 ${esc(marker.label)}${amended}</span>
+                <span class="text-warning flex-grow-1">${esc(marker.label)}${category}${amended}</span>
                 <small class="text-muted">${time}</small>
                 <button class="btn btn-link btn-sm p-0 text-info" data-action="edit"
                     title="Edit label or add notes" aria-label="Edit marker">✎</button>
                 <button class="btn btn-link btn-sm p-0 text-danger" data-action="delete"
-                    title="Remove this marker" aria-label="Delete marker">🗑</button>
+                    title="Remove this marker" aria-label="Delete marker">✕</button>
             </div>
             ${notes}
         </div>`;
@@ -110,10 +122,17 @@ function markerRow(marker) {
 function editorRow(marker) {
     return `
         <div class="py-2 border-bottom border-secondary" data-marker="${esc(marker.id)}">
+            <select class="form-select form-select-sm mb-1" data-field="category"
+                aria-label="Marker category">
+                <option value="">No category</option>
+                ${MARKER_CATEGORIES.map(c =>
+                    `<option value="${esc(c)}"${c === marker.category ? ' selected' : ''}>${esc(c)}</option>`
+                ).join('')}
+            </select>
             <input class="form-control form-control-sm mb-1" data-field="label"
                 value="${esc(marker.label)}" aria-label="Marker label">
             <textarea class="form-control form-control-sm mb-1" data-field="notes" rows="2"
-                placeholder="Notes — what happened, what you observed"
+                placeholder="Notes: what happened, what you observed"
                 aria-label="Marker notes">${esc(marker.notes || '')}</textarea>
             <div class="d-flex gap-2">
                 <button class="btn btn-success btn-sm flex-fill" data-action="save">Save</button>
@@ -157,8 +176,9 @@ function handleHistoryClick(event) {
     } else if (action === 'save') {
         const label = row.querySelector('[data-field="label"]').value.trim();
         const notes = row.querySelector('[data-field="notes"]').value.trim();
+        const category = row.querySelector('[data-field="category"]').value;
         editingId = null;
-        amendMarker(markerId, { label, notes });
+        amendMarker(markerId, { label, notes, category });
     } else if (action === 'delete') {
         if (window.confirm('Remove this marker from the session?')) deleteMarker(markerId);
     }

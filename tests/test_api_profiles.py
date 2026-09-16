@@ -1,4 +1,4 @@
-﻿"""
+"""
 Integration tests for the Agent Profiles REST API endpoints.
 
 Covers:

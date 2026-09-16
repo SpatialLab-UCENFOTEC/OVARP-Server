@@ -1,4 +1,4 @@
-﻿"""
+"""
 Open Virtual Agent Research Platform (OVARP) — Provider Base Classes
 
 Defines abstract base classes for the three AI provider roles:

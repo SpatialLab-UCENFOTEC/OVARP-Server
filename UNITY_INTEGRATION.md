@@ -1,4 +1,4 @@
-﻿# Unity Integration Guide: Open Virtual Agent Research Platform (OVARP)
+# Unity Integration Guide: Open Virtual Agent Research Platform (OVARP)
 
 This manual provides all the necessary information for a Unity Developer to connect a 3D XR application (PCVR, Meta Quest, WebGL) to the OVARP Server.
 

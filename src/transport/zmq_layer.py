@@ -1,4 +1,4 @@
-﻿"""
+"""
 Open Virtual Agent Research Platform (OVARP) — ZeroMQ Transport
 
 Low-latency bidirectional transport for XR clients (Unity, Unreal).

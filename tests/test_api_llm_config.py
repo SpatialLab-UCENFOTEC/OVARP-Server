@@ -1,4 +1,4 @@
-﻿"""
+"""
 Integration tests for the LLM Configuration REST API endpoints.
 
 Covers:

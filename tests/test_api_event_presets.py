@@ -1,4 +1,4 @@
-﻿"""
+"""
 Integration tests for the Event Marker Presets API endpoint.
 
 Covers:

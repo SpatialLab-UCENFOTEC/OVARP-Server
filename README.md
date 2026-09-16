@@ -210,9 +210,23 @@ Detailed step-by-step guides for connecting client applications to OVARP:
 
 ## 🎮 WoZ Console Features
 
-The built-in web console provides a full research interface with five tabs:
+The built-in web console provides a full research interface across eight tabs,
+numbered in the order a study actually runs:
 
-### 🎮 Remote Agent Control
+`(01) OVERVIEW` · `(02) LLM PLAYGROUND` · `(03) PROFILES` · `(04) STUDY SESSION` ·
+`(05) WOZ CONTROL` · `(06) SURVEYS` · `(07) API KEY STORE` · `(08) SYSTEM LOGS`
+
+### 🧭 Overview
+The landing tab, so a first run opens on something that explains itself:
+- **Quick-Start launchers** — one button per stage of a study, in order
+- **Live system status** — server connection, active session, active LLM provider,
+  API key storage state, connected clients, applied persona
+- **Telemetry export** — markers CSV and full telemetry CSV
+- **Open Player** — launch the participant client without hunting for the URL
+
+A **theme toggle** in the header switches the whole console between dark and light.
+
+### 🎮 WoZ Control
 - **Target selection** — Choose device and agent from config dropdowns
 - **Dynamic action buttons** — Auto-generated from `config.yaml` command categories
 - **Direct TTS** — Type text → agent speaks it, bypassing LLM
@@ -226,7 +240,12 @@ Interactive chat interface for testing the AI pipeline:
 - **TTS toggle** — Enable/disable voice synthesis
 - **Voice picker** — Choose from 22 TTS voices with gender icons (♂️/♀️/⚧️)
 - **Auto-matched TTS** — When using Gemini LLM → Gemini TTS voice; when using OpenAI → OpenAI voice
-- **Latency badges** — Real-time timing shown on each response (STT, LLM, TTS)
+- **Pipeline status card** — which provider, model and voice are actually answering,
+  restated in one place instead of inferred from three separate pickers
+- **Latency readout** — a standing STT / LLM / TTS / Total panel, plus per-reply timing
+  on each message
+- **Stop Audio** — cut the agent off mid-sentence and drop its queued speech
+- **Agent Persona picker** — apply a profile, or create one with **New**, without leaving the tab
 - **Persistent state** — Chat history, config, and avatar selection survive page reloads
 
 ### 🧪 Study Session
@@ -234,8 +253,13 @@ Dedicated experiment management tab:
 - **Session lifecycle** — Start/pause/resume/end with participant ID tracking
 - **Live timer** — Tracks active session duration (correctly pauses)
 - **Event markers** — Timestamped annotations with history display
+- **Reclassification** — edit a marker's category, label or notes after the fact. The
+  timestamp is never touched and the change is appended to the session log, so the
+  record still shows what was captured live
+- **Marker preset builder** — invent a preset mid-study (held in memory for that run)
 - **Session summary** — Live display of session ID, elapsed time, marker count
 - **Scenario runner** — Load YAML protocol scripts with progress bar, auto-applied conditions/markers/actions
+- **Scenario builder** — compose a protocol step by step and save it to `scenarios/<id>.yaml`
 
 ### 👤 Agent Profiles
 Dedicated profile management tab:
@@ -261,21 +285,42 @@ is what the picker reads. With the directory empty the console offers the Upload
 button instead of loading a default, which is what it used to do against a file
 that was never committed.
 
+### 📋 Surveys
+Questionnaires the participant answers on their own device — SUS, UEQ-S and free-text
+prompts, defined in `surveys/*.yaml`. The console hands you a link to send to their
+phone and shows computed scores as responses come in.
+
+### 🔑 API Key Store
+Provider credentials without editing `.env` and restarting:
+- **Apply for this run** — the key takes effect immediately; the provider clients are
+  rebuilt so the next call authenticates with it
+- **Save to the key store** — written to `provider_keys.yaml` (git-ignored), encrypted
+  when `OVARP_SECRET_KEY` is set and in plain text otherwise, and restored on boot
+- **Show / Clear** — the raw key is never part of a status response; **Show** asks the
+  server for it explicitly
+
 ### 📋 System Logs & Errors
-Real-time streaming logs from all server components with color-coded severity.
+Real-time streaming logs from all server components with color-coded severity,
+filterable by level, searchable, and exportable as CSV.
 
 ---
 
-## 🧍 Participant Player (`/player`)
+## 🧍 Player (`/player`)
 
-A standalone participant-facing page, reachable from **Open Player** in the console
-header. It is a **browser stand-in for the XR headset**: avatar, chat, hold-to-talk
-microphone, event marker button and a live latency readout, connecting as a regular
-device over `/ws/client/{device_id}`.
+Two different things can talk to the agent, and the console header has a button for
+each:
 
-It exists so a full loop — participant speaks, agent answers with voice and
-gesture, researcher annotates from the console — can be rehearsed or run without
-an XREAL headset or a Unity build.
+| | **OPEN PLAYER** (`/player`) | **WEB CLIENT** (`config.yaml → client_url`) |
+|---|---|---|
+| What it is | a plain page served by this server | the Unity WebGL build, published separately |
+| Has | text chat, push-to-talk, event marker, latency readout | the embodied 3D agent, gestures, emotions |
+| For | checking the pipeline works | what a participant actually uses |
+| Reaches the server at | `ws://localhost:8000` | `wss://…` only — needs a tunnel |
+
+`/player` is **not** a stand-in for the headset: it is a debugging surface. It connects
+as an ordinary device over `/ws/client/{device_id}`, so a full loop — someone speaks,
+the agent answers with voice, the researcher annotates from the console — can be
+exercised with nothing but a browser.
 
 Defaults to `web_panel_01` / `agent_alpha`; override with query parameters:
 
@@ -409,6 +454,11 @@ Drop new `.yaml` files into `scenarios/` and they'll appear in the WoZ console a
 
 ### `.env` — API Keys
 
+Keys can also be set from the console's **API Key Store** tab, which applies them to
+the running providers at once and, on save, writes them to `provider_keys.yaml`
+(git-ignored) — encrypted when `OVARP_SECRET_KEY` is set. A key saved there wins over
+`.env` on the next boot: it is what the researcher set last.
+
 ```env
 OPENAI_API_KEY=sk-...
 GEMINI_API_KEY=AIzaSy...
@@ -456,7 +506,12 @@ OpenVirtualAgentResearchPlatform-Server/
 │   └── casual_companion.yaml   # Gender-neutral companion profile
 │
 ├── src/
-│   ├── main.py                  # FastAPI app, routes, API endpoints
+│   ├── main.py                  # Bootstrap only: build, wire, mount routers
+│   │
+│   ├── api/
+│   │   ├── deps.py              # Console access token
+│   │   ├── websockets.py        # /ws/client/{id} and /ws/logs
+│   │   └── routers/             # One router per domain; add endpoints here
 │   │
 │   ├── core/
 │   │   ├── orchestrator.py      # AI pipeline: STT → LLM → TTS + per-agent state
@@ -466,6 +521,10 @@ OpenVirtualAgentResearchPlatform-Server/
 │   │   ├── profile_manager.py   # Agent profiles: load, compose, apply
 │   │   ├── session_manager.py   # Session lifecycle + event markers
 │   │   ├── scenario_runner.py   # YAML-driven experiment protocol engine
+│   │   ├── survey_manager.py    # Questionnaires with SUS and UEQ scoring
+│   │   ├── secrets.py           # Encrypts stored credentials at rest
+│   │   ├── key_store.py         # Provider keys the console can set at runtime
+│   │   ├── runtime.py           # Composition root the routers read from
 │   │   └── telemetry.py         # JSONL event capture & CSV export
 │   │
 │   ├── providers/
@@ -483,6 +542,7 @@ OpenVirtualAgentResearchPlatform-Server/
 │       ├── index.html           # WoZ Console (single-page app)
 │       ├── player.html          # Participant page served at /player
 │       ├── survey.html          # Participant questionnaire page
+│       ├── js/                  # Console behaviour as ES modules
 │       ├── sdk/OVARP-client.js  # Web client SDK
 │       ├── avatar.js            # 3D avatar engine (Three.js + VRM)
 │       └── models/              # VRM/GLB avatar models — ships empty, see above
@@ -583,8 +643,8 @@ Install `requirements_dev.txt` first, then:
 
 ```bash
 OVARP_TESTING=1 OPENAI_API_KEY=sk-dummy GEMINI_API_KEY=dummy pytest -q
-# 246 tests across profiles, schemas, sessions, scenarios, surveys, XR telemetry,
-# orchestrator, router, providers, security, and HTTP endpoints
+# 280 tests across profiles, schemas, sessions, scenarios, surveys, XR telemetry,
+# orchestrator, router, providers, the key store, security, and HTTP endpoints
 ```
 
 `OVARP_TESTING=1` skips the transport and provider bootstrap and serves a bare
@@ -617,6 +677,10 @@ Lint with `ruff check src/ tests/`.
 | `POST` | `/api/session/resume` | Resume a paused session |
 | `POST` | `/api/session/end` | End the session and return data |
 | `POST` | `/api/session/marker` | Add an event marker |
+| `PATCH` | `/api/session/marker/{id}` | Reclassify a marker (category, label, notes) |
+| `DELETE` | `/api/session/marker/{id}` | Retract a marker |
+| `GET` | `/api/session/markers/presets` | List the marker presets from `config.yaml` |
+| `GET` | `/api/session/export/csv` | Download the session's markers as a flat CSV |
 | `GET` | `/api/scenarios` | List available experiment scenarios |
 | `POST` | `/api/scenarios/load` | Load and start a scenario |
 | `POST` | `/api/scenarios/advance` | Advance to next scenario step |
@@ -628,13 +692,22 @@ Lint with `ruff check src/ tests/`.
 | `POST` | `/api/providers/{name}/test` | Test a registered provider's connectivity |
 | `POST` | `/api/providers/test` | Test any endpoint URL before registering |
 | `POST` | `/api/xr/telemetry` | Ingest batch XR tracking frames |
-| `GET` | `/api/telemetry/export` | Export session telemetry as CSV |
+| `GET` | `/api/export` | Export the session JSONL as a structured CSV |
 | `GET` | `/api/avatars` | List avatar models present in `src/static/models/` |
 | `GET` | `/api/clients` | Live WebSocket client ids currently connected |
 | `GET` | `/api/latency/last` | Most recent STT/LLM/TTS pipeline timings |
 | `POST` | `/api/profiles/{id}/duplicate` | Copy a profile to a new id |
 | `POST` | `/api/session/markers/presets` | Add or update a marker preset |
 | `POST` | `/api/scenarios` | Create a protocol and persist it as YAML |
+| `GET` | `/api/health/providers` | Whether each provider has a usable credential |
+| `GET` | `/api/keys/status` | Where each provider credential lives (masked) |
+| `POST` | `/api/keys/update` | Apply a credential, optionally saving it |
+| `POST` | `/api/keys/persist` | Write the in-memory credentials to the key store |
+| `POST` | `/api/keys/reveal` | Return one credential in the clear, on request |
+| `GET` | `/api/surveys` | List the questionnaires in `surveys/` |
+| `POST` | `/api/surveys/response` | Record a participant's answers |
+| `GET` | `/api/surveys/responses` | Scored responses for the active session |
+| `GET` | `/api/server/info` | Scheme-aware public and LAN WebSocket URLs |
 
 ---
 

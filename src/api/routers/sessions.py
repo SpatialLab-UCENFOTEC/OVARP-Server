@@ -8,12 +8,23 @@ Author: Alexander Barquero Elizondo, Ph.D. — UCR, ECCI/CITIC
 License: MIT
 """
 
+import csv
+import io
+import time
+from datetime import datetime
+
 from fastapi import APIRouter
+from fastapi.responses import Response
 from pydantic import BaseModel
 
 from src.core.runtime import runtime
 
 router = APIRouter(prefix="/api/session", tags=["sessions"])
+
+SESSION_CSV_HEADER = [
+    "Timestamp_ISO", "Unix_Timestamp", "Session_ID", "Participant_ID",
+    "Event_Type", "Category_or_Label", "Notes", "Amended",
+]
 
 
 class SessionStartRequest(BaseModel):
@@ -23,6 +34,8 @@ class SessionStartRequest(BaseModel):
 class MarkerRequest(BaseModel):
     label: str
     metadata: dict | None = None
+    category: str | None = None
+    notes: str | None = None
 
 
 @router.get("/status")
@@ -79,7 +92,9 @@ async def end_session():
 async def add_marker(req: MarkerRequest):
     """Add an event marker to the active session"""
     try:
-        marker = runtime.session_manager.add_marker(req.label, req.metadata)
+        marker = runtime.session_manager.add_marker(
+            req.label, req.metadata, category=req.category, notes=req.notes
+        )
         runtime.telemetry.log_marker(req.label, req.metadata)
         return {"status": "ok", "marker": marker.model_dump()}
     except ValueError as e:
@@ -89,6 +104,7 @@ async def add_marker(req: MarkerRequest):
 class MarkerAmendRequest(BaseModel):
     label: str | None = None
     notes: str | None = None
+    category: str | None = None
 
 
 @router.patch("/marker/{marker_id}")
@@ -100,7 +116,7 @@ async def amend_marker(marker_id: str, req: MarkerAmendRequest):
     """
     try:
         marker, before = runtime.session_manager.amend_marker(
-            marker_id, label=req.label, notes=req.notes
+            marker_id, label=req.label, notes=req.notes, category=req.category
         )
     except ValueError as e:
         return {"error": str(e)}
@@ -133,6 +149,38 @@ async def get_marker_presets():
     if config.event_markers:
         return {"presets": [m.model_dump() for m in config.event_markers]}
     return {"presets": []}
+
+
+@router.get("/export/csv")
+async def export_session_csv():
+    """Download the active session's markers as a flat CSV for analysis."""
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(SESSION_CSV_HEADER)
+
+    session = runtime.session_manager.session
+    if session:
+        writer.writerow([
+            session.started_at, session.started_at_unix, session.session_id,
+            session.participant_id, "SESSION_START", "ACTIVE", f"Status: {session.status}", "",
+        ])
+        for marker in session.markers:
+            writer.writerow([
+                marker.iso_time, marker.timestamp, session.session_id,
+                session.participant_id, "MARKER", marker.category or marker.label,
+                marker.notes or "", "yes" if marker.amended else "",
+            ])
+    else:
+        writer.writerow([
+            datetime.now().isoformat(), time.time(), "N/A", "N/A",
+            "INFO", "NO_ACTIVE_SESSION", "No session markers recorded yet", "",
+        ])
+
+    return Response(
+        content=output.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=ovarp_session_telemetry.csv"},
+    )
 
 
 class MarkerPresetRequest(BaseModel):

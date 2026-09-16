@@ -1,10 +1,10 @@
 /**
- * OVARP — Profile authoring.
+ * OVARP: Profile authoring.
  *
  * Create, edit and delete agent personas from the console instead of hand-writing
  * YAML. The same editor is reachable from the Profiles tab and from the
  * Playground, because both are places a researcher realises the persona needs a
- * change — it is one dialog, not two implementations.
+ * change: it is one dialog, not two implementations.
  *
  * Profiles are written to profiles/*.yaml server-side, so one authored here
  * survives a restart.

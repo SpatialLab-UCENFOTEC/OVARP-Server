@@ -1,4 +1,4 @@
-﻿"""
+"""
 Integration tests for the Scenario Runner REST API endpoints.
 
 Covers:

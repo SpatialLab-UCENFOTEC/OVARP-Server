@@ -1,5 +1,5 @@
 /**
- * OVARP — Feedback panel.
+ * OVARP: Feedback panel.
  *
  * Builds the participant-facing questionnaire link and shows the scores as they
  * come in. The questionnaire itself is a standalone page so the participant can
@@ -119,9 +119,8 @@ export async function initSurveysPanel() {
             input.select();
         }
         const btn = e.currentTarget;
-        const original = btn.textContent;
-        btn.textContent = '✅';
-        setTimeout(() => { btn.textContent = original; }, 1000);
+        btn.textContent = 'Copied';
+        setTimeout(() => { btn.textContent = 'Copy'; }, 1000);
     });
 
     document.getElementById('survey-open-btn').addEventListener('click', async () => {

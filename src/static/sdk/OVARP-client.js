@@ -1,4 +1,4 @@
-﻿import AvatarController from '../avatar.js';
+import AvatarController from '../avatar.js';
 
 /**
  * OVARPClient: The official Web SDK for the Open Virtual Agent Research Platform.
@@ -113,14 +113,14 @@ export default class OVARPClient {
             this.callbacks.onDisconnect();
             if (!this._outageLogged) {
                 this._outageLogged = true;
-                this.callbacks.onLog('Disconnected from OVARP Router — retrying', 'error');
+                this.callbacks.onLog('Disconnected from OVARP Router, retrying', 'error');
             }
         };
 
         this.ws.onerror = (e) => {
             if (!this._outageLogged) {
                 this._outageLogged = true;
-                this.callbacks.onLog('WebSocket Error — retrying', 'error');
+                this.callbacks.onLog('WebSocket Error, retrying', 'error');
             }
         };
 
@@ -333,6 +333,13 @@ export default class OVARPClient {
         if (this.avatar) {
             this.avatar.connectAudio(this._ttsAudioPlayer);
         }
+    }
+
+    /** Stop the agent mid-sentence and drop whatever it had left to say.
+     * The wizard needs this when a reply is wrong or the participant talks over it. */
+    stopAudio() {
+        this._resetTTSPlayback();
+        this.callbacks.onLog('Audio playback stopped and queue cleared', 'info');
     }
 
     /** Stops any in-flight/queued speech. Used on barge-in: the user starting a new
