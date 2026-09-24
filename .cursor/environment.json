@@ -1,0 +1,18 @@
+{
+  "name": "OVARP-Server",
+  "user": "ubuntu",
+  "install": "sudo apt-get update && sudo apt-get install -y python3.12-venv && python3 -m venv venv && ./venv/bin/pip install --upgrade pip && ./venv/bin/pip install -r requirements.txt -r requirements_dev.txt",
+  "terminals": [
+    {
+      "name": "server",
+      "command": "./venv/bin/uvicorn src.main:app --host 0.0.0.0 --port 8000",
+      "description": "OVARP FastAPI server and Wizard-of-Oz console on http://localhost:8000. Set OPENAI_API_KEY / GEMINI_API_KEY secrets to enable live LLM/STT/TTS; the console and session tooling run without them."
+    }
+  ],
+  "ports": [
+    {
+      "name": "woz-console",
+      "port": 8000
+    }
+  ]
+}
