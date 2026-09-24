@@ -104,7 +104,7 @@
     }
     .chat-pane {
       display: grid;
-      grid-template-rows: auto 1fr auto;
+      grid-template-rows: auto auto 1fr auto;
       border-left: 1px solid var(--border);
       min-height: 0;
     }
@@ -172,6 +172,79 @@
     #mic-btn { background: #1e293b; color: var(--text); }
     #mic-btn.recording { background: var(--rose); color: #fff; }
     #stop-audio-btn, #mark-btn, #copy-pair-btn { background: transparent; color: var(--muted); }
+    /* Avatar stage overlays: label the "gray sphere" area and show a clear
+       recording state so the participant always knows what is happening. */
+    .stage-label {
+      position: absolute;
+      top: 10px;
+      left: 12px;
+      font-size: 0.72rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--muted);
+      pointer-events: none;
+    }
+    .rec-indicator {
+      position: absolute;
+      top: 10px;
+      right: 12px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #fff;
+      background: var(--rose);
+      border-radius: 999px;
+      padding: 5px 11px;
+    }
+    .rec-indicator[hidden] { display: none; }
+    .rec-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #fff;
+      animation: rec-pulse 1s ease-in-out infinite;
+    }
+    @keyframes rec-pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.35; transform: scale(0.7); }
+    }
+    .avatar-stage.recording { outline: 2px solid var(--rose); outline-offset: -2px; }
+    /* Persistent "how to talk" copy under the composer. */
+    .talk-hint {
+      padding: 0 12px 12px;
+      font-size: 0.76rem;
+      color: var(--muted);
+      background: var(--bg-card);
+    }
+    .talk-hint kbd, .empty-chat kbd {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.72rem;
+      background: #1e293b;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 5px;
+    }
+    /* Empty-chat placeholder so the log is never a blank void. */
+    .empty-chat {
+      margin: auto;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.85rem;
+      line-height: 1.6;
+    }
+    /* Offline notice so the client confirms whether the server is up. */
+    .server-banner {
+      margin: 12px 16px 0;
+      padding: 9px 12px;
+      border: 1px solid rgba(244,63,94,0.4);
+      background: rgba(244,63,94,0.12);
+      color: #fecdd3;
+      border-radius: 8px;
+      font-size: 0.8rem;
+    }
+    .server-banner[hidden] { display: none; }
     @media (max-width: 800px) {
       main { grid-template-columns: 1fr; grid-template-rows: 42vh 1fr; }
       .chat-pane { border-left: 0; border-top: 1px solid var(--border); }
@@ -182,7 +255,7 @@
   <header>
     <h1>OVARP Player</h1>
     <div class="meta">
-      <span id="conn-status" class="status offline">Disconnected</span>
+      <span id="conn-status" class="status offline">Server: connecting…</span>
       <span id="device-chip" class="chip">web_panel_01</span>
       <span id="agent-chip" class="chip">agent_alpha</span>
       <button id="copy-pair-btn" type="button">Copy pair info</button>
@@ -193,7 +266,11 @@
     </div>
   </header>
   <main>
-    <div class="avatar-stage">
+    <div class="avatar-stage" id="avatar-stage">
+      <span class="stage-label">Agent</span>
+      <div id="rec-indicator" class="rec-indicator" role="status" aria-live="polite" hidden>
+        <span class="rec-dot"></span> Recording… release to send
+      </div>
       <canvas id="avatar-canvas" aria-label="Agent avatar"></canvas>
     </div>
     <section class="chat-pane">
@@ -203,14 +280,29 @@
         · TTS <span id="lat-tts">—</span>ms
         · total <span id="lat-total">—</span>ms
       </div>
-      <div id="chat-log" aria-live="polite"></div>
-      <form id="chat-form" class="composer">
-        <input id="chat-input" type="text" autocomplete="off" placeholder="Type a message..." aria-label="Message">
-        <button id="send-btn" type="submit">Send</button>
-        <button id="mic-btn" type="button">Hold to talk</button>
-        <button id="mark-btn" type="button">Mark event</button>
-        <button id="stop-audio-btn" type="button">Stop audio</button>
-      </form>
+      <div id="server-banner" class="server-banner" role="alert" hidden>
+        Waiting for the OVARP server… If this stays here, make sure the server is running,
+        then it will reconnect automatically.
+      </div>
+      <div id="chat-log" aria-live="polite">
+        <div id="empty-chat" class="empty-chat">
+          No messages yet.<br>Type below and press <kbd>Enter</kbd>, or hold <kbd>Space</kbd> / the mic button to talk.
+        </div>
+      </div>
+      <div class="composer-wrap">
+        <form id="chat-form" class="composer">
+          <input id="chat-input" type="text" autocomplete="off"
+            placeholder="Type a message, or hold Space to talk…" aria-label="Message">
+          <button id="send-btn" type="submit">Send</button>
+          <button id="mic-btn" type="button" title="Hold this button or the Space key to talk">Hold to talk</button>
+          <button id="mark-btn" type="button">Mark event</button>
+          <button id="stop-audio-btn" type="button">Stop audio</button>
+        </form>
+        <div class="talk-hint">
+          <strong>How to talk:</strong> hold the <strong>Hold to talk</strong> button or press and hold
+          <kbd>Space</kbd> to record, then release to send. Or type a message and press <kbd>Enter</kbd>.
+        </div>
+      </div>
     </section>
   </main>
 
@@ -233,6 +325,10 @@
     const stopAudioBtn = document.getElementById('stop-audio-btn');
     const markBtn = document.getElementById('mark-btn');
     const copyPairBtn = document.getElementById('copy-pair-btn');
+    const recIndicator = document.getElementById('rec-indicator');
+    const avatarStage = document.getElementById('avatar-stage');
+    const serverBanner = document.getElementById('server-banner');
+    const emptyChat = document.getElementById('empty-chat');
 
     document.getElementById('device-chip').textContent = deviceId;
     document.getElementById('agent-chip').textContent = agentId;
@@ -240,6 +336,7 @@
       `In WoZ Control set Device to ${deviceId}. Headset URL: ws://${window.location.host}/ws/client/${deviceId}`;
 
     function appendChat(role, text) {
+      if (emptyChat && emptyChat.isConnected) emptyChat.remove();
       const bubble = document.createElement('div');
       bubble.className = `bubble ${role}`;
       bubble.textContent = text;
@@ -255,6 +352,8 @@
     function setStatus(online, label) {
       connStatus.className = `status ${online ? 'online' : 'offline'}`;
       connStatus.textContent = label;
+      // The banner is the client's explicit "is the server up?" confirmation.
+      if (serverBanner) serverBanner.hidden = online;
     }
 
     function setMs(id, value) {
@@ -285,11 +384,11 @@
       canvas: document.getElementById('avatar-canvas'),
       callbacks: {
         onConnect: () => {
-          setStatus(true, 'Connected');
+          setStatus(true, 'Server online');
           reconnectDelayMs = RECONNECT_DELAY_MIN_MS;
         },
         onDisconnect: () => {
-          setStatus(false, 'Reconnecting...');
+          setStatus(false, 'Server offline — reconnecting…');
           setTimeout(() => client.connect(), reconnectDelayMs);
           reconnectDelayMs = Math.min(reconnectDelayMs * 2, RECONNECT_DELAY_MAX_MS);
         },
@@ -345,27 +444,53 @@
       chatInput.value = '';
     });
 
+    // A single guard keeps the button and the Space key from double-triggering
+    // start/stop on the underlying client.
+    let micActive = false;
     const startMic = async () => {
+      if (micActive) return;
+      micActive = true;
       micBtn.classList.add('recording');
-      micBtn.textContent = 'Listening...';
+      micBtn.textContent = 'Listening…';
+      if (recIndicator) recIndicator.hidden = false;
+      if (avatarStage) avatarStage.classList.add('recording');
       await client.startMic();
     };
     const stopMic = () => {
+      if (!micActive) return;
+      micActive = false;
       micBtn.classList.remove('recording');
       micBtn.textContent = 'Hold to talk';
+      if (recIndicator) recIndicator.hidden = true;
+      if (avatarStage) avatarStage.classList.remove('recording');
       client.stopMic();
     };
 
     micBtn.addEventListener('mousedown', startMic);
     micBtn.addEventListener('mouseup', stopMic);
     micBtn.addEventListener('mouseleave', () => {
-      if (micBtn.classList.contains('recording')) stopMic();
+      if (micActive) stopMic();
     });
     micBtn.addEventListener('touchstart', (event) => {
       event.preventDefault();
       startMic();
     });
     micBtn.addEventListener('touchend', (event) => {
+      event.preventDefault();
+      stopMic();
+    });
+
+    // Push-to-talk: hold Space to record, release to send. Ignored while the
+    // participant is typing so the space bar still types spaces in the input.
+    const isTypingTarget = (el) =>
+      !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+    document.addEventListener('keydown', (event) => {
+      if (event.code !== 'Space' || event.repeat || isTypingTarget(document.activeElement)) return;
+      event.preventDefault();
+      startMic();
+    });
+    document.addEventListener('keyup', (event) => {
+      if (event.code !== 'Space' || isTypingTarget(document.activeElement)) return;
       event.preventDefault();
       stopMic();
     });
