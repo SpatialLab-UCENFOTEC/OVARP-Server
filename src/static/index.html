@@ -791,6 +791,8 @@
                                             A plain page on this server. Type or hold to talk, hear the reply, drop
                                             a marker. No 3D scene, no build. Use it to check the pipeline works.
                                         </div>
+                                        <div id="ov-player-url" class="mono-font"
+                                            style="font-size:0.72rem; color:var(--text-muted); margin-top:4px;"></div>
                                     </div>
                                     <a href="/player" target="_blank" rel="noopener"
                                         class="btn btn-ghost btn-sm" style="white-space:nowrap;">Open Player</a>
@@ -2088,6 +2090,10 @@
         async function loadServerInfo() {
             try {
                 const info = await (await fetch('/api/server/info')).json();
+                // Spell out where the participant page lives so the console
+                // literally says "open the client at …" rather than only a button.
+                const playerUrlEl = document.getElementById('ov-player-url');
+                if (playerUrlEl) playerUrlEl.textContent = `Open the client at ${window.location.origin}/player`;
                 document.getElementById('conn-ws-port').textContent = info.ws_port;
                 document.getElementById('conn-zmq-pub').textContent = info.zmq_pub_port;
                 document.getElementById('conn-zmq-sub').textContent = info.zmq_sub_port;
