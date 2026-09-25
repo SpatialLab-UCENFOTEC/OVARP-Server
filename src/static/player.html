@@ -226,25 +226,37 @@
       max-width: 240px;
       line-height: 1.45;
     }
+    /* Always-visible mic indicator. Idle it reads as a labelled microphone so a
+       first-time user knows what it is; while talking it turns red and pulses. */
     .rec-indicator {
       position: absolute;
       top: 10px;
       right: 12px;
+      z-index: 2;
       display: flex;
       align-items: center;
       gap: 7px;
-      font-size: 0.78rem;
+      font-size: 0.75rem;
       font-weight: 600;
-      color: #fff;
-      background: var(--rose);
+      color: var(--muted);
+      background: rgba(11,17,32,0.72);
+      border: 1px solid var(--border);
       border-radius: 999px;
       padding: 5px 11px;
     }
-    .rec-indicator[hidden] { display: none; }
+    .rec-indicator.recording {
+      color: #fff;
+      background: var(--rose);
+      border-color: var(--rose);
+    }
     .rec-dot {
       width: 9px;
       height: 9px;
       border-radius: 50%;
+      background: var(--muted);
+      flex: none;
+    }
+    .rec-indicator.recording .rec-dot {
       background: #fff;
       animation: rec-pulse 1s ease-in-out infinite;
     }
@@ -310,8 +322,9 @@
   <main>
     <div class="avatar-stage" id="avatar-stage">
       <span class="stage-label">Agent</span>
-      <div id="rec-indicator" class="rec-indicator" role="status" aria-live="polite" hidden>
-        <span class="rec-dot"></span> Recording… release to send
+      <div id="rec-indicator" class="rec-indicator" role="status" aria-live="polite"
+        title="Microphone. It turns red and captures your voice while you hold to talk.">
+        <span class="rec-dot"></span> <span id="rec-label">Mic — hold Space to talk</span>
       </div>
       <div id="avatar-placeholder" class="avatar-placeholder">
         <div class="avatar-placeholder-ring">
@@ -379,6 +392,9 @@
     const markBtn = document.getElementById('mark-btn');
     const copyPairBtn = document.getElementById('copy-pair-btn');
     const recIndicator = document.getElementById('rec-indicator');
+    const recLabel = document.getElementById('rec-label');
+    const REC_LABEL_IDLE = 'Mic — hold Space to talk';
+    const REC_LABEL_ON = 'Recording your voice… release to send';
     const avatarStage = document.getElementById('avatar-stage');
     const serverBanner = document.getElementById('server-banner');
     const emptyChat = document.getElementById('empty-chat');
@@ -509,7 +525,8 @@
       micActive = true;
       micBtn.classList.add('recording');
       micBtn.textContent = 'Listening…';
-      if (recIndicator) recIndicator.hidden = false;
+      if (recIndicator) recIndicator.classList.add('recording');
+      if (recLabel) recLabel.textContent = REC_LABEL_ON;
       if (avatarStage) avatarStage.classList.add('recording');
       await client.startMic();
     };
@@ -518,7 +535,8 @@
       micActive = false;
       micBtn.classList.remove('recording');
       micBtn.textContent = 'Hold to talk';
-      if (recIndicator) recIndicator.hidden = true;
+      if (recIndicator) recIndicator.classList.remove('recording');
+      if (recLabel) recLabel.textContent = REC_LABEL_IDLE;
       if (avatarStage) avatarStage.classList.remove('recording');
       client.stopMic();
     };
