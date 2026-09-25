@@ -178,11 +178,53 @@
       position: absolute;
       top: 10px;
       left: 12px;
+      z-index: 2;
       font-size: 0.72rem;
       letter-spacing: 0.04em;
       text-transform: uppercase;
-      color: var(--muted);
+      color: var(--text);
+      background: rgba(11,17,32,0.72);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 3px 9px;
       pointer-events: none;
+    }
+    /* Empty-state that explains the gray sphere/area is the agent's avatar.
+       Shown until a 3D model actually loads (none ships by default). */
+    .avatar-placeholder {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      text-align: center;
+      padding: 16px;
+      pointer-events: none;
+    }
+    .avatar-placeholder[hidden] { display: none; }
+    .avatar-placeholder-ring {
+      width: 92px;
+      height: 92px;
+      border-radius: 50%;
+      border: 2px dashed rgba(148,163,184,0.55);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+    }
+    .avatar-placeholder-title {
+      font-weight: 700;
+      font-size: 0.92rem;
+      color: var(--text);
+    }
+    .avatar-placeholder-sub {
+      font-size: 0.78rem;
+      color: var(--muted);
+      max-width: 240px;
+      line-height: 1.45;
     }
     .rec-indicator {
       position: absolute;
@@ -271,6 +313,17 @@
       <div id="rec-indicator" class="rec-indicator" role="status" aria-live="polite" hidden>
         <span class="rec-dot"></span> Recording… release to send
       </div>
+      <div id="avatar-placeholder" class="avatar-placeholder">
+        <div class="avatar-placeholder-ring">
+          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="8" r="4"/>
+            <path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/>
+          </svg>
+        </div>
+        <div class="avatar-placeholder-title">This is the agent</div>
+        <div class="avatar-placeholder-sub">Its 3D face shows here once a model is loaded. You can still talk to it below.</div>
+      </div>
       <canvas id="avatar-canvas" aria-label="Agent avatar"></canvas>
     </div>
     <section class="chat-pane">
@@ -329,6 +382,7 @@
     const avatarStage = document.getElementById('avatar-stage');
     const serverBanner = document.getElementById('server-banner');
     const emptyChat = document.getElementById('empty-chat');
+    const avatarPlaceholder = document.getElementById('avatar-placeholder');
 
     document.getElementById('device-chip').textContent = deviceId;
     document.getElementById('agent-chip').textContent = agentId;
@@ -422,14 +476,17 @@
     client.connect();
 
     // Load whichever model is installed. Asking for a bundled default is what
-    // used to 404 on every fresh clone; with none present the participant sees
-    // the chat without an avatar rather than a broken one.
+    // used to 404 on every fresh clone; with none present the participant keeps
+    // the labelled placeholder so the empty stage still reads as the agent.
     (async () => {
       try {
         const resp = await fetch('/api/avatars');
         if (!resp.ok) return;
         const [first] = (await resp.json()).avatars || [];
-        if (first) await client.loadAvatar(first.url);
+        if (first) {
+          await client.loadAvatar(first.url);
+          if (avatarPlaceholder) avatarPlaceholder.hidden = true;
+        }
       } catch (err) {
         console.warn('[OVARP Player] Avatar load failed', err);
       }
