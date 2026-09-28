@@ -16,6 +16,8 @@ from typing import Optional
 from pydantic import BaseModel, Field
 import yaml
 
+from src.core.identifiers import safe_path
+
 std_log = logging.getLogger("OVARP.scenario")
 
 
@@ -97,7 +99,7 @@ class ScenarioRunner:
         if save_to_disk:
             scenario_dir = Path(directory)
             scenario_dir.mkdir(parents=True, exist_ok=True)
-            yaml_path = scenario_dir / f"{scenario.id}.yaml"
+            yaml_path = safe_path(scenario_dir, scenario.id)
             with open(yaml_path, "w", encoding="utf-8") as f:
                 yaml.dump(scenario.model_dump(exclude_none=True), f,
                           sort_keys=False, allow_unicode=True)

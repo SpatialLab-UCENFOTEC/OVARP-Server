@@ -1,9 +1,11 @@
 <!DOCTYPE html>
-<html lang="en" data-bs-theme="dark">
+<html lang="en" data-bs-theme="dark" translate="no">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="google" content="notranslate">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <title>OVARP: Wizard of Oz Console</title>
     <!-- Google Fonts: Plus Jakarta Sans & JetBrains Mono -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -901,8 +903,10 @@
                             <div class="card-header">Target Selection</div>
                             <div class="card-body">
                                 <div class="mb-3">
-                                    <label class="form-label">Device ID</label>
+                                    <label class="form-label" for="target-device">Device ID</label>
                                     <select id="target-device" class="form-select"></select>
+                                    <small id="target-device-status" class="mt-1 d-block"
+                                        style="font-size:0.76rem;"></small>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">Agent ID</label>
@@ -916,7 +920,20 @@
                                     <small class="text-muted mt-1 d-block">Applies to the agent above right away.</small>
                                     <small id="lc-profile-hint" class="text-muted mt-1 d-block"></small>
                                 </div>
-                                <hr class="border-secondary">
+                                <hr class="section-divider">
+                                <div class="metric-box" style="padding:10px 12px;">
+                                    <div class="metric-label">What the Device picker governs</div>
+                                    <div style="font-size:0.76rem; color:var(--text-label); margin-top:4px;">
+                                        <strong style="color:var(--text);">Only</strong> the action buttons below:
+                                        emotions, actions, looks, movement, avatar. Those reach the selected
+                                        device and nothing else.
+                                    </div>
+                                    <div style="font-size:0.76rem; color:var(--text-muted); margin-top:6px;">
+                                        Speech ignores it. <strong>Speak This Text</strong> and every LLM reply are
+                                        broadcast to all connected clients, so this console can monitor them.
+                                    </div>
+                                </div>
+                                <hr class="section-divider">
                                 <div>
                                     <span id="ws-status" class="badge bg-danger">Disconnected</span>
                                 </div>
@@ -988,8 +1005,9 @@
                                 <textarea id="direct-msg" class="form-control mb-2" rows="3"
                                     placeholder="Type what the agent should say..." aria-label="Direct TTS message text"></textarea>
                                 <button id="send-msg-btn" class="btn btn-action-primary w-100" aria-label="Send text directly to TTS">Speak This Text</button>
-                                <small class="text-muted mt-1 d-block">Bypasses the LLM and sends directly to
-                                    TTS.</small>
+                                <small class="text-muted mt-1 d-block">Bypasses the LLM and sends straight to
+                                    TTS. Heard by <strong>every connected client</strong>, not just the device
+                                    selected on the left.</small>
                             </div>
                         </div>
 
@@ -1082,6 +1100,9 @@
                                     <button id="stop-audio-btn" class="btn btn-ghost flex-fill"
                                         title="Stop what the agent is saying and drop the queued sentences">Stop
                                         Audio</button>
+                                    <button id="mute-console-btn" class="btn btn-ghost flex-fill"
+                                        title="The server broadcasts speech to every client. Mute this console when a participant client is open on the same machine, or you hear each reply twice.">Mute
+                                        Here</button>
                                     <button id="clear-history-btn" class="btn btn-ghost flex-fill">Reset
                                         Agent</button>
                                 </div>
@@ -1890,14 +1911,14 @@
         // The Playground's standing latency readout, separate from the per-reply
         // line: it survives scrolling the chat and is what you watch while tuning.
         function renderLatencyBoxes(timings) {
-            const box = (id, seconds) => {
+            const box = (id, ms) => {
                 const el = document.getElementById(id);
-                if (el) el.textContent = seconds == null ? '—' : Math.round(seconds * 1000);
+                if (el) el.textContent = ms ? Math.round(ms) : '—';
             };
-            box('latency-stt', timings.stt);
-            box('latency-llm', timings.llm);
-            box('latency-tts', timings.tts);
-            box('latency-total', timings.total);
+            box('latency-stt', timings.stt_ms);
+            box('latency-llm', timings.llm_ms);
+            box('latency-tts', timings.tts_ms);
+            box('latency-total', timings.total_ms);
         }
 
         // --- OVARP Web SDK Initialization ---
@@ -2037,7 +2058,12 @@
                             const btn = document.createElement('button');
                             btn.className = 'btn btn-outline-info btn-sm mt-1';
                             btn.style.cssText = 'font-size:0.7em; padding:2px 8px;';
-                            btn.textContent = 'Replay';
+                            // The server speaks sentence by sentence, so a reply
+                            // grows several of these. Unlabelled they are a row
+                            // of identical buttons with no way to tell them apart.
+                            const index = replayCtr.querySelectorAll('button').length + 1;
+                            btn.textContent = `Replay ${index}`;
+                            btn.title = `Replay sentence ${index} of this reply`;
                             btn.onclick = () => {
                                 const audio = new Audio(blobUrl);
                                 audio.play().catch(e => log(`Replay failed: ${e}`, 'error'));
@@ -2162,9 +2188,30 @@
             set('llm-status-provider', llm.toUpperCase());
             set('llm-status-model', MODEL_LABELS[llm] || (llm ? 'default model' : ''));
 
+            // A profile pins the agent's voice, and the picker does not follow it.
+            // Reading the picker here is what made the badge say Puck while Kore
+            // was speaking, so the agent's own resolved voice wins when it has one.
             const tts = value('tts-provider-select');
             const voice = value('tts-voice-select');
             set('llm-status-tts', tts ? `${tts} / ${voice || 'default'}` : '');
+            refreshResolvedVoiceBadge();
+        }
+
+        async function refreshResolvedVoiceBadge() {
+            const el = document.getElementById('llm-status-tts');
+            if (!el) return;
+            try {
+                const agentId = OVARPClient.agentId;
+                const info = await (await fetch(`/api/agents/${encodeURIComponent(agentId)}`)).json();
+                if (!info || !info.voice_id) return;
+                const provider = info.voice_provider && info.voice_provider !== 'auto'
+                    ? info.voice_provider
+                    : (document.getElementById('tts-provider-select')?.value || '');
+                el.textContent = `${provider} / ${info.voice_id}`;
+                el.title = `Pinned by the profile applied to ${agentId}`;
+            } catch {
+                // Leave the picker-derived value in place
+            }
         }
         window.updatePipelineBadges = updatePipelineBadges;
 
@@ -2178,6 +2225,74 @@
         for (const id of ['llm-provider-select', 'tts-provider-select', 'tts-voice-select']) {
             document.getElementById(id)?.addEventListener('change', updatePipelineBadges);
         }
+
+
+        // A targeted action aimed at a device nobody is connected as goes nowhere,
+        // silently. That is the single most confusing thing about this tab, so the
+        // picker says out loud whether the chosen id is actually online.
+        const TARGET_STATUS_POLL_MS = 5000;
+
+        // Aiming at a device nobody is connected as is the single most common way
+        // to conclude the system is broken, so the picker starts somewhere real.
+        let targetDefaultChosen = false;
+
+        async function selectFirstConnectedDevice() {
+            if (targetDefaultChosen) return;
+            const select = document.getElementById('target-device');
+            if (!select || !select.options.length) return;
+            try {
+                const all = (await (await fetch('/api/clients')).json()).clients || [];
+                const reachable = all.filter(id => !id.startsWith('woz_console_'));
+                const match = reachable.find(id =>
+                    Array.from(select.options).some(o => o.value === id));
+                if (match) {
+                    select.value = match;
+                    targetDefaultChosen = true;
+                    log(`WoZ target set to ${match}, the connected client`, 'info');
+                }
+            } catch {
+                // Leave the config order in place
+            }
+        }
+
+        async function refreshTargetDeviceStatus() {
+            const el = document.getElementById('target-device-status');
+            const select = document.getElementById('target-device');
+            if (!el || !select || !select.value) return;
+
+            let connected = [];
+            try {
+                const all = (await (await fetch('/api/clients')).json()).clients || [];
+                // Console tabs connect with their own generated id so each hears its
+                // own replies. They are monitors, never targets, so listing them here
+                // would only suggest a device is reachable when none is.
+                connected = all.filter(id => !id.startsWith('woz_console_'));
+            } catch {
+                el.textContent = '';
+                return;
+            }
+
+            const selected = select.value;
+            if (selected === 'all') {
+                el.style.color = 'var(--emerald)';
+                el.textContent = connected.length
+                    ? `Every connected client (${connected.length}): ${connected.join(', ')}`
+                    : 'No participant client is connected right now.';
+                return;
+            }
+
+            if (connected.includes(selected)) {
+                el.style.color = 'var(--emerald)';
+                el.textContent = `${selected} is connected.`;
+            } else {
+                el.style.color = 'var(--amber)';
+                el.textContent = connected.length
+                    ? `${selected} is not connected, so actions sent to it go nowhere. `
+                      + `Online: ${connected.join(', ')}.`
+                    : `${selected} is not connected, and no other client is either.`;
+            }
+        }
+        window.refreshTargetDeviceStatus = refreshTargetDeviceStatus;
 
         async function initConfig() {
             try {
@@ -2231,6 +2346,15 @@
                 }
 
                 log('Dynamic UI generated from config.', 'info');
+
+                document.getElementById('target-device')
+                    .addEventListener('change', refreshTargetDeviceStatus);
+                await selectFirstConnectedDevice();
+                refreshTargetDeviceStatus();
+                setInterval(async () => {
+                    await selectFirstConnectedDevice();
+                    refreshTargetDeviceStatus();
+                }, TARGET_STATUS_POLL_MS);
 
                 // Populate XR connection info (server LAN IP + ports)
                 loadServerInfo();
@@ -2577,8 +2701,9 @@
 
         // Setup direct inputs
         document.getElementById('send-msg-btn').onclick = () => {
-            const text = document.getElementById('direct-msg').value;
+            const text = document.getElementById('direct-msg').value.trim();
             if (text) {
+                OVARPClient.stopAudio();  // barge-in: the wizard is overriding what is playing
                 sendCommand('message', 'direct_tts', { text: text });
                 document.getElementById('direct-msg').value = '';
             }
@@ -2769,6 +2894,16 @@
 
             // A scenario saved from the builder should show up in the picker at once
             document.addEventListener('ovarp:scenarios-changed', () => loadScenarios());
+
+            const muteBtn = document.getElementById('mute-console-btn');
+            muteBtn?.addEventListener('click', () => {
+                const muted = OVARPClient.setMuted(!OVARPClient.isMuted);
+                muteBtn.textContent = muted ? 'Unmute Here' : 'Mute Here';
+                muteBtn.classList.toggle('btn-action-primary', muted);
+                showToast(muted
+                    ? 'This console is muted. Participant clients still hear the agent.'
+                    : 'This console will play the agent again', 'info');
+            });
 
             document.getElementById('stop-audio-btn')?.addEventListener('click', () => {
                 OVARPClient.stopAudio();

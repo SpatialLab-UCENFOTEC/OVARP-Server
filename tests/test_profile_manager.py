@@ -149,7 +149,8 @@ class TestConditionsMigration:
 
         migrated = fresh_manager.get_profile("condition_happy")
         assert migrated is not None
-        assert migrated.name == "Happy (migrated)"
+        assert migrated.name == "Happy"
+        assert migrated.identity.role == "Experimental condition"
         assert migrated.voice.voice_id == "alloy"
 
     def test_migrate_empty_conditions(self, fresh_manager):

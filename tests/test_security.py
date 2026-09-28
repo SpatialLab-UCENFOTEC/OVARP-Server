@@ -133,3 +133,39 @@ class TestCredentialProtection:
         monkeypatch.setenv("OVARP_SECRET_KEY", "different")
 
         assert reveal(stored) == ""
+
+
+class TestSurveyResultsAreProtected:
+    """Answering a questionnaire is public; reading who answered what is not."""
+
+    def test_responses_needs_the_token(self, client, monkeypatch):
+        monkeypatch.setenv("OVARP_ACCESS_TOKEN", TOKEN)
+
+        assert client.get("/api/surveys/responses").status_code == 401
+
+    def test_responses_is_reachable_with_the_token(self, client, monkeypatch):
+        monkeypatch.setenv("OVARP_ACCESS_TOKEN", TOKEN)
+
+        resp = client.get("/api/surveys/responses", headers={"X-OVARP-Token": TOKEN})
+
+        assert resp.status_code == 200
+
+    def test_the_catch_all_route_does_not_serve_responses(self, client, monkeypatch):
+        """/api/surveys/{survey_id} is registered after /responses on purpose.
+
+        Mounted the other way round it matches survey_id="responses" and hands
+        the participant data out unprotected, which is how this first shipped.
+        """
+        monkeypatch.setenv("OVARP_ACCESS_TOKEN", TOKEN)
+
+        assert client.get("/api/surveys").status_code == 200
+        assert client.get("/api/surveys/sus").status_code == 200
+
+    def test_a_participant_can_still_submit(self, client, monkeypatch):
+        monkeypatch.setenv("OVARP_ACCESS_TOKEN", TOKEN)
+
+        resp = client.post("/api/surveys/response", json={
+            "survey_id": "sus", "participant_id": "P40", "answers": {"sus_1": 3},
+        })
+
+        assert resp.status_code == 200

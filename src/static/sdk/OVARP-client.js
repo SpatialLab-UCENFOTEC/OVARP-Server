@@ -335,6 +335,21 @@ export default class OVARPClient {
         }
     }
 
+    /** Silence this client's own playback without changing what the server sends.
+     * The server broadcasts speech to every client so the console can monitor it;
+     * with a participant client open on the same machine that means every reply
+     * is heard twice. Muting here is per browser, not per experiment. */
+    setMuted(muted) {
+        this._muted = Boolean(muted);
+        this._ttsAudioPlayer.muted = this._muted;
+        if (this._muted) this._resetTTSPlayback();
+        return this._muted;
+    }
+
+    get isMuted() {
+        return Boolean(this._muted);
+    }
+
     /** Stop the agent mid-sentence and drop whatever it had left to say.
      * The wizard needs this when a reply is wrong or the participant talks over it. */
     stopAudio() {

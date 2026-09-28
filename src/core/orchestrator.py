@@ -587,7 +587,9 @@ class DialogOrchestrator:
                 std_log.info("🔇 Orchestrator: TTS disabled, skipping audio generation")
 
             # Finalize latency metrics
-            total_ms = round((time.perf_counter() - interaction_start) * 1000)
+            # The clock starts after STT, so the transcription has to be added
+            # back in: what the participant waits through is the whole turn.
+            total_ms = round((time.perf_counter() - interaction_start) * 1000) + stt_ms
             latency["tts_ms"] = tts_ms
             if tts_first_chunk_ms is not None:
                 latency["tts_first_chunk_ms"] = tts_first_chunk_ms
@@ -691,6 +693,11 @@ class DialogOrchestrator:
                 std_log.error(
                     f"❌ Orchestrator: sentence TTS synthesis failed | text=\"{text[:60]}\" "
                     f"| {type(e).__name__}: {str(e)}"
+                )
+                # The reply text is already on screen, so a silently dropped
+                # sentence reads as the agent mumbling rather than as a failure.
+                await self._report_pipeline_error(
+                    "tts", self.active_tts_id, e, target_agent
                 )
             return chunks
 

@@ -185,10 +185,20 @@ deliberately departs from his, and the UX is unchanged.
   real took 10s+ and left the console showing stale error badges while it waited.
 - Functions used from inline `onclick=` must be assigned to `window` explicitly: the console runs
   as a `<script type="module">`, where declarations are not global.
+- **Route order decides whether a route is protected.** `surveys.results_router` is mounted before
+  `surveys.router` in `main.py` because that router ends in a catch-all `/api/surveys/{survey_id}`.
+  Mounted the other way round, `/api/surveys/responses` matches the catch-all and hands participant
+  data out with no token. `test_security.py` pins this; it shipped wrong once.
+- **An `execute_state` from the LLM carries every category at once.** The tool schema marks each
+  one `required`, so `emotions`, `actions`, `looks`, `movement` and `avatar` always arrive
+  together. A client that tests them with `else if` only ever reacts to the first — which is why
+  the Unity avatar looked unimplemented for three QA rounds when it was not.
+- Ids that become filenames go through `src/core/identifiers.py`. `profile_manager` and
+  `scenario_runner` both write `<dir>/<id>.yaml` from a value that arrives over the API.
 
-## Known state (2026-09-16)
+## Known state (2026-09-28)
 
-Tests: 280 passing. `ruff check` is clean on `src/api/`, `src/main.py`, `src/core/key_store.py`
+Tests: 314 passing. `ruff check` is clean on `src/api/`, `src/main.py`, `src/core/key_store.py`
 and the modules added recently; the older files still carry ~400 violations (whitespace, line
 length, `Optional[X]`), not gated in CI. New code in an older file matches that file's existing
 style rather than importing a second convention into it.

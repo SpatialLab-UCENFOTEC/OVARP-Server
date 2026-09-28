@@ -53,21 +53,22 @@ async def apply_profile(req: ProfileApplyRequest):
     results = []
     for agent_id in agent_ids:
         runtime.orchestrator.apply_profile(agent_id, profile)
-
-        # Send avatar change to XR clients (if the profile specifies one)
-        if profile.avatar:
-            from src.core.schemas import BaseCommand
-            avatar_cmd = BaseCommand(
-                sender="server_orchestrator",
-                target_device="all",
-                target_agent=agent_id,
-                command_type="action",
-                command="execute_state",
-                subcommand={"avatar": profile.avatar},
-            )
-            await runtime.router.route_command(avatar_cmd)
-
         results.append(runtime.orchestrator.get_agent_info(agent_id))
+
+    # One dispatch for the whole apply, addressed to the same target the caller
+    # asked for. Sending it per agent produced a duplicate avatar tag in every
+    # client for a single click on Apply.
+    if profile.avatar:
+        from src.core.schemas import BaseCommand
+        avatar_cmd = BaseCommand(
+            sender="server_orchestrator",
+            target_device="all",
+            target_agent=req.agent_id,
+            command_type="action",
+            command="execute_state",
+            subcommand={"avatar": profile.avatar},
+        )
+        await runtime.router.route_command(avatar_cmd)
 
     runtime.telemetry.log_session_event("profile_applied", {
         "profile_id": req.profile_id,

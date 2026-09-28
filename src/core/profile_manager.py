@@ -15,6 +15,8 @@ License: MIT
 """
 
 import yaml
+
+from src.core.identifiers import safe_path
 import logging
 from pathlib import Path
 from typing import Optional
@@ -255,8 +257,13 @@ class ProfileManager:
         return True
 
     def _profile_path(self, profile_id: str) -> Optional[Path]:
+        """Where this profile's YAML lives, or None when no directory is known.
+
+        The id reaches here straight from the API, so it is validated before it
+        is joined onto a path.
+        """
         directory = getattr(self, "_profiles_dir", None)
-        return directory / f"{profile_id}.yaml" if directory else None
+        return safe_path(directory, profile_id) if directory else None
 
     def _write_profile(self, profile: AgentProfile):
         """Serialize a profile to its YAML file."""
@@ -297,9 +304,12 @@ class ProfileManager:
                 continue
 
             # Build a profile from the condition fields
+            # "(migrated)" and an empty role were an implementation detail on
+            # display in the picker. A condition is a legitimate persona here.
             profile_data = {
                 "id": f"condition_{cond_id}",
-                "name": f"{cond_id.replace('_', ' ').title()} (migrated)",
+                "name": cond_id.replace("_", " ").title(),
+                "identity": {"role": "Experimental condition"},
                 "personality": {
                     "system_prompt": cond.system_prompt,
                 },

@@ -127,3 +127,35 @@ class TestSubmitResponse:
 
         assert "error" in resp.json()
         runtime.telemetry.log_survey_response.assert_not_called()
+
+
+class TestSurveyRangeValidation:
+    """An out-of-scale answer would sail through the SUS formula."""
+
+    def test_value_above_the_scale_is_rejected(self, client):
+        resp = client.post("/api/surveys/response", json={
+            "survey_id": "sus",
+            "participant_id": "P30",
+            "answers": {f"sus_{i}": 5 for i in range(1, 10)} | {"sus_10": 99},
+        })
+
+        assert resp.status_code == 422
+
+    def test_value_below_the_scale_is_rejected(self, client):
+        resp = client.post("/api/surveys/response", json={
+            "survey_id": "sus",
+            "participant_id": "P31",
+            "answers": {"sus_1": 0},
+        })
+
+        assert resp.status_code == 422
+
+    def test_in_range_answers_are_accepted(self, client):
+        resp = client.post("/api/surveys/response", json={
+            "survey_id": "sus",
+            "participant_id": "P32",
+            "answers": {f"sus_{i}": 3 for i in range(1, 11)},
+        })
+
+        assert resp.status_code == 200
+        assert 0 <= resp.json()["score"]["score"] <= 100

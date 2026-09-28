@@ -98,8 +98,9 @@ class TestScenarioLifecycle:
 
     def test_load_unknown_scenario(self, client):
         resp = client.post("/api/scenarios/load", json={"scenario_id": "nonexistent"})
-        assert resp.status_code == 200
-        assert "error" in resp.json()
+
+        assert resp.status_code == 404
+        assert "detail" in resp.json()
 
     def test_advance_scenario(self, client, setup_app):
         setup_app["runner"].start("api_test_scenario")

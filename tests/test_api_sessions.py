@@ -28,6 +28,9 @@ def setup_app(monkeypatch):
     """Inject a fresh SessionManager and mock telemetry into main module."""
     fresh_mgr = SessionManager()
     fresh_mgr._session = None
+    # SessionManager is a singleton, so the previous test's completed session
+    # would otherwise still be exportable here.
+    fresh_mgr._last_completed = None
 
     monkeypatch.setattr(runtime, "session_manager", fresh_mgr, raising=False)
     monkeypatch.setattr(runtime, "telemetry", MagicMock(), raising=False)
@@ -122,10 +125,12 @@ class TestSessionMarkers:
         assert resp.status_code == 200
         assert resp.json()["status"] == "ok"
 
-    def test_add_marker_without_session(self, client):
+    def test_add_marker_without_session_is_rejected(self, client):
+        """A refused marker must not read as success: the moment is unrecoverable."""
         resp = client.post("/api/session/marker", json={"label": "should_fail"})
-        assert resp.status_code == 200
-        assert "error" in resp.json()
+
+        assert resp.status_code == 409
+        assert "detail" in resp.json()
 
 
 class TestMarkerEditing:
@@ -244,3 +249,27 @@ class TestSessionCsvExport:
         rows = client.get("/api/session/export/csv").text.strip().splitlines()
 
         assert rows[2].endswith(",yes")
+
+
+class TestExportAfterEnd:
+    """Ending a session must not put its markers out of reach."""
+
+    def test_markers_are_still_exportable_after_end(self, client):
+        client.post("/api/session/start", json={"participant_id": "P20"})
+        client.post("/api/session/marker", json={"label": "task_started"})
+        client.post("/api/session/end")
+
+        resp = client.get("/api/session/export/csv")
+
+        assert resp.status_code == 200
+        assert "task_started" in resp.text
+        assert "P20" in resp.text
+        assert "NO_ACTIVE_SESSION" not in resp.text
+
+    def test_a_completed_session_is_labelled_as_such(self, client):
+        client.post("/api/session/start", json={"participant_id": "P21"})
+        client.post("/api/session/end")
+
+        rows = client.get("/api/session/export/csv").text.strip().splitlines()
+
+        assert "COMPLETED" in rows[1]

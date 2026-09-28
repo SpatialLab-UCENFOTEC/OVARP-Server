@@ -143,6 +143,11 @@ else:
 # Reachable without a token so the console can ask for one when it needs to
 app.include_router(auth.router)
 
+# Reading who answered what is a researcher action, so it carries the token.
+# It must be mounted BEFORE surveys.router: that router ends in a catch-all
+# /api/surveys/{survey_id}, which would otherwise swallow /responses unprotected.
+app.include_router(surveys.results_router, dependencies=[Depends(require_console_token)])
+
 # Participants answer questionnaires on their own device, with no token to carry
 app.include_router(surveys.router)
 

@@ -57,11 +57,21 @@ class SessionManager:
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._session = None
+            cls._instance._last_completed = None
         return cls._instance
 
     @property
     def session(self) -> Optional[ExperimentSession]:
         return self._session
+
+    @property
+    def last_completed(self) -> Optional[ExperimentSession]:
+        """The most recently ended session, for exports taken after End."""
+        return getattr(self, "_last_completed", None)
+
+    def exportable_session(self) -> Optional[ExperimentSession]:
+        """The active session, or the last one that finished."""
+        return self._session or self.last_completed
 
     @property
     def is_active(self) -> bool:
@@ -126,6 +136,10 @@ class SessionManager:
         )
 
         completed = self._session
+        # Kept so the markers stay exportable after End. Ending a session used
+        # to drop it from memory, and the CSV a researcher reached for next
+        # came back empty.
+        self._last_completed = completed
         self._session = None
         return completed
 

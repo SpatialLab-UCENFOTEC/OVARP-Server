@@ -56,9 +56,12 @@ export async function addMarker(label, { metadata = null, button = null, display
         });
         const data = await resp.json();
 
-        // The server answers 200 with an error body when no session is active
-        if (data.error) {
-            notify(data.error, 'warning');
+        // 409 when no session is active. A marker is a moment that cannot be
+        // recovered later, so a refusal has to be loud rather than a silent no-op.
+        if (!resp.ok || data.error) {
+            const reason = data.detail || data.error || 'The server refused the marker';
+            notify(`Not recorded: ${reason}`, 'error');
+            flash(button, '✗');
             return null;
         }
 

@@ -9,12 +9,26 @@ Author: Alexander Barquero Elizondo, Ph.D. — UCR, ECCI/CITIC
 License: MIT
 """
 
-from fastapi import APIRouter
-from pydantic import BaseModel
+import re
+
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, field_validator
 
 from src.core.runtime import runtime
 
 router = APIRouter(prefix="/api/scenarios", tags=["scenarios"])
+
+# An id becomes a filename, so it may not carry path separators of any kind.
+IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+
+
+def _validate_identifier(value: str) -> str:
+    """Reject anything that could escape the directory it is written into."""
+    if not IDENTIFIER_PATTERN.fullmatch(value or ""):
+        raise ValueError(
+            "Use only letters, digits, hyphen and underscore (max 64 characters)"
+        )
+    return value
 
 
 class ScenarioLoadRequest(BaseModel):
@@ -35,6 +49,19 @@ class ScenarioCreateRequest(BaseModel):
     name: str
     description: str = ""
     steps: list[ScenarioStepRequest] = []
+
+    @field_validator("id")
+    @classmethod
+    def id_is_a_bare_name(cls, value: str) -> str:
+        return _validate_identifier(value)
+
+    @field_validator("steps")
+    @classmethod
+    def at_least_one_step(cls, value: list) -> list:
+        """A protocol with no steps loads to None and crashes the runner."""
+        if not value:
+            raise ValueError("A scenario needs at least one step")
+        return value
 
 
 @router.get("")
@@ -70,10 +97,19 @@ async def load_scenario(req: ScenarioLoadRequest):
     """Load and start a scenario from step 1."""
     try:
         step = runtime.scenario_runner.start(req.scenario_id)
-        await execute_step_side_effects(step)
-        return {"status": "ok", **runtime.scenario_runner.get_status()}
     except ValueError as e:
-        return {"error": str(e)}
+        raise HTTPException(status_code=404, detail=str(e)) from e
+
+    if step is None:
+        # An empty scenario on disk predates the validator above
+        runtime.scenario_runner.stop()
+        raise HTTPException(
+            status_code=422,
+            detail=f"Scenario '{req.scenario_id}' has no steps to run",
+        )
+
+    await execute_step_side_effects(step)
+    return {"status": "ok", **runtime.scenario_runner.get_status()}
 
 
 @router.post("/advance")

@@ -19,7 +19,19 @@ router = APIRouter(prefix="/api", tags=["llm"])
 
 # Credentials the console can report on without calling out to the provider.
 PROVIDER_ENV_KEYS = {"openai": "OPENAI_API_KEY", "gemini": "GEMINI_API_KEY"}
-PLACEHOLDER_KEYS = {"sk-dummy", "dummy"}
+# A key that was never filled in must not read as healthy. These are the values
+# .env.example ships with, plus the ones the test suite injects.
+PLACEHOLDER_KEYS = {"sk-dummy", "dummy", "sk-...", "aizasy...", "changeme", "your-key-here"}
+PLACEHOLDER_MARKERS = ("...", "xxx", "<", "your_")
+MIN_CREDIBLE_KEY_LENGTH = 12
+
+
+def _is_placeholder(key: str) -> bool:
+    """Whether this looks like a value nobody actually replaced."""
+    lowered = key.lower()
+    if lowered in PLACEHOLDER_KEYS or len(key) < MIN_CREDIBLE_KEY_LENGTH:
+        return True
+    return any(marker in lowered for marker in PLACEHOLDER_MARKERS)
 
 
 class LLMConfigUpdate(BaseModel):
@@ -169,7 +181,7 @@ async def check_provider_health():
         env_var = PROVIDER_ENV_KEYS.get(name)
         if env_var:
             key = os.getenv(env_var, "").strip()
-            results[name] = "ok" if key and key not in PLACEHOLDER_KEYS else "error"
+            results[name] = "ok" if key and not _is_placeholder(key) else "error"
         else:
             base_url = getattr(provider, "base_url", "")
             results[name] = "ok" if base_url else "error"

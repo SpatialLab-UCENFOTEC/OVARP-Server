@@ -13,7 +13,7 @@ import io
 import time
 from datetime import datetime
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel
 
@@ -98,7 +98,9 @@ async def add_marker(req: MarkerRequest):
         runtime.telemetry.log_marker(req.label, req.metadata)
         return {"status": "ok", "marker": marker.model_dump()}
     except ValueError as e:
-        return {"error": str(e)}
+        # A marker the server refused used to come back as 200 with an error
+        # body, so every client reported success and the moment was lost.
+        raise HTTPException(status_code=409, detail=str(e)) from e
 
 
 class MarkerAmendRequest(BaseModel):
@@ -158,11 +160,12 @@ async def export_session_csv():
     writer = csv.writer(output)
     writer.writerow(SESSION_CSV_HEADER)
 
-    session = runtime.session_manager.session
+    session = runtime.session_manager.exportable_session()
     if session:
         writer.writerow([
             session.started_at, session.started_at_unix, session.session_id,
-            session.participant_id, "SESSION_START", "ACTIVE", f"Status: {session.status}", "",
+            session.participant_id, "SESSION_START", session.status.upper(),
+            f"Status: {session.status}", "",
         ])
         for marker in session.markers:
             writer.writerow([
