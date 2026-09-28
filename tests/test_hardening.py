@@ -60,3 +60,40 @@ class TestPlaceholderKeys:
     ])
     def test_real_looking_keys_pass(self, key):
         assert _is_placeholder(key) is False
+
+
+class TestSingleValueCategoriesAreOptional:
+    """A category with one value gives the model nothing to decide.
+
+    Requiring it made every reply carry the only option, which the console drew
+    as a tag on each message. The rule is general, not a special case: add a
+    second value and the category becomes required again.
+    """
+
+    def _schema(self, monkeypatch, categories):
+        from src.core.config import CustomCommandCategory, config_manager
+        from src.providers.openai_provider import OpenAILLMProvider
+
+        config = config_manager.config
+        monkeypatch.setattr(
+            config, "custom_commands",
+            {name: CustomCommandCategory(description="d", values=values)
+             for name, values in categories.items()},
+        )
+        return OpenAILLMProvider()._build_tools_schema()[0]["function"]["parameters"]
+
+    def test_single_value_category_is_offered_but_not_required(self, monkeypatch):
+        schema = self._schema(monkeypatch, {"avatar": ["default"]})
+
+        assert "avatar" in schema["properties"]
+        assert "avatar" not in schema["required"]
+
+    def test_multi_value_category_stays_required(self, monkeypatch):
+        schema = self._schema(monkeypatch, {"emotions": ["happy", "sad"]})
+
+        assert "emotions" in schema["required"]
+
+    def test_the_spoken_reply_is_always_required(self, monkeypatch):
+        schema = self._schema(monkeypatch, {"avatar": ["default"]})
+
+        assert "spoken_response" in schema["required"]

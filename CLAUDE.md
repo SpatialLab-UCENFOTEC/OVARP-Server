@@ -123,7 +123,7 @@ ZMQ sends the bare command with a topic frame. Outbound: `user_transcript`, `llm
 `tts_chunk` (base64 WAV slices), `tts_complete`, `execute_state`, `marker_logged`.
 
 `execute_state` subcommand keys map 1:1 to `config.yaml → custom_commands`:
-`emotions`, `actions`, `looks`, `movement`. (`avatar` was retired — see below.)
+`emotions`, `actions`, `looks`, `movement`, `avatar`.
 
 ### Routing gotchas
 
@@ -195,11 +195,15 @@ deliberately departs from his, and the UX is unchanged.
   one `required`, so every declared category arrives together on each turn. A client that tests
   them with `else if` only ever reacts to the first — which is why the Unity avatar looked
   unimplemented for three QA rounds when it was not.
-- **`custom_commands.avatar` is retired**, commented out in `config.yaml` rather than deleted. The
-  Unity client cannot swap the model, and because every category is `required` the model was
-  forced to emit an avatar every turn, filling the chat with `[avatar: default]`. `AgentProfile`
-  still carries an `avatar` field as inert data; nothing dispatches it. Restore the config block
-  and the client's `OnAvatarCommand` together when the prefab swap lands.
+- **A category with one value is offered to the LLM but not `required` of it.** With every
+  category required, a single-option category made the model restate the only choice each turn and
+  the console drew it as a tag on every reply. `avatar` is in that state: declared, one value
+  (`default`), because the Unity client cannot swap the model yet. Add a second value and it
+  becomes required again on its own — the rule is in `_build_tools_schema` in both providers, not
+  a special case for avatar.
+- Nothing dispatches an avatar `execute_state`. `AgentProfile.avatar` is recorded but inert, and
+  the Unity client has no `OnAvatarCommand`; restore both alongside the extra config values when
+  the prefab swap lands.
 - Ids that become filenames go through `src/core/identifiers.py`. `profile_manager` and
   `scenario_runner` both write `<dir>/<id>.yaml` from a value that arrives over the API.
 

@@ -71,7 +71,7 @@ Everything needed to shape the agent, in one column:
 ### Live Control
 
 Fire `execute_state` commands at connected clients in real time — emotions, gestures, gaze,
-movement. The buttons are generated from `config.yaml → custom_commands`, so the
+movement, avatar. The buttons are generated from `config.yaml → custom_commands`, so the
 vocabulary is whatever your experiment declares.
 
 Also holds **Direct TTS**, which makes the agent speak an exact line without involving the LLM,
@@ -102,8 +102,8 @@ Editing rewrites that file; deleting removes it.
 ### Applying
 
 Apply to one agent or to all of them. Applying sets the agent's prompt and pins its voice, and
-The profile's `avatar` field is recorded but not dispatched: appearance changes are retired until
-the Unity client can swap the model.
+The profile's `avatar` field is recorded but not dispatched: the Unity client cannot swap the
+model yet, so `avatar` is declared in `config.yaml` with a single value.
 
 `POST /api/agents/{id}/reset` releases an agent back to the global prompt and voice — the way back
 out, so the console's settings become the single source of truth again.

@@ -134,8 +134,7 @@ defined".
 Aplicar un perfil con **All Agents** seleccionado.
 
 **Esperado:** el perfil se aplica a los dos agentes y **no** aparece ninguna
-etiqueta `[avatar: ...]`. En la ronda 2 salían dos por un solo click; ahora la
-categoría de apariencia está retirada del todo.
+etiqueta `[avatar: ...]`. En la ronda 2 salían dos por un solo click.
 
 ### A12. Botones Replay (R2-13)
 
@@ -322,10 +321,11 @@ indefinidamente.
 
 No hace falta probar esto, ya sabemos que sigue igual:
 
-- **El cambio de apariencia del avatar está retirado.** No hay botones de
-  AVATAR en WoZ Control ni etiquetas `[avatar: ...]` en el chat: la categoría
-  salió de `config.yaml` porque el cliente no puede cambiar el modelo todavía.
-  Si ves alguno de los dos, eso sí es un hallazgo.
+- **El avatar no cambia de modelo 3D.** La categoría AVATAR sigue en WoZ Control
+  pero con una sola opción (`default`), porque el cliente todavía no puede
+  cambiar el modelo. Pulsarla no hace nada visible, y eso es lo esperado.
+  Lo que **no** debería pasar es ver etiquetas `[avatar: default]` colgando de
+  cada respuesta del agente en el chat: si aparecen, eso sí es un hallazgo.
 - **Latencia español vs inglés.** No se tocó. Ahora es medible con el panel de
   latencia (A5), pero hace falta una medición formal con varios turnos de cada
   idioma.

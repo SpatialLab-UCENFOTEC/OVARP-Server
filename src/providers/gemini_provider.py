@@ -94,7 +94,12 @@ class GeminiLLMProvider(BaseLLMProvider):
                 "enum": category.values,
                 "description": category.description
             }
-            required.append(cat_name)
+            # A category with a single value leaves the model nothing to decide, so
+            # it is offered but not demanded. Requiring it made the model restate
+            # the only option on every turn, which the console then drew as a tag
+            # on every reply. Add a second value and it becomes required again.
+            if len(category.values) > 1:
+                required.append(cat_name)
 
         # Add spoken_response as a required param so the LLM always provides text
         properties["spoken_response"] = {

@@ -362,12 +362,12 @@ custom_commands:
     description: "Agent spatial movement"
     values: ["move_closer", "move_farther", "move_left", "move_right", "reset_position"]
 
-  # avatar: retired until the client can swap the model. Every category here is
-  # required in the LLM tool schema, so declaring one the clients cannot act on
-  # forced the model to emit a value on every turn.
-  # avatar:
-  #   description: "Change the agent's avatar appearance"
-  #   values: ["default", "male_casual", "female_formal", "robot"]
+  # One value until the client can swap the model. A single-value category is
+  # offered to the LLM but not required of it, so the model is not made to
+  # restate the only choice every turn.
+  avatar:
+    description: "Change the agent's avatar appearance"
+    values: ["default"]
 
 # Experimental conditions (one-click presets)
 conditions:
