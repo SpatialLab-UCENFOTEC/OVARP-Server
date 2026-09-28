@@ -321,11 +321,11 @@ indefinidamente.
 
 No hace falta probar esto, ya sabemos que sigue igual:
 
-- **El avatar no cambia de modelo 3D.** La categoría AVATAR sigue en WoZ Control
-  pero con una sola opción (`default`), porque el cliente todavía no puede
-  cambiar el modelo. Pulsarla no hace nada visible, y eso es lo esperado.
-  Lo que **no** debería pasar es ver etiquetas `[avatar: default]` colgando de
-  cada respuesta del agente en el chat: si aparecen, eso sí es un hallazgo.
+- **No hay cambio de avatar.** En **(05) WOZ CONTROL** no debería aparecer
+  ninguna fila **AVATAR**: hay una sola apariencia, así que no se ofrece un
+  control para cambiarla. Tampoco deberían salir etiquetas `[avatar: default]`
+  colgando de las respuestas del agente. Si ves cualquiera de las dos cosas,
+  eso sí es un hallazgo.
 - **Latencia español vs inglés.** No se tocó. Ahora es medible con el panel de
   latencia (A5), pero hace falta una medición formal con varios turnos de cada
   idioma.

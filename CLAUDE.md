@@ -195,12 +195,12 @@ deliberately departs from his, and the UX is unchanged.
   one `required`, so every declared category arrives together on each turn. A client that tests
   them with `else if` only ever reacts to the first — which is why the Unity avatar looked
   unimplemented for three QA rounds when it was not.
-- **A category with one value is offered to the LLM but not `required` of it.** With every
-  category required, a single-option category made the model restate the only choice each turn and
-  the console drew it as a tag on every reply. `avatar` is in that state: declared, one value
-  (`default`), because the Unity client cannot swap the model yet. Add a second value and it
-  becomes required again on its own — the rule is in `_build_tools_schema` in both providers, not
-  a special case for avatar.
+- **A category with one value is not a choice, and both layers treat it that way.** The LLM tool
+  schema offers it but does not `require` it (`_build_tools_schema`, both providers), and WoZ
+  Control does not render a button row for it at all — a control to "change" something with one
+  option promises what cannot happen. `avatar` is in that state: declared with one value
+  (`default`) because the Unity client cannot swap the model yet. Add a second value and both the
+  requirement and the button row come back on their own. Neither is a carve-out for avatar.
 - Nothing dispatches an avatar `execute_state`. `AgentProfile.avatar` is recorded but inert, and
   the Unity client has no `OnAvatarCommand`; restore both alongside the extra config values when
   the prefab swap lands.

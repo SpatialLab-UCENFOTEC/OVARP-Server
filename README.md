@@ -362,9 +362,9 @@ custom_commands:
     description: "Agent spatial movement"
     values: ["move_closer", "move_farther", "move_left", "move_right", "reset_position"]
 
-  # One value until the client can swap the model. A single-value category is
-  # offered to the LLM but not required of it, so the model is not made to
-  # restate the only choice every turn.
+  # One value until the client can swap the model. A single-value category is not
+  # a choice: the LLM is offered it but not required to set it, and WoZ Control
+  # renders no button row for it. Add a second value and both come back.
   avatar:
     description: "Change the agent's avatar appearance"
     values: ["default"]

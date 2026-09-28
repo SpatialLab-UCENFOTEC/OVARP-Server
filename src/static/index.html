@@ -2313,7 +2313,17 @@
                 container.innerHTML = '';
 
                 // Create a row for each command category
+                const skipped = [];
                 for (const [catName, catData] of Object.entries(config.custom_commands || {})) {
+                    // A category with one value is not a choice, so offering a
+                    // button to "change" it promises something that cannot happen.
+                    // It stays declared in config.yaml — add a second value and
+                    // the row appears on its own.
+                    if ((catData.values || []).length < 2) {
+                        skipped.push(catName);
+                        continue;
+                    }
+
                     const heading = document.createElement('h6');
                     heading.className = 'mt-3 text-info border-bottom border-secondary pb-1';
                     heading.innerHTML = `${catName.toUpperCase()} <small class="text-muted fw-normal">- ${catData.description}</small>`;
@@ -2346,6 +2356,10 @@
                 }
 
                 log('Dynamic UI generated from config.', 'info');
+                if (skipped.length) {
+                    log(`Hidden: ${skipped.join(', ')} — only one value, nothing to switch between.`,
+                        'info');
+                }
 
                 document.getElementById('target-device')
                     .addEventListener('change', refreshTargetDeviceStatus);

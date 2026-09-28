@@ -71,7 +71,7 @@ Everything needed to shape the agent, in one column:
 ### Live Control
 
 Fire `execute_state` commands at connected clients in real time — emotions, gestures, gaze,
-movement, avatar. The buttons are generated from `config.yaml → custom_commands`, so the
+movement. The buttons are generated from `config.yaml → custom_commands`, so the
 vocabulary is whatever your experiment declares.
 
 Also holds **Direct TTS**, which makes the agent speak an exact line without involving the LLM,
