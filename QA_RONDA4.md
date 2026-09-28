@@ -28,9 +28,47 @@ Debería estar desactivada sola ahora. Si Chrome igual ofrece traducir, decile q
 no: en la ronda 2 cambió "Resume" por "Currículum" y los nombres de los botones
 dejaron de coincidir con el reporte.
 
-### 3. Compilar el cliente Unity
+### 3. Chrome bloquea el cliente desplegado contra un servidor local
 
-> **Importante:** el código del cliente se modificó pero **no se pudo compilar**
+Si vas a usar el cliente de Vercel (`ovarp-unity-web-client.vercel.app`) contra
+un servidor en tu máquina, **Chrome lo bloquea**. En la consola del navegador
+aparece:
+
+```
+net::ERR_BLOCKED_BY_LOCAL_NETWORK_ACCESS_CHECKS
+```
+
+Es una restricción nueva de Chrome: un sitio HTTPS público ya no puede abrir un
+socket a `localhost`. Antes funcionaba y la documentación del repo todavía dice
+que sí. Dos salidas:
+
+**Opción A (recomendada) — levantar un túnel:**
+
+```bash
+cloudflared tunnel --url http://localhost:8000
+```
+
+Después poner en el campo *OVARP server* del cliente la URL impresa, cambiando
+`https://` por `wss://`.
+
+**Opción B — abrir Chrome con la verificación desactivada.** Solo para probar,
+nunca para una sesión con un participante:
+
+```bash
+open -na "Google Chrome" --args \
+  --disable-features=LocalNetworkAccessChecks,PrivateNetworkAccessChecks
+```
+
+Si en vez del cliente de Vercel usás el player local (`http://localhost:8000/player`),
+nada de esto aplica: mismo origen, sin bloqueo.
+
+### 4. Compilar el cliente Unity
+
+> **Importante:** hay cambios del cliente posteriores al último build publicado
+> (el arreglo del placeholder que se montaba sobre el botón Send). Recompilá y
+> volvé a publicar antes del Bloque C, o probalo sabiendo que ese punto fallará.
+>
+> El resto del código del cliente **no se pudo compilar**
 > en la máquina donde se hizo el cambio. Abrí el proyecto en Unity y compilá
 > antes de probar el Bloque C. Si no compila, eso es el primer hallazgo y el
 > resto del Bloque C queda bloqueado.
@@ -234,7 +272,7 @@ pasa a verde **sin reiniciar el servidor**.
 
 ## Bloque C — Cliente Unity
 
-Requiere compilar el proyecto primero (ver *Antes de empezar*, punto 3).
+Requiere compilar el proyecto primero (ver *Antes de empezar*, punto 4).
 
 ### C1. El avatar reacciona a lo que genera el agente (R3-1, R2-1)
 

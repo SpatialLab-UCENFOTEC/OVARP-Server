@@ -164,8 +164,12 @@ deliberately departs from his, and the UX is unchanged.
   names and nesting must stay flat and stable**.
 - Identifies itself as `web_01`, baked into the build. That ID must exist in `config.yaml → devices`.
 - Audio only — the Unity client never sends `llm_request`. Text injection is WoZ-console-only.
-- A page served over HTTPS can only reach `wss://` or `localhost`. `/api/server/info` returns
-  `public_ws_url` (scheme-aware, honours `X-Forwarded-Proto`) and `lan_ws_url` separately for this.
+- A page served over HTTPS can only reach `wss://`. **`localhost` no longer works either**:
+  current Chrome blocks a public HTTPS origin from opening a socket to the loopback address with
+  `net::ERR_BLOCKED_BY_LOCAL_NETWORK_ACCESS_CHECKS`. Verified 2026-09-28 against the Vercel build.
+  Testing the published client against a local server needs a tunnel, or Chrome started with
+  `--disable-features=LocalNetworkAccessChecks,PrivateNetworkAccessChecks`. `/api/server/info`
+  returns `public_ws_url` (scheme-aware, honours `X-Forwarded-Proto`) and `lan_ws_url` separately.
 - Vocabulary drift to watch: the client's `GesturePlayer` supports `thumbs_up`, absent from
   `config.yaml → custom_commands.actions` and rejected server-side.
 - Avatar swap (`OnAgentAvatarChange`) is a logged TODO in `Controller.cs`, not implemented.
