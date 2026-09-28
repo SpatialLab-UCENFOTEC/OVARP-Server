@@ -76,13 +76,11 @@ custom_commands:
       - "move_right"
       - "reset_position"
 
-  avatar:
-    description: "Change the agent's avatar appearance"
-    values:
-      - "default"
-      - "male_casual"
-      - "female_formal"
-      - "robot"
+  # avatar: retired until the client can actually swap the model. Every category
+  # declared here is required in the LLM tool schema, so keeping it forced the
+  # model to emit an avatar on every turn and filled the chat with
+  # "[avatar: default]" tags for a change that never happened.
+  # Restore this block when the prefab swap lands in the Unity client.
 
 # Experimental Conditions
 # Each condition bundles a system prompt, avatar, and voice into a one-click preset.

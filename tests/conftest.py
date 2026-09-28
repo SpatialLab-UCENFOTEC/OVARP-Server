@@ -31,8 +31,7 @@ def mock_config():
         "custom_commands": {
             "emotions": {"description": "desc", "values": ["happy", "sad"]},
             "actions": {"description": "desc", "values": ["wave", "nod", "clap", "bow", "thumbs_up", "thinking", "shrug", "dance"]},
-            "movement": {"description": "desc", "values": ["move_closer", "move_farther", "move_left", "move_right", "reset_position"]},
-            "avatar": {"description": "desc", "values": ["default", "male_casual", "female_formal", "robot"]}
+            "movement": {"description": "desc", "values": ["move_closer", "move_farther", "move_left", "move_right", "reset_position"]}
         },
         "conditions": {
             "empathetic": {

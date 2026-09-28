@@ -69,8 +69,10 @@ back through Router → dispatch_outbound → all transports
   `runtime.telemetry`, etc. rather than importing singletons, which is also how tests substitute
   them (`monkeypatch.setattr(runtime, "orchestrator", mock)`).
 - **`src/core/schemas.py`** — `BaseCommand`. Its `target_device`, `target_agent` and `subcommand`
-  validators check against `config.yaml` at runtime. **A device or command value missing from
-  `config.yaml` is a hard `ValidationError`**, not a warning.
+  validators check against `config.yaml` at runtime. **A device, agent, or a value of a declared
+  command category that is missing from `config.yaml` is a hard `ValidationError`**, not a warning.
+  An unrecognised *category key* is not validated at all — it passes through untouched, so a typo
+  in a category name fails silently.
 - **`src/core/config.py`** — `config_manager` singleton; `config.yaml` defines the experiment
   vocabulary. Changing it changes what the schema accepts and what the WoZ UI renders.
 - **`src/core/orchestrator.py`** — per-agent state (`_agent_state`): prompt, history, voice.
@@ -121,7 +123,7 @@ ZMQ sends the bare command with a topic frame. Outbound: `user_transcript`, `llm
 `tts_chunk` (base64 WAV slices), `tts_complete`, `execute_state`, `marker_logged`.
 
 `execute_state` subcommand keys map 1:1 to `config.yaml → custom_commands`:
-`emotions`, `actions`, `looks`, `movement`, `avatar`.
+`emotions`, `actions`, `looks`, `movement`. (`avatar` was retired — see below.)
 
 ### Routing gotchas
 
@@ -190,9 +192,14 @@ deliberately departs from his, and the UX is unchanged.
   Mounted the other way round, `/api/surveys/responses` matches the catch-all and hands participant
   data out with no token. `test_security.py` pins this; it shipped wrong once.
 - **An `execute_state` from the LLM carries every category at once.** The tool schema marks each
-  one `required`, so `emotions`, `actions`, `looks`, `movement` and `avatar` always arrive
-  together. A client that tests them with `else if` only ever reacts to the first — which is why
-  the Unity avatar looked unimplemented for three QA rounds when it was not.
+  one `required`, so every declared category arrives together on each turn. A client that tests
+  them with `else if` only ever reacts to the first — which is why the Unity avatar looked
+  unimplemented for three QA rounds when it was not.
+- **`custom_commands.avatar` is retired**, commented out in `config.yaml` rather than deleted. The
+  Unity client cannot swap the model, and because every category is `required` the model was
+  forced to emit an avatar every turn, filling the chat with `[avatar: default]`. `AgentProfile`
+  still carries an `avatar` field as inert data; nothing dispatches it. Restore the config block
+  and the client's `OnAvatarCommand` together when the prefab swap lands.
 - Ids that become filenames go through `src/core/identifiers.py`. `profile_manager` and
   `scenario_runner` both write `<dir>/<id>.yaml` from a value that arrives over the API.
 

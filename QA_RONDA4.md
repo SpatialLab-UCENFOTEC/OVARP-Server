@@ -133,7 +133,9 @@ defined".
 
 Aplicar un perfil con **All Agents** seleccionado.
 
-**Esperado:** aparece **una sola** etiqueta `[avatar: ...]`, no dos.
+**Esperado:** el perfil se aplica a los dos agentes y **no** aparece ninguna
+etiqueta `[avatar: ...]`. En la ronda 2 salían dos por un solo click; ahora la
+categoría de apariencia está retirada del todo.
 
 ### A12. Botones Replay (R2-13)
 
@@ -246,8 +248,8 @@ Este es el cambio más importante de la ronda.
 **Esperado:** el avatar cambia de expresión y hace gestos durante las respuestas.
 
 > Por qué fallaba: el cliente recibía las cinco categorías juntas (emoción,
-> gesto, mirada, movimiento, avatar) pero solo procesaba la primera. Nunca fue
-> que faltara implementarlo.
+> gesto, mirada, movimiento) pero solo procesaba la primera. Nunca fue que
+> faltara implementarlo.
 
 ### C2. Los botones de WoZ llegan al avatar (R2-1)
 
@@ -314,25 +316,16 @@ Subir con el scroll hasta arriba del todo en el chat.
 **Esperado:** aparece "Start of the conversation" y no se puede seguir subiendo
 indefinidamente.
 
-### C11. Cambio de apariencia (R3-2)
-
-Pedirle al agente por conversación que cambie de apariencia, o usar los botones
-de la categoría **AVATAR** en WoZ Control.
-
-**Esperado:** aparece una confirmación en el chat del tipo
-`[appearance: female_formal]`.
-
-> Ojo: el avatar **no cambia de modelo todavía**. Eso necesita los prefabs
-> montados en la escena de Unity y no está hecho. Lo que se prueba acá es que la
-> orden llega y se acusa recibo, que era la recomendación del reporte 3.
-
 ---
 
 ## Lo que NO cambió
 
 No hace falta probar esto, ya sabemos que sigue igual:
 
-- **El avatar no cambia de modelo 3D.** Solo se acusa recibo del pedido (C11).
+- **El cambio de apariencia del avatar está retirado.** No hay botones de
+  AVATAR en WoZ Control ni etiquetas `[avatar: ...]` en el chat: la categoría
+  salió de `config.yaml` porque el cliente no puede cambiar el modelo todavía.
+  Si ves alguno de los dos, eso sí es un hallazgo.
 - **Latencia español vs inglés.** No se tocó. Ahora es medible con el panel de
   latencia (A5), pero hace falta una medición formal con varios turnos de cada
   idioma.

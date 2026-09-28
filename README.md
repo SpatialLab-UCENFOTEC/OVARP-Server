@@ -176,7 +176,7 @@ cloudflared tunnel --url http://localhost:8000
 scheme to `wss://`, and paste `wss://<random>.trycloudflare.com/ws/client/web_01` into the "OVARP
 server" field on the published client. This has been verified end to end: WebSocket connects,
 `llm_request` reaches the orchestrator, the configured LLM provider replies, TTS audio streams
-back as `tts_chunk`/`tts_complete`, and an avatar `execute_state` action fires: full pipeline,
+back as `tts_chunk`/`tts_complete`, and an `execute_state` action fires: full pipeline,
 not just transport.
 
 When you're done, stop both `cloudflared` and `uvicorn`; the tunnel URL is public while it runs.
@@ -362,9 +362,12 @@ custom_commands:
     description: "Agent spatial movement"
     values: ["move_closer", "move_farther", "move_left", "move_right", "reset_position"]
 
-  avatar:
-    description: "Change the agent's avatar appearance"
-    values: ["default", "male_casual", "female_formal", "robot"]
+  # avatar: retired until the client can swap the model. Every category here is
+  # required in the LLM tool schema, so declaring one the clients cannot act on
+  # forced the model to emit a value on every turn.
+  # avatar:
+  #   description: "Change the agent's avatar appearance"
+  #   values: ["default", "male_casual", "female_formal", "robot"]
 
 # Experimental conditions (one-click presets)
 conditions:

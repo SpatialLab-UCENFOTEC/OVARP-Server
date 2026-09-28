@@ -108,21 +108,24 @@ def test_invalid_movement_rejected():
     assert "Invalid value" in str(exc_info.value)
     assert "teleport" in str(exc_info.value)
 
-def test_valid_avatar_command():
-    """Test that avatar change commands pass validation."""
-    valid_payload = {
-        "sender": "quest_vr_01",
-        "target_device": "all",
-        "target_agent": "agent_alpha",
-        "command_type": "action",
-        "command": "execute_state",
-        "subcommand": {
-            "avatar": "robot"
-        }
-    }
-    
-    cmd = BaseCommand(**valid_payload)
-    assert cmd.subcommand["avatar"] == "robot"
+def test_unknown_subcommand_category_passes_through():
+    """A key that is not a declared category is not validated at all.
+
+    Only the *values* of declared categories are checked; an unrecognised key
+    is carried through untouched. This is what "avatar" became when the
+    category was retired from config.yaml, and it is worth knowing before
+    relying on the schema to catch a typo in a category name.
+    """
+    cmd = BaseCommand(
+        sender="quest_vr_01",
+        target_device="all",
+        target_agent="agent_alpha",
+        command_type="action",
+        command="execute_state",
+        subcommand={"not_a_category": "anything at all"},
+    )
+
+    assert cmd.subcommand["not_a_category"] == "anything at all"
 
 def test_valid_new_animations():
     """Test that the newly added animation values pass validation."""
