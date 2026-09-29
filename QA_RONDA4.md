@@ -298,7 +298,8 @@ pasa a verde **sin reiniciar el servidor**.
 
 ## Bloque C — Cliente Unity
 
-Requiere compilar el proyecto primero (ver *Antes de empezar*, punto 4).
+Se prueba contra el cliente publicado en
+`https://ovarp-unity-web-client.vercel.app/`. No hay que compilar nada.
 
 ### C1. El avatar reacciona a lo que genera el agente (R3-1, R2-1)
 
