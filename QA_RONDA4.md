@@ -62,16 +62,42 @@ open -na "Google Chrome" --args \
 Si en vez del cliente de Vercel usás el player local (`http://localhost:8000/player`),
 nada de esto aplica: mismo origen, sin bloqueo.
 
-### 4. Compilar el cliente Unity
+### 4. El cliente ya está publicado
 
-> **Importante:** hay cambios del cliente posteriores al último build publicado
-> (el arreglo del placeholder que se montaba sobre el botón Send). Recompilá y
-> volvé a publicar antes del Bloque C, o probalo sabiendo que ese punto fallará.
->
-> El resto del código del cliente **no se pudo compilar**
-> en la máquina donde se hizo el cambio. Abrí el proyecto en Unity y compilá
-> antes de probar el Bloque C. Si no compila, eso es el primer hallazgo y el
-> resto del Bloque C queda bloqueado.
+No hace falta compilar nada. El build con todos los cambios de esta ronda está
+en `https://ovarp-unity-web-client.vercel.app/` desde el 28 de septiembre.
+
+Si al abrirlo el chat se ve como antes, es caché del navegador: recargá con
+Cmd+Shift+R / Ctrl+Shift+R.
+
+El cliente tarda entre 20 y 40 segundos en arrancar, y hay que pulsar **Start**
+antes de que aparezca la escena. No es un cuelgue.
+
+### 5. El campo del servidor
+
+Al arrancar aparece una tarjeta **OVARP server** con `localhost` ya puesto.
+Si usás un túnel (punto 3), reemplazalo por la URL `wss://` y pulsá **Connect**.
+
+---
+
+## Qué se verificó antes de entregarte esto
+
+Casi todos los puntos se probaron con el servidor corriendo y el cliente de
+Vercel conectado. No es para que los saltes: una segunda persona encuentra lo
+que la primera da por sentado, y varias de estas pruebas se hicieron
+automatizadas, sin ojos humanos encima. Es para que sepas dónde es más probable
+que aparezca algo.
+
+**Probados de punta a punta y funcionando:** A1, A3, A5, A8, A9, A10, A12, A13,
+A14, B1, B2, B3, B4, C1, C2, C3, C4, C5, C6, C7, C9, C10, C11.
+
+**Probados solo con tests automáticos, no a ojo:** A6 (latencia con voz), y el
+caso de una frase de audio que falla.
+
+**Sin verificar, mirá con cuidado:** A2, A4, A7, A11, B5, C8.
+
+Si algo de la primera lista te falla, es un hallazgo importante: significa que
+cambió algo entre esa verificación y tu sesión.
 
 ---
 
@@ -284,7 +310,7 @@ Este es el cambio más importante de la ronda.
 
 **Esperado:** el avatar cambia de expresión y hace gestos durante las respuestas.
 
-> Por qué fallaba: el cliente recibía las cinco categorías juntas (emoción,
+> Por qué fallaba: el cliente recibía las cuatro categorías juntas (emoción,
 > gesto, mirada, movimiento) pero solo procesaba la primera. Nunca fue que
 > faltara implementarlo.
 
@@ -323,9 +349,14 @@ Acordate de volver a poner la key después.
 
 ### C6. Instrucciones de uso (R2-7, H01)
 
-Mirar el cuadro de texto del chat con el campo vacío.
+Mirar el panel del chat con el campo de texto vacío.
 
-**Esperado:** dice "Type a message, or hold Space / the circle to talk".
+**Esperado:** dos cosas, en líneas separadas.
+
+- Arriba de la conversación: "Hold Space, or the circle above the avatar, to talk".
+- Dentro del campo: "Type a message...", sin montarse sobre el botón **Send**.
+
+Después escribir algo: el "Type a message..." tiene que desaparecer.
 
 ### C7. Estado del servidor (feedback interno)
 
@@ -333,20 +364,31 @@ Mirar arriba del chat.
 
 **Esperado:** hay una línea que dice si está conectado o no.
 
-### C8. El botón Send (R2-6)
+### C8. Enviar con Enter (sin confirmar)
+
+Escribir un mensaje y pulsar **Enter**, sin tocar el botón.
+
+**Esperado:** se envía igual que con **Send**.
+
+> Este punto no se pudo confirmar en las pruebas automatizadas: con Enter no
+> enviaba y hubo que usar el botón, pero no quedó claro si era el foco del
+> canvas en la automatización o un problema real. Probalo a mano y anotá lo que
+> pase, sea cual sea el resultado.
+
+### C9. El botón Send (R2-6)
 
 Escribir un mensaje largo en el campo de texto.
 
 **Esperado:** el botón **Send** sigue visible. Antes se salía del borde derecho.
 
-### C9. Ocultar el chat (H03)
+### C10. Ocultar el chat (H03)
 
 Pulsar **Hide Chat**.
 
 **Esperado:** desaparece el panel entero, incluido el fondo blanco, y el botón
 pasa a decir **Show Chat**. Pulsarlo de nuevo lo trae de vuelta.
 
-### C10. Inicio de la conversación (H04)
+### C11. Inicio de la conversación (H04)
 
 Subir con el scroll hasta arriba del todo en el chat.
 
