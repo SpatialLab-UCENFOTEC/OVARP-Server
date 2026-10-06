@@ -17,6 +17,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel
 
+from src.core import telemetry as telemetry_log
 from src.core.runtime import runtime
 
 router = APIRouter(prefix="/api/session", tags=["sessions"])
@@ -95,7 +96,10 @@ async def add_marker(req: MarkerRequest):
         marker = runtime.session_manager.add_marker(
             req.label, req.metadata, category=req.category, notes=req.notes
         )
-        runtime.telemetry.log_marker(req.label, req.metadata)
+        runtime.telemetry.log_marker(
+            req.label, req.metadata, marker_id=marker.id,
+            category=marker.category, notes=marker.notes,
+        )
         return {"status": "ok", "marker": marker.model_dump()}
     except ValueError as e:
         # A marker the server refused used to come back as 200 with an error
@@ -153,9 +157,57 @@ async def get_marker_presets():
     return {"presets": []}
 
 
+def _csv_response(output: io.StringIO, filename: str) -> Response:
+    return Response(
+        content=output.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
+def _csv_from_log(session_id: str) -> Response:
+    """Rebuild a finished session's marker table from the telemetry log."""
+    markers = telemetry_log.read_session_markers(session_id)
+    if not markers:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No markers recorded for session '{session_id}'",
+        )
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(SESSION_CSV_HEADER)
+    for marker in markers:
+        writer.writerow([
+            marker["iso_time"], marker["timestamp"], session_id,
+            marker.get("participant_id", ""), "MARKER",
+            marker.get("category") or marker.get("label", ""),
+            marker.get("notes") or "", "yes" if marker.get("amended") else "",
+        ])
+    return _csv_response(output, f"ovarp_session_{session_id}.csv")
+
+
+@router.get("/recorded")
+async def list_recorded_sessions():
+    """Sessions present in the telemetry log, newest first.
+
+    The in-memory session is gone after a restart; this is what is still on
+    disk, so a researcher can come back the next day and find their run.
+    """
+    return {"sessions": telemetry_log.list_recorded_sessions()}
+
+
 @router.get("/export/csv")
-async def export_session_csv():
-    """Download the active session's markers as a flat CSV for analysis."""
+async def export_session_csv(session_id: str = ""):
+    """Download a session's markers as a flat CSV for analysis.
+
+    With no ``session_id`` this exports the active session, or the last one to
+    finish in this process. Pass an id and it is read back from the append-only
+    telemetry log instead, which survives a restart.
+    """
+    if session_id:
+        return _csv_from_log(session_id)
+
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(SESSION_CSV_HEADER)
@@ -179,11 +231,7 @@ async def export_session_csv():
             "INFO", "NO_ACTIVE_SESSION", "No session markers recorded yet", "",
         ])
 
-    return Response(
-        content=output.getvalue(),
-        media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=ovarp_session_telemetry.csv"},
-    )
+    return _csv_response(output, "ovarp_session_telemetry.csv")
 
 
 class MarkerPresetRequest(BaseModel):

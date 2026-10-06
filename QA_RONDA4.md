@@ -96,6 +96,10 @@ caso de una frase de audio que falla.
 
 **Sin verificar, mirá con cuidado:** A2, A4, A7, A11, B5, C8.
 
+**Bloque D (re-prueba del 3 de octubre):** D1, D2 y D3 se verificaron corriendo
+el servidor, incluido el reinicio. D4 a D8 son del cliente Unity y **no se
+pudieron compilar**, así que están sin verificar.
+
 Si algo de la primera lista te falla, es un hallazgo importante: significa que
 cambió algo entre esa verificación y tu sesión.
 
@@ -395,6 +399,124 @@ Subir con el scroll hasta arriba del todo en el chat.
 
 **Esperado:** aparece "Start of the conversation" y no se puede seguir subiendo
 indefinidamente.
+
+---
+
+## Bloque D — Re-prueba del 3 de octubre
+
+Los seis hallazgos que la re-prueba marcó como «Falla». Tres eran reales por un
+camino que el arreglo anterior no cubría, uno estaba mal diagnosticado y dos
+eran míos.
+
+### D1. Id de perfil con separadores de ruta (H12)
+
+```bash
+curl -i -s -X POST http://localhost:8000/api/profiles/create \
+  -H 'Content-Type: application/json' \
+  -d '{"id":"../../ESCAPED","name":"X"}' | head -1
+
+curl -s http://localhost:8000/api/profiles | grep -c ESCAPED
+```
+
+**Esperado:** `422`, y el contador en `0`. Antes devolvía `200` y el perfil
+quedaba en la lista aunque nunca se pudiera guardar. Los escenarios ya estaban
+bien; el que faltaba era perfiles.
+
+Un id válido tiene que seguir funcionando, y uno repetido dar `409`:
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" -X POST http://localhost:8000/api/profiles/create \
+  -H 'Content-Type: application/json' -d '{"id":"qa_prueba","name":"QA"}'
+curl -s -o /dev/null -w "%{http_code}\n" -X POST http://localhost:8000/api/profiles/create \
+  -H 'Content-Type: application/json' -d '{"id":"qa_prueba","name":"QA"}'
+```
+
+**Esperado:** `200` y después `409`. Borrá `profiles/qa_prueba.yaml` al terminar.
+
+### D2. Respuesta de encuesta que no es un número (H15)
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" -X POST http://localhost:8000/api/surveys/response \
+  -H 'Content-Type: application/json' \
+  -d '{"survey_id":"sus","participant_id":"QA","answers":{"sus_1":"99"}}'
+```
+
+**Esperado:** `422`. El rango ya se validaba, pero un string pasaba: el puntaje
+lo descartaba por no ser numérico y la respuesta quedaba registrada igual.
+
+Que el texto libre siga aceptándose donde corresponde:
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" -X POST http://localhost:8000/api/surveys/response \
+  -H 'Content-Type: application/json' \
+  -d '{"survey_id":"qualitative","participant_id":"QA","answers":{"q_would_use":"Si"}}'
+```
+
+**Esperado:** `200`. Una encuesta abierta es donde va la prosa.
+
+### D3. Exportar marcadores después de reiniciar el servidor (H16)
+
+1. Iniciar sesión, poner un marcador con categoría, pulsar **End**.
+2. Anotar el `session_id` de **(01) OVERVIEW** o de `/api/session/status`.
+3. **Reiniciar el servidor.**
+4. Pedir el CSV por ese id:
+
+```bash
+curl -s "http://localhost:8000/api/session/recorded"
+curl -s "http://localhost:8000/api/session/export/csv?session_id=EL_ID"
+```
+
+**Esperado:** `/recorded` lista la sesión, y el CSV trae el marcador con su
+categoría y sus notas. Antes del reinicio ya funcionaba; lo que no sobrevivía
+era el reinicio, porque la sesión vivía solo en memoria.
+
+**Esperado:** un id inexistente devuelve `404`.
+
+### D4. El avatar camina (H14)
+
+Pedirle al agente: «Camina hacia mí, saluda con la mano y ponte contento».
+
+**Esperado:** el avatar se acerca **caminando**, de forma visible, además de
+saludar y sonreír.
+
+> `move_closer` siempre estuvo implementado: la búsqueda que no lo encontró no
+> fue recursiva. El problema real era que se teletransportaba 0.1 unidades de
+> golpe, que es imperceptible. Ahora recorre la distancia en algo menos de un
+> segundo.
+
+### D5. Cómo se habla (H01)
+
+Mirar la línea arriba de la conversación, antes y durante la grabación.
+
+**Esperado:** en reposo dice «Press Space, or tap the circle, to start talking».
+Al pulsar Space cambia a «Listening... press Space again to send», en rojo.
+
+> El texto anterior decía «Hold Space», y Space en realidad alterna. Quien probó
+> tuvo que deducir cómo detener la grabación.
+
+### D6. Favicon del cliente publicado (H05)
+
+Abrir el cliente de Vercel con DevTools en la pestaña **Network**.
+
+**Esperado:** no hay ninguna petición a `favicon.ico` en 404, y la pestaña del
+navegador muestra un ícono. El arreglo anterior cubría las páginas del servidor;
+esta es otra página.
+
+### D7. Jerarquía del chat (H02)
+
+Mirar un intercambio con varios mensajes.
+
+**Esperado:** el nombre del remitente aparece **arriba** de su burbuja, no
+debajo. Las burbujas de User y Nova se distinguen por color, no solo por el lado:
+la de Nova ahora es gris claro con texto oscuro.
+
+### D8. Scroll del historial (H04)
+
+Mandar varios mensajes y después subir hasta arriba del todo.
+
+**Esperado:** el historial se desplaza de forma gradual al llegar un mensaje
+nuevo, no de un salto. Y al llegar a «Start of the conversation» no se puede
+seguir subiendo.
 
 ---
 

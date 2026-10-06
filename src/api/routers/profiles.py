@@ -9,9 +9,10 @@ Author: Alexander Barquero Elizondo, Ph.D. — UCR, ECCI/CITIC
 License: MIT
 """
 
-from fastapi import APIRouter
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, field_validator
 
+from src.core.identifiers import UnsafeIdentifierError, validate_identifier
 from src.core.runtime import runtime
 
 router = APIRouter(prefix="/api", tags=["profiles"])
@@ -36,6 +37,17 @@ class ProfileCreateRequest(BaseModel):
     personality: dict | None = None
     guardrails: dict | None = None
     avatar: str | None = None
+
+    @field_validator("id")
+    @classmethod
+    def id_is_a_bare_name(cls, value: str) -> str:
+        """The id becomes a filename, so reject anything that is not one.
+
+        Checking only at the point of writing let an invalid profile into the
+        in-memory registry first, and the caller saw a 200 for a profile that
+        could never be persisted.
+        """
+        return validate_identifier(value, "profile id")
 
 
 @router.post("/profiles/apply")
@@ -78,9 +90,12 @@ async def create_profile(req: ProfileCreateRequest):
     """Create a new profile at runtime (from WoZ console or XR device)."""
     try:
         profile = runtime.profile_manager.create_profile(req.model_dump(exclude_none=True))
-        return {"status": "ok", "profile": profile.model_dump()}
-    except Exception as e:
-        return {"error": str(e)}
+    except UnsafeIdentifierError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
+
+    return {"status": "ok", "profile": profile.model_dump()}
 
 
 @router.get("/profiles/{profile_id}")

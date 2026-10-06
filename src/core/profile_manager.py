@@ -16,7 +16,7 @@ License: MIT
 
 import yaml
 
-from src.core.identifiers import safe_path
+from src.core.identifiers import safe_path, validate_identifier
 import logging
 from pathlib import Path
 from typing import Optional
@@ -203,12 +203,15 @@ class ProfileManager:
         vanish on the next restart.
         """
         profile = AgentProfile(**data)
+        # Validate before touching the registry: writing is what used to catch a
+        # bad id, which left an unpersistable profile in memory behind a 200.
+        validate_identifier(profile.id, "profile id")
         if profile.id in self._profiles:
             raise ValueError(f"Profile '{profile.id}' already exists")
 
-        self._profiles[profile.id] = profile
         if persist:
             self._write_profile(profile)
+        self._profiles[profile.id] = profile
         std_log.info(f"📋 Profile created: {profile.id} ({profile.name})")
         return profile
 

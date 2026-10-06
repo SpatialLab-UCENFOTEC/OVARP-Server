@@ -52,18 +52,25 @@ def _localize(survey, lang: str) -> dict:
     return data
 
 
-def _out_of_scale(survey, answers: dict) -> list[str]:
-    """Item ids whose numeric answer falls outside the survey's own scale.
+def _invalid_answers(survey, answers: dict) -> list[str]:
+    """Item ids whose answer is not a number inside the survey's own scale.
 
-    Unbounded values sail through the SUS formula and produce scores above 100,
-    which would then be written to the session record as if they were real.
+    Range alone was not enough: a scored item answered with the string "99" was
+    accepted, dropped by the scorer as non-numeric, and recorded as if it had
+    been answered. A scored instrument takes numbers; only an open-ended
+    questionnaire takes free text.
     """
+    if survey.kind == "open":
+        return []
+
     low, high = survey.scale.min, survey.scale.max
-    return [
-        item_id for item_id, value in answers.items()
-        if isinstance(value, (int, float)) and not isinstance(value, bool)
-        and not (low <= value <= high)
-    ]
+    bad = []
+    for item_id, value in answers.items():
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            bad.append(item_id)
+        elif not (low <= value <= high):
+            bad.append(item_id)
+    return bad
 
 
 @router.get("")
@@ -94,11 +101,14 @@ async def submit_response(response: SurveyResponse):
     if not survey:
         return {"error": f"Survey '{response.survey_id}' not found"}
 
-    invalid = _out_of_scale(survey, response.answers)
+    invalid = _invalid_answers(survey, response.answers)
     if invalid:
         raise HTTPException(
             status_code=422,
-            detail=f"Answers outside the {survey.scale.min}-{survey.scale.max} scale: {invalid}",
+            detail=(
+                f"Answers must be numbers between {survey.scale.min} and "
+                f"{survey.scale.max}: {invalid}"
+            ),
         )
 
     score = score_survey(survey, response.answers)

@@ -80,13 +80,22 @@ class TelemetryLogger:
             **ctx
         )
 
-    def log_marker(self, label: str, metadata: dict = None):
-        """Log an event marker as a distinct telemetry entry."""
+    def log_marker(self, label: str, metadata: dict = None, marker_id: str = None,
+                   category: str = None, notes: str = None):
+        """Log an event marker as a distinct telemetry entry.
+
+        The id, category and notes are recorded alongside the label because this
+        entry is what an export rebuilds a finished session from; without them a
+        CSV taken after a restart loses the reclassification.
+        """
         ctx = self._get_session_context()
         self.file_logger.info(
             event="marker",
             host_timestamp=time.time(),
+            marker_id=marker_id,
             label=label,
+            marker_category=category,
+            marker_notes=notes,
             marker_metadata=metadata,
             **ctx
         )
@@ -229,3 +238,85 @@ class TelemetryLogger:
             return None
 
 telemetry = TelemetryLogger()
+
+
+def read_session_markers(session_id: str, log_dir: str = "data/sessions") -> list[dict]:
+    """Every marker recorded for one session, read back from the JSONL on disk.
+
+    The session itself lives in memory and is gone after a restart, so a
+    researcher who comes back the next morning for the CSV used to find nothing.
+    The append-only log outlives the process, and it is the record that matters.
+
+    Amendments and retractions are applied in order, so what comes back is the
+    session as the researcher left it, not the raw stream.
+    """
+    directory = Path(log_dir)
+    if not directory.exists():
+        return []
+
+    markers: dict[str, dict] = {}
+    order: list[str] = []
+    participant = ""
+
+    for path in sorted(directory.glob("*.jsonl")):
+        for line in path.read_text(encoding="utf-8").splitlines():
+            try:
+                entry = json.loads(line)
+            except (ValueError, TypeError):
+                continue
+            if entry.get("experiment_session_id") != session_id:
+                continue
+
+            participant = entry.get("participant_id") or participant
+            event = entry.get("event")
+
+            if event == "marker":
+                key = entry.get("marker_id") or f"{entry.get('host_timestamp')}"
+                if key not in markers:
+                    order.append(key)
+                markers[key] = {
+                    "iso_time": entry.get("timestamp", ""),
+                    "timestamp": entry.get("host_timestamp", 0),
+                    "label": entry.get("label", ""),
+                    "category": entry.get("marker_category"),
+                    "notes": entry.get("marker_notes"),
+                    "amended": False,
+                    "participant_id": participant,
+                }
+            elif event == "marker_amended":
+                target = markers.get(entry.get("marker_id", ""))
+                if target:
+                    target.update(entry.get("amended_to") or {})
+                    target["amended"] = True
+            elif event == "marker_deleted":
+                markers.pop(entry.get("marker_id", ""), None)
+
+    return [markers[k] for k in order if k in markers]
+
+
+def list_recorded_sessions(log_dir: str = "data/sessions") -> list[dict]:
+    """Session ids present in the logs, newest first, for the export picker."""
+    directory = Path(log_dir)
+    if not directory.exists():
+        return []
+
+    found: dict[str, dict] = {}
+    for path in sorted(directory.glob("*.jsonl")):
+        for line in path.read_text(encoding="utf-8").splitlines():
+            try:
+                entry = json.loads(line)
+            except (ValueError, TypeError):
+                continue
+            sid = entry.get("experiment_session_id")
+            if not sid:
+                continue
+            record = found.setdefault(sid, {
+                "session_id": sid,
+                "participant_id": entry.get("participant_id", ""),
+                "started_at": entry.get("timestamp", ""),
+                "marker_count": 0,
+            })
+            if entry.get("event") == "marker":
+                record["marker_count"] += 1
+
+    return sorted(found.values(), key=lambda r: r["started_at"], reverse=True)

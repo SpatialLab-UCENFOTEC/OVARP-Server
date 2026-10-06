@@ -210,10 +210,17 @@ deliberately departs from his, and the UX is unchanged.
   the prefab swap lands.
 - Ids that become filenames go through `src/core/identifiers.py`. `profile_manager` and
   `scenario_runner` both write `<dir>/<id>.yaml` from a value that arrives over the API.
+  **Validate before registering, not at the point of writing.** `create_profile` used to put the
+  profile in the in-memory registry first and only hit the check inside `_write_profile`, so a
+  path-like id came back as a 200 for a profile that could never be persisted.
+- **A finished session is only in memory.** `GET /api/session/export/csv` with no argument reads
+  it; with `?session_id=` it rebuilds the marker table from `data/sessions/*.jsonl`, which is what
+  survives a restart. `telemetry.log_marker` therefore records the marker id, category and notes,
+  not just the label — the durable export is reconstructed from those entries.
 
-## Known state (2026-09-28)
+## Known state (2026-10-06)
 
-Tests: 314 passing. `ruff check` is clean on `src/api/`, `src/main.py`, `src/core/key_store.py`
+Tests: 337 passing. `ruff check` is clean on `src/api/`, `src/main.py`, `src/core/key_store.py`
 and the modules added recently; the older files still carry ~400 violations (whitespace, line
 length, `Optional[X]`), not gated in CI. New code in an older file matches that file's existing
 style rather than importing a second convention into it.
